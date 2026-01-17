@@ -1,0 +1,45 @@
+
+{
+  "name": "Modern Ritual Offering Platform",
+  "projectCode": "SP26SE066",
+  "description": "Nền tảng cung cấp dịch vụ mâm cúng hiện đại - A high-end service platform for traditional Vietnamese ritual offerings (mâm cúng)",
+  "version": "1.0.0",
+  "features": {
+    "customer": [
+      "Đăng ký, đăng nhập và quản lý hồ sơ cá nhân",
+      "Duyệt mâm cúng theo dịp lễ (cúng đầy tháng, tân gia, khai trương, giỗ)",
+      "Xem chi tiết sản phẩm, thành phần, ý nghĩa và hình ảnh",
+      "Tùy chỉnh kích thước, kiểu trang trí và khoảng ngân sách",
+      "Đặt hàng và chọn ngày giờ giao hàng (hoàng đạo)",
+      "Theo dõi trạng thái đơn hàng và nhận thông báo",
+      "Đánh giá và viết nhận xét về dịch vụ",
+      "Chọn phương thức thanh toán (ví điện tử, chuyển khoản ngân hàng, thẻ)"
+    ],
+    "vendor": [
+      "Đăng ký và xác minh kinh doanh",
+      "Tạo và quản lý sản phẩm/gói lễ cúng",
+      "Định giá theo cấp độ (Tiêu chuẩn, Đặc biệt, Thượng hạng)",
+      "Cập nhật tình trạng và công suất chuẩn bị",
+      "Nhận và xác nhận đơn hàng từ khách",
+      "Quản lý thông tin điều phối giao hàng",
+      "Xem phản hồi khách hàng",
+      "Bảng điều khiển doanh thu và thống kê đơn hàng"
+    ],
+    "admin": [
+      "Phê duyệt/từ chối đăng ký nhà cung cấp",
+      "Quản lý danh mục, dịp lễ và hướng dẫn văn hóa",
+      "Giám sát đơn hàng, tranh chấp và chất lượng dịch vụ",
+      "Quản lý biểu ngữ quảng cáo và mâm cúng nổi bật",
+      "Báo cáo thanh toán và doanh thu",
+      "Quản lý hoa hồng sàn và phí giao dịch",
+      "Đảm bảo tuân thủ tính nhạy cảm văn hóa"
+    ]
+  },
+  "technologies": {
+    "frontend": ["React", "TypeScript", "Tailwind CSS", "Vite"],
+    "backend": ["API Services", "Authentication", "Payment Integration"],
+    "features": ["Order Management", "Real-time Tracking", "Vendor Management", "Payment Processing"]
+  },
+  "requestFramePermissions": ["camera"]
+}
+
