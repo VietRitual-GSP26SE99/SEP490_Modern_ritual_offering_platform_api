@@ -3,8 +3,6 @@ import React, { useState } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
 
-// Shared Pages
-import AuthPage from './pages/shared/AuthPage';
 
 // Customer Pages
 import CustomerHomePage from './pages/customer/HomePage';
@@ -30,6 +28,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 import Assistant from './components/Assistant';
 
 import { UserRole } from './types';
+import AuthPage from './pages/auth/AuthPage';
 
 // Route Wrapper Component
 const AppContent: React.FC<{
