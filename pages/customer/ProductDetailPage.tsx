@@ -10,13 +10,23 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
   const [selectedTier, setSelectedTier] = useState('Special');
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [currentMainImage, setCurrentMainImage] = useState(0);
 
-  // Mock product images
+  // Find product by ID
+  const product = MOCK_PRODUCTS.find(p => p.id === id);
+
+  // Product thumbnail images from gallery or fallback to random images
+  const thumbnailImages = product?.gallery || [
+    'https://picsum.photos/400/400?random=1',
+    'https://picsum.photos/400/400?random=2',
+    'https://picsum.photos/400/400?random=3',
+    'https://picsum.photos/400/400?random=4',
+  ];
+
+  // All product images (main + thumbnails)
   const productImages = [
-    (MOCK_PRODUCTS.find(p => p.id === id))?.image || '',
-    `https://picsum.photos/800/800?random=1`,
-    `https://picsum.photos/800/800?random=2`,
-    `https://picsum.photos/800/800?random=3`,
+    product?.image || '',
+    ...thumbnailImages
   ].filter(img => img);
 
   const handleImageClick = (index: number) => {
@@ -24,8 +34,9 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
     setShowImageModal(true);
   };
 
-  // Find product by ID
-  const product = MOCK_PRODUCTS.find(p => p.id === id);
+  const handleThumbnailClick = (index: number) => {
+    setCurrentMainImage(index);
+  };
 
   // If product not found, show error
   if (!product) {
@@ -57,27 +68,25 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
         <div className="lg:col-span-7 space-y-6">
             <div 
               className="relative aspect-[4/3] rounded-3xl overflow-hidden shadow-2xl bg-white border border-gold/10 cursor-pointer hover:shadow-xl transition-all"
-              onClick={() => handleImageClick(0)}
+              onClick={() => handleImageClick(currentMainImage)}
             >
-                <img className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" src={product.image} alt={product.name} />
+                <img className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" src={productImages[currentMainImage]} alt={product.name} />
                 <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
                   <span className="text-white text-3xl">🔍</span>
                 </div>
             </div>
             <div className="grid grid-cols-5 gap-4">
-                {[0,1,2,3].map(i => (
+                {thumbnailImages.map((imgUrl, i) => (
                     <div 
                       key={i} 
-                      className="aspect-square rounded-2xl overflow-hidden border-2 border-transparent hover:border-gold cursor-pointer transition-all hover:shadow-lg"
-                      onClick={() => handleImageClick(i)}
+                      className={`aspect-square rounded-2xl overflow-hidden border-2 cursor-pointer transition-all hover:shadow-lg ${
+                        currentMainImage === i + 1 ? 'border-gold' : 'border-transparent hover:border-gold'
+                      }`}
+                      onClick={() => handleThumbnailClick(i + 1)}
                     >
-                         <img className="w-full h-full object-cover hover:scale-110 transition-transform" src={`https://picsum.photos/400/400?random=${i}`} alt={`Ảnh ${i + 1}`} />
+                         <img className="w-full h-full object-cover hover:scale-110 transition-transform" src={imgUrl} alt={`Ảnh ${i + 1}`} />
                     </div>
                 ))}
-                <div className="aspect-square rounded-2xl bg-gold/10 flex flex-col items-center justify-center text-primary cursor-pointer border-2 border-dashed border-gold/30 hover:bg-gold/20 transition-all group">
-                    <span className="text-2xl group-hover:scale-110 transition-transform">➕</span>
-                    <span className="text-[10px] font-bold">15+ Ảnh</span>
-                </div>
             </div>
         </div>
 
@@ -135,7 +144,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                   onClick={() => onNavigate('/cart')}
                   className="w-full border-3 border-primary text-primary py-4 rounded-lg font-bold uppercase tracking-widest hover:bg-primary hover:text-white transition-all mb-3"
                 >
-                    🛒 Thêm vào giỏ
+                     Thêm vào giỏ
                 </button>
                 <button 
                   onClick={() => onNavigate('/checkout')}

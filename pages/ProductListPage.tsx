@@ -21,15 +21,22 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute) => void }> = ({ 
                     Bộ lọc
                 </h3>
                 <div className="space-y-2">
-                    {['All', 'Full Moon', 'House Warming', 'Grand Opening', 'Ancestral'].map((cat) => (
+                    {[
+                      { value: 'All', label: 'Tất cả dịp lễ' },
+                      { value: 'Cúng Rằm', label: 'Cúng Rằm' },
+                      { value: 'Tân Gia', label: 'Tân Gia' },
+                      { value: 'Khai Trương', label: 'Khai Trương' },
+                      { value: 'Cúng Giỗ', label: 'Cúng Giỗ' },
+                      { value: 'Cúng Tết', label: 'Cúng Tết' }
+                    ].map((cat) => (
                         <button
-                          key={cat}
-                          onClick={() => setActiveFilter(cat as any)}
+                          key={cat.value}
+                          onClick={() => setActiveFilter(cat.value as any)}
                           className={`w-full text-left px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
-                            activeFilter === cat ? 'bg-primary text-white shadow-lg' : 'text-slate-600 hover:bg-gold/10'
+                            activeFilter === cat.value ? 'bg-primary text-white shadow-lg' : 'text-slate-600 hover:bg-gold/10'
                           }`}
                         >
-                            {cat === 'All' ? 'Tất cả dịp lễ' : cat}
+                            {cat.label}
                         </button>
                     ))}
                 </div>

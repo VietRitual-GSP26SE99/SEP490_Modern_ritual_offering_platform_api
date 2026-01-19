@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { MOCK_PRODUCTS } from '../../constants';
 import { AppRoute, Occasion } from '../../types';
 
-const ProductListPage: React.FC<{ onNavigate: (route: AppRoute) => void }> = ({ onNavigate }) => {
+const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void }> = ({ onNavigate }) => {
   const [activeFilter, setActiveFilter] = useState<Occasion | 'All'>('All');
   const [priceRanges, setPriceRanges] = useState({
     p1: false, // Dưới 1 triệu
@@ -36,17 +36,24 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute) => void }> = ({ 
                      Bộ lọc
                 </h3>
                 <div className="space-y-2">
-                    {['All', 'Full Moon', 'Grand Opening', 'House Warming'].map((cat) => (
+                    {[
+                      { value: 'All', label: 'Tất cả dịp lễ' },
+                      { value: 'Full Moon', label: 'Cúng Rằm' },
+                      { value: 'Grand Opening', label: 'Khai Trương' },
+                      { value: 'House Warming', label: 'Tân Gia' },
+                      { value: 'Ancestral', label: 'Cúng Giỗ' },
+                      { value: 'Year End', label: 'Cúng Tết' }
+                    ].map((cat) => (
                         <button
-                          key={cat}
+                          key={cat.value}
                           onClick={() => {
-                            setActiveFilter(cat as any);
+                            setActiveFilter(cat.value as any);
                           }}
                           className={`w-full text-left px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
-                            activeFilter === cat ? 'border-2 border-primary bg-primary/5 text-primary' : 'text-slate-600 hover:bg-gold/10'
+                            activeFilter === cat.value ? 'border-2 border-primary bg-primary/5 text-primary' : 'text-slate-600 hover:bg-gold/10'
                           }`}
                         >
-                            {cat === 'All' ? 'Tất cả dịp lễ' : cat}
+                            {cat.label}
                         </button>
                     ))}
                 </div>

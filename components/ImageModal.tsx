@@ -23,6 +23,22 @@ const ImageModal: React.FC<ImageModalProps> = ({
     setIndex(currentIndex);
   }, [currentIndex]);
 
+  useEffect(() => {
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    if (isOpen) {
+      window.addEventListener('keydown', handleEsc);
+    }
+
+    return () => {
+      window.removeEventListener('keydown', handleEsc);
+    };
+  }, [isOpen, onClose]);
+
   const handlePrev = () => {
     if (images.length > 0) {
       setIndex((prev) => (prev === 0 ? images.length - 1 : prev - 1));
@@ -41,27 +57,27 @@ const ImageModal: React.FC<ImageModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="relative bg-white rounded-2xl overflow-hidden shadow-2xl max-w-4xl w-full animate-in fade-in zoom-in-95 duration-200"
+        className="relative w-full h-full flex items-center justify-center p-4"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close Button */}
         <button
           onClick={onClose}
-          className="absolute top-6 right-6 z-10 bg-primary text-white w-12 h-12 rounded-full flex items-center justify-center hover:bg-primary/90 transition-all shadow-lg hover:shadow-xl"
+          className="absolute top-4 right-4 z-10 bg-black/50 hover:bg-black/70 text-white w-12 h-12 rounded-full flex items-center justify-center transition-all backdrop-blur-sm"
         >
           ✕
         </button>
 
         {/* Main Image */}
-        <div className="relative aspect-square md:aspect-auto md:h-[70vh] bg-cream flex items-center justify-center overflow-hidden">
+        <div className="relative max-w-7xl max-h-full flex items-center justify-center">
           <img
             src={displayImage}
             alt={altText}
-            className="w-full h-full object-contain"
+            className="max-w-full max-h-[90vh] object-contain rounded-lg shadow-2xl"
           />
 
           {/* Navigation Arrows - Only show if multiple images */}
@@ -69,13 +85,13 @@ const ImageModal: React.FC<ImageModalProps> = ({
             <>
               <button
                 onClick={handlePrev}
-                className="absolute left-4 top-1/2 -translate-y-1/2 bg-primary text-white w-12 h-12 rounded-full flex items-center justify-center hover:bg-primary/90 transition-all shadow-lg hover:shadow-xl"
+                className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white w-12 h-12 rounded-full flex items-center justify-center transition-all backdrop-blur-sm text-2xl"
               >
                 ‹
               </button>
               <button
                 onClick={handleNext}
-                className="absolute right-4 top-1/2 -translate-y-1/2 bg-primary text-white w-12 h-12 rounded-full flex items-center justify-center hover:bg-primary/90 transition-all shadow-lg hover:shadow-xl"
+                className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white w-12 h-12 rounded-full flex items-center justify-center transition-all backdrop-blur-sm text-2xl"
               >
                 ›
               </button>
@@ -83,23 +99,16 @@ const ImageModal: React.FC<ImageModalProps> = ({
           )}
         </div>
 
-        {/* Image Counter and Info */}
+        {/* Image Counter */}
         {images.length > 1 && (
-          <div className="bg-white p-6 border-t border-gold/10 flex items-center justify-between">
-            <span className="text-sm text-gray-600 font-medium">
-              Ảnh {index + 1} của {images.length}
-            </span>
-            <div className="flex gap-2">
-              {images.map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setIndex(i)}
-                  className={`w-2 h-2 rounded-full transition-all ${
-                    i === index ? 'bg-primary w-6' : 'bg-gray-300'
-                  }`}
-                />
-              ))}
-            </div>
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-medium">
+            Ảnh {index + 1} của {images.length}
+          </div>
+        )}
+        {/* Image Counter */}
+        {images.length > 1 && (
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-medium">
+            Ảnh {index + 1} của {images.length}
           </div>
         )}
       </div>

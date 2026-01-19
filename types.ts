@@ -10,6 +10,7 @@ export interface Product {
   price: number;
   originalPrice?: number;
   image: string;
+  gallery?: string[]; // Additional product images
   description: string;
   rating: number;
   reviews: number;
