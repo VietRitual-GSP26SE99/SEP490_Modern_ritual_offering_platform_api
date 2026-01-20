@@ -30,9 +30,11 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
           label: 'Sản phẩm',
           submenu: [
             { path: '/shop', label: 'Tất cả sản phẩm' },
-            { path: '/shop?category=full-moon', label: 'Cúng Đầy Tháng' },
-            { path: '/shop?category=house-warming', label: 'Cúng Tân Gia' },
-            { path: '/shop?category=grand-opening', label: 'Cúng Khai Trương' }
+            { path: '/shop?category=Full Moon', label: 'Cúng Đầy Tháng' },
+            { path: '/shop?category=House Warming', label: 'Cúng Tân Gia' },
+            { path: '/shop?category=Grand Opening', label: 'Cúng Khai Trương' },
+            { path: '/shop?category=Ancestral', label: 'Cúng Giỗ' },
+            { path: '/shop?category=Year End', label: 'Cúng Tết' }
           ]
         },
         { 
@@ -88,13 +90,14 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                   </button>
 
                   {item.submenu && (
-                    <div className={`absolute left-0 top-full mt-0 w-48 bg-white border border-gray-200 shadow-lg rounded-lg overflow-hidden transition-all duration-200 ${
-                      openDropdown === item.label ? 'opacity-100 visible' : 'opacity-0 invisible'
+                    <div className={`absolute left-0 top-full mt-0 w-48 bg-white border border-gray-200 shadow-lg rounded-lg overflow-hidden transition-all duration-200 z-50 ${
+                      openDropdown === item.label ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'
                     }`}>
                       {item.submenu.map((submenuItem) => (
                         <button
                           key={submenuItem.path}
-                          onClick={() => {
+                          onClick={(e) => {
+                            e.stopPropagation();
                             onNavigate(submenuItem.path);
                             setOpenDropdown(null);
                           }}

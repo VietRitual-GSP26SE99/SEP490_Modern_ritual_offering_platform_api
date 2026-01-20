@@ -127,9 +127,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
               <p className="text-gray-600 text-sm max-w-md mx-auto">
                 Đăng ký để trải nghiệm nền tảng mâm cúng hiện đại
               </p>
-              <div className="mt-4 inline-flex items-center gap-2 bg-amber-100 text-amber-800 px-4 py-2 rounded-full text-xs font-semibold">
-                <span>Miễn phí đăng ký • Admin sẽ phân quyền sau</span>
-              </div>
+              
             </div>
 
             {/* Registration Form */}

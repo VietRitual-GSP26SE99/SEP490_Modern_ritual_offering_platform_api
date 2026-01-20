@@ -45,7 +45,7 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
 
   return (
     <div className="max-w-7xl mx-auto px-6 md:px-10 py-16">
-      <h1 className="text-4xl font-display font-black text-primary mb-12">🛒 Giỏ Hàng</h1>
+      <h1 className="text-4xl font-display font-black text-primary mb-12">Giỏ Hàng</h1>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
         {/* Cart Items */}

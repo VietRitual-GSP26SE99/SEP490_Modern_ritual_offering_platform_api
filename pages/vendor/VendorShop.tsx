@@ -12,7 +12,7 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
     phone: '0912 345 678',
     email: 'shop@mamcunghanhphuc.com',
     description: 'Cung cấp mâm cúng trọn gói chất lượng cao với các dịch vụ tư vấn miễn phí. Cam kết sử dụng nguyên liệu tươi sạch, tuân theo nghi lễ truyền thống.',
-    logo: '🏪',
+    logo: '',
     rating: 4.8,
     reviews: 256,
     followers: 1234,
@@ -79,7 +79,7 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
                   Xem Sản Phẩm
                 </button>
                 <button className="px-6 py-3 border-2 border-gold text-gold rounded-lg font-bold hover:bg-gold/5 transition-all whitespace-nowrap">
-                  ❤ Theo dõi
+                   Theo dõi
                 </button>
               </div>
             </div>
@@ -102,20 +102,20 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
           <div className="lg:col-span-2">
             <div className="bg-white rounded-2xl border border-gold/10 shadow-sm p-8 mb-8">
               <h2 className="text-2xl font-bold text-primary mb-4">
-                ℹ️ Thông Tin Cửa Hàng
+                Thông Tin Cửa Hàng
               </h2>
               <p className="text-gray-700 leading-relaxed mb-6">{shopInfo.description}</p>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-gold/10">
                 <div>
-                  <p className="text-xs font-bold uppercase text-gold tracking-widest mb-2">📍 Địa Chỉ</p>
+                  <p className="text-xs font-bold uppercase text-gold tracking-widest mb-2"> Địa Chỉ</p>
                   <p className="text-gray-700 font-semibold">{shopInfo.address}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-bold uppercase text-gold tracking-widest mb-2">📞 Liên Hệ</p>
+                  <p className="text-xs font-bold uppercase text-gold tracking-widest mb-2"> Liên Hệ</p>
                   <div className="space-y-2">
-                    <p className="text-gray-700 font-semibold">☎️ {shopInfo.phone}</p>
-                    <p className="text-gray-700 font-semibold">✉️ {shopInfo.email}</p>
+                    <p className="text-gray-700 font-semibold">{shopInfo.phone}</p>
+                    <p className="text-gray-700 font-semibold">{shopInfo.email}</p>
                   </div>
                 </div>
               </div>
@@ -131,7 +131,7 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
             <div className="bg-white rounded-2xl border border-gold/10 shadow-sm p-8">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold text-primary">
-                  🛍️ Sản Phẩm Nổi Bật
+                   Sản Phẩm Nổi Bật
                 </h2>
                 <button
                   onClick={() => onNavigate('/vendor/products')}
@@ -163,7 +163,7 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
           {/* Right: Quick Actions */}
           <div className="space-y-4">
             <div className="bg-white rounded-2xl border border-gold/10 shadow-sm p-6 text-center hover:shadow-lg transition-all">
-              <div className="text-4xl text-gold mb-3 block">📊</div>
+              <div className="text-4xl text-gold mb-3 block"></div>
               <h3 className="font-bold text-primary mb-2">Quản Lý Cửa Hàng</h3>
               <p className="text-xs text-gray-600 mb-4">Chỉnh sửa thông tin và cài đặt</p>
               <button
@@ -175,7 +175,7 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
             </div>
 
             <div className="bg-white rounded-2xl border border-gold/10 shadow-sm p-6 text-center hover:shadow-lg transition-all">
-              <div className="text-4xl text-gold mb-3 block">➕</div>
+              <div className="text-4xl text-gold mb-3 block"></div>
               <h3 className="font-bold text-primary mb-2">Sản Phẩm Mới</h3>
               <p className="text-xs text-gray-600 mb-4">Thêm mâm cúng mới</p>
               <button
@@ -187,7 +187,7 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
             </div>
 
             <div className="bg-white rounded-2xl border border-gold/10 shadow-sm p-6 text-center hover:shadow-lg transition-all">
-              <div className="text-4xl text-gold mb-3 block">📈</div>
+              <div className="text-4xl text-gold mb-3 block"></div>
               <h3 className="font-bold text-primary mb-2">Thống Kê</h3>
               <p className="text-xs text-gray-600 mb-4">Xem doanh số bán hàng</p>
               <button
@@ -199,7 +199,7 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
             </div>
 
             <div className="bg-white rounded-2xl border border-gold/10 shadow-sm p-6 text-center hover:shadow-lg transition-all">
-              <div className="text-4xl text-gold mb-3 block">🛒</div>
+              <div className="text-4xl text-gold mb-3 block"></div>
               <h3 className="font-bold text-primary mb-2">Đơn Hàng</h3>
               <p className="text-xs text-gray-600 mb-4">Quản lý đơn hàng mới</p>
               <button

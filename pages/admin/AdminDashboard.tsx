@@ -66,12 +66,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
                   : 'text-slate-500 hover:text-primary'
               }`}
             >
-              {tab === 'overview' && '📊 Tổng quan'}
-              {tab === 'vendors' && '🏪 Nhà cung cấp'}
-              {tab === 'users' && '👥 Người dùng'}
-              {tab === 'orders' && '📦 Đơn hàng'}
-              {tab === 'disputes' && '⚠️ Tranh chấp'}
-              {tab === 'content' && '📰 Nội dung'}
+              {tab === 'overview' && ' Tổng quan'}
+              {tab === 'vendors' && ' Nhà cung cấp'}
+              {tab === 'users' && ' Người dùng'}
+              {tab === 'orders' && ' Đơn hàng'}
+              {tab === 'disputes' && ' khiếu nại'}
+              {tab === 'content' && ' Nội dung'}
             </button>
           ))}
         </div>
@@ -124,7 +124,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
 
               <div className="bg-white rounded-[2rem] border border-gold/10 shadow-sm p-8 text-center hover:shadow-lg transition-all">
                 <span className="material-symbols-outlined text-5xl text-gold mb-4 block">warning</span>
-                <h3 className="font-bold text-primary mb-2">Tranh chấp</h3>
+                <h3 className="font-bold text-primary mb-2">khiếu nại</h3>
                 <p className="text-xs text-slate-500 mb-4">{disputes.length} cần xử lý</p>
                 <button
                   onClick={() => setActiveTab('disputes')}
@@ -195,7 +195,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
 
         {activeTab === 'disputes' && (
           <div className="bg-white rounded-[2rem] border border-gold/10 shadow-sm p-8">
-            <h2 className="text-2xl font-bold text-primary mb-8">Xử Lý Tranh Chấp</h2>
+            <h2 className="text-2xl font-bold text-primary mb-8">Xử Lý khiếu nại</h2>
             <div className="space-y-4">
               {disputes.map((dispute) => (
                 <div key={dispute.id} className="p-6 bg-ritual-bg rounded-xl border border-gold/10 hover:border-primary transition-all">
@@ -204,9 +204,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
                       <p className="text-xs font-bold uppercase text-gold tracking-widest mb-1">{dispute.id}</p>
                       <h3 className="text-lg font-bold text-primary mb-2">{dispute.complaint}</h3>
                       <div className="flex gap-4 text-sm text-slate-600">
-                        <span>👤 {dispute.customer}</span>
-                        <span>🏪 {dispute.vendor}</span>
-                        <span>📅 {dispute.date}</span>
+                        <span> {dispute.customer}</span>
+                        <span> {dispute.vendor}</span>
+                        <span> {dispute.date}</span>
                       </div>
                     </div>
                     <span className={`inline-block px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap ${

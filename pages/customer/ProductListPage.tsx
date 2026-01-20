@@ -1,8 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MOCK_PRODUCTS } from '../../constants';
 import { AppRoute, Occasion } from '../../types';
+import { useSearchParams } from 'react-router-dom';
 
 const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void }> = ({ onNavigate }) => {
+  const [searchParams] = useSearchParams();
   const [activeFilter, setActiveFilter] = useState<Occasion | 'All'>('All');
   const [priceRanges, setPriceRanges] = useState({
     p1: false, // Dưới 1 triệu
@@ -10,6 +12,22 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
     p3: false, // 3-5 triệu
     p4: false, // Trên 5 triệu
   });
+  const [ratingFilters, setRatingFilters] = useState({
+    r5: false, // 5 sao
+    r4: false, // 4 sao
+    r3: false, // 3 sao
+  });
+  const [sortBy, setSortBy] = useState('popular'); // popular, price-asc, price-desc
+
+  // Handle URL params for category filter
+  useEffect(() => {
+    const category = searchParams.get('category');
+    if (category) {
+      setActiveFilter(category as Occasion);
+    } else {
+      setActiveFilter('All');
+    }
+  }, [searchParams]);
 
   const filterByPrice = (price: number) => {
     if (!Object.values(priceRanges).some(v => v)) return true; // Nếu không chọn gì thì hiện tất cả
@@ -20,10 +38,25 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
     return false;
   };
 
+  const filterByRating = (rating: number) => {
+    if (!Object.values(ratingFilters).some(v => v)) return true; // Nếu không chọn gì thì hiện tất cả
+    if (ratingFilters.r5 && rating >= 5) return true;
+    if (ratingFilters.r4 && rating >= 4 && rating < 5) return true;
+    if (ratingFilters.r3 && rating >= 3 && rating < 4) return true;
+    return false;
+  };
+
   const filteredProducts = MOCK_PRODUCTS.filter(p => {
     const categoryMatch = activeFilter === 'All' || p.category === activeFilter;
     const priceMatch = filterByPrice(p.price);
-    return categoryMatch && priceMatch;
+    const ratingMatch = filterByRating(p.rating);
+    return categoryMatch && priceMatch && ratingMatch;
+  }).sort((a, b) => {
+    if (sortBy === 'price-asc') return a.price - b.price;
+    if (sortBy === 'price-desc') return b.price - a.price;
+    // popular: sort by rating desc, then reviews desc
+    if (b.rating !== a.rating) return b.rating - a.rating;
+    return b.reviews - a.reviews;
   });
 
   return (
@@ -108,17 +141,48 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
             <div className="pt-8 border-t border-gold/10">
                 <h4 className="text-sm font-bold text-slate-900 mb-4">Đánh giá</h4>
                 <div className="space-y-2">
-                    {[5, 4, 3].map((stars) => (
-                        <label key={stars} className="flex items-center gap-2 cursor-pointer">
-                            <input type="checkbox" className="rounded text-gold" />
-                            <div className="flex">
-                                {[...Array(stars)].map((_, i) => (
-                                    <span key={i} className="text-xs text-gold">★</span>
-                                ))}
-                            </div>
-                            <span className="text-xs text-slate-500">({stars} sao)</span>
-                        </label>
-                    ))}
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          className="rounded text-gold"
+                          checked={ratingFilters.r5}
+                          onChange={() => setRatingFilters({...ratingFilters, r5: !ratingFilters.r5})}
+                        />
+                        <div className="flex">
+                            {[...Array(5)].map((_, i) => (
+                                <span key={i} className="text-xs" style={{ color: '#FFD700' }}>★</span>
+                            ))}
+                        </div>
+                        <span className="text-xs text-slate-500">(5 sao)</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          className="rounded text-gold"
+                          checked={ratingFilters.r4}
+                          onChange={() => setRatingFilters({...ratingFilters, r4: !ratingFilters.r4})}
+                        />
+                        <div className="flex">
+                            {[...Array(4)].map((_, i) => (
+                                <span key={i} className="text-xs" style={{ color: '#FFD700' }}>★</span>
+                            ))}
+                        </div>
+                        <span className="text-xs text-slate-500">(4 sao)</span>
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer">
+                        <input 
+                          type="checkbox" 
+                          className="rounded text-gold"
+                          checked={ratingFilters.r3}
+                          onChange={() => setRatingFilters({...ratingFilters, r3: !ratingFilters.r3})}
+                        />
+                        <div className="flex">
+                            {[...Array(3)].map((_, i) => (
+                                <span key={i} className="text-xs" style={{ color: '#FFD700' }}>★</span>
+                            ))}
+                        </div>
+                        <span className="text-xs text-slate-500">(3 sao)</span>
+                    </label>
                 </div>
             </div>
 
@@ -148,9 +212,14 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
             <h2 className="text-xl font-bold text-slate-900">Danh sách mâm cúng ({filteredProducts.length})</h2>
             <div className="flex items-center gap-4">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sắp xếp:</span>
-                <select className="bg-ritual-bg border-none rounded-xl text-sm font-bold focus:ring-primary pr-10">
-                    <option>Phổ biến nhất</option>
-                    <option>Giá tăng dần</option>
+                <select 
+                  className="bg-ritual-bg border-none rounded-xl text-sm font-bold focus:ring-primary pr-10"
+                  value={sortBy}
+                  onChange={(e) => setSortBy(e.target.value)}
+                >
+                    <option value="popular">Phổ biến nhất</option>
+                    <option value="price-asc">Giá tăng dần</option>
+                    <option value="price-desc">Giá giảm dần</option>
                 </select>
             </div>
         </div>
@@ -174,7 +243,7 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
                     </div>
                     <div className="p-6">
                         <div className="flex items-center gap-1 mb-2 text-gold">
-                            <span className="text-sm">★</span>
+                            <span className="text-sm" style={{ color: '#FFD700' }}>★</span>
                             <span className="text-xs font-bold">{p.rating}</span>
                             <span className="text-[10px] text-slate-400 ml-1">({p.reviews} đánh giá)</span>
                         </div>
@@ -183,7 +252,7 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
                         <div className="pt-4 border-t border-gold/10 flex items-center justify-between">
                             <p className="text-xl font-black text-primary tracking-tight">{p.price.toLocaleString()}đ</p>
                             <button className="bg-primary text-white p-2.5 rounded-xl hover:scale-105 transition-transform">
-                                🛒
+                                +
                             </button>
                         </div>
                     </div>
