@@ -1,7 +1,7 @@
 
 export type Occasion = 'Full Moon' | 'House Warming' | 'Grand Opening' | 'Ancestral' | 'Year End';
 
-export type UserRole = 'customer' | 'vendor' | 'admin' | 'guest';
+export type UserRole = 'customer' | 'vendor' | 'admin' | 'staff' | 'guest';
 
 export interface Product {
   id: string;

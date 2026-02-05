@@ -36,7 +36,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
       <div className="max-w-7xl mx-auto px-6 md:px-10">
         {/* Header */}
         <div className="mb-12">
-          <h1 className="text-4xl font-display font-black text-primary mb-2">🛡️ Bảng Điều Khiển Quản Trị Viên</h1>
+          <h1 className="text-4xl font-display font-black text-primary mb-2"> Bảng Điều Khiển Quản Trị Viên</h1>
           <p className="text-slate-500">Quản lý nền tảng, nhà cung cấp, khách hàng và đơn hàng</p>
         </div>
 
