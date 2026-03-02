@@ -1,12 +1,39 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { getPath } from '../../types';
 import { MOCK_PRODUCTS } from '../../constants';
 import MOCK_DATA from '../../mockData';
 import Carousel from '../../components/Carousel';
+import { packageService } from '../../services/packageService';
 
 const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate }) => {
   const [showAllServices, setShowAllServices] = useState(false);
+  const [products, setProducts] = useState(MOCK_PRODUCTS);
+  const [loadingProducts, setLoadingProducts] = useState(true);
   const { heroSlides, services, trustStats } = MOCK_DATA;
+
+  // Fetch products from API
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setLoadingProducts(true);
+      try {
+        const apiPackages = await packageService.getAllPackages();
+        if (apiPackages.length > 0) {
+          const mappedProducts = packageService.mapToProducts(apiPackages);
+          // Get first 3 products for homepage
+          setProducts(mappedProducts.slice(0, 3));
+        } else {
+          setProducts(MOCK_PRODUCTS);
+        }
+      } catch (error) {
+        console.error('Error fetching products:', error);
+        setProducts(MOCK_PRODUCTS);
+      } finally {
+        setLoadingProducts(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
   
   return (
     <div className="space-y-24 pb-24">
@@ -70,8 +97,16 @@ const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
                 -- Tất cả sản phẩm --
             </button>
         </div>
+        {loadingProducts ? (
+          <div className="flex items-center justify-center py-16">
+            <div className="text-center">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent mb-4"></div>
+              <p className="text-slate-600 font-semibold">Đang tải sản phẩm...</p>
+            </div>
+          </div>
+        ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {MOCK_PRODUCTS.map((product) => (
+            {products.map((product) => (
                 <div key={product.id} className="bg-white rounded-3xl overflow-hidden shadow-md hover:shadow-2xl transition-all border border-gray-200 group cursor-pointer">
                     <div className="relative h-72 overflow-hidden">
                         <img alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src={product.image} />
@@ -94,6 +129,7 @@ const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
                 </div>
             ))}
         </div>
+        )}
       </section>
     </div>
   );

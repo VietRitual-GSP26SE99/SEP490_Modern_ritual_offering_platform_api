@@ -1,13 +1,18 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MOCK_PRODUCTS } from '../../constants';
 import ImageModal from '../../components/ImageModal';
+import { packageService } from '../../services/packageService';
+import { Product } from '../../types';
 
 const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate }) => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [product, setProduct] = useState<Product | null>(null);
+  const [loading, setLoading] = useState(true);
   const [selectedTier, setSelectedTier] = useState('Special');
+  const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [currentMainImage, setCurrentMainImage] = useState(0);
@@ -15,8 +20,45 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
   const [hoverRating, setHoverRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
 
+  // Fetch product from API
+  useEffect(() => {
+    const fetchProduct = async () => {
+      if (!id) return;
+      
+      setLoading(true);
+      try {
+        console.log('🚀 Fetching product detail for ID:', id);
+        const apiPackage = await packageService.getPackageById(id);
+        console.log('📦 Received package:', apiPackage);
+        
+        if (apiPackage) {
+          const mappedProduct = packageService.mapToProduct(apiPackage);
+          console.log('✨ Mapped product:', mappedProduct);
+          console.log('🎯 Variants:', mappedProduct.variants);
+          if (mappedProduct.variants && mappedProduct.variants[0]) {
+            console.log('📝 First variant items:', mappedProduct.variants[0].items);
+          }
+          setProduct(mappedProduct);
+        } else {
+          console.warn('⚠️ No package from API, using mock data');
+          // Fallback to mock data
+          const mockProduct = MOCK_PRODUCTS.find(p => p.id === id);
+          setProduct(mockProduct || null);
+        }
+      } catch (error) {
+        console.error('❌ Error fetching product:', error);
+        const mockProduct = MOCK_PRODUCTS.find(p => p.id === id);
+        setProduct(mockProduct || null);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProduct();
+  }, [id]);
+
   // Find product by ID
-  const product = MOCK_PRODUCTS.find(p => p.id === id);
+  // const product = MOCK_PRODUCTS.find(p => p.id === id);
 
   // Product thumbnail images from gallery or fallback to random images
   const thumbnailImages = product?.gallery || [
@@ -91,6 +133,17 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
   };
 
   // If product not found, show error
+  if (loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-6 md:px-10 py-16 flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-primary border-t-transparent mb-4"></div>
+          <p className="text-slate-600 font-semibold text-lg">Đang tải sản phẩm...</p>
+        </div>
+      </div>
+    );
+  }
+
   if (!product) {
     return (
       <div className="max-w-7xl mx-auto px-6 md:px-10 py-16 text-center">
@@ -166,7 +219,19 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                 <div>
                     <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-4">Cấp độ gói lễ (Tier)</label>
                     <div className="grid grid-cols-3 gap-3">
-                        {['Standard', 'Special', 'Premium'].map((t) => (
+                        {product.variants && product.variants.length > 0 ? (
+                          product.variants.map((variant, index) => (
+                            <button 
+                              key={variant.variantId}
+                              onClick={() => setSelectedVariantIndex(index)}
+                              className={`p-4 rounded-2xl border-2 text-center transition-all ${selectedVariantIndex === index ? 'border-primary bg-primary/5' : 'border-slate-100 hover:border-gold'}`}
+                            >
+                                <p className="text-xs font-bold leading-none mb-1">{variant.tier}</p>
+                                <p className="text-[10px] text-slate-400 italic">{variant.price.toLocaleString()}đ</p>
+                            </button>
+                          ))
+                        ) : (
+                          ['Standard', 'Special', 'Premium'].map((t) => (
                             <button 
                               key={t}
                               onClick={() => setSelectedTier(t)}
@@ -175,19 +240,26 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                                 <p className="text-xs font-bold leading-none mb-1">{t === 'Standard' ? 'Tiêu chuẩn' : t === 'Special' ? 'Đặc biệt' : 'Thượng hạng'}</p>
                                 <p className="text-[10px] text-slate-400 italic">{product.price.toLocaleString()}đ</p>
                             </button>
-                        ))}
+                          ))
+                        )}
                     </div>
                 </div>
 
                 <div className="pt-6 border-t border-gold/10">
                     <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-4">Lễ vật bao gồm</label>
                     <div className="grid grid-cols-2 gap-y-3">
-                        {['1 Gà luộc ta', '12 Đĩa xôi gấc', '12 Chén chè đậu', 'Bộ hài & đồ thế', 'Bình hoa cát tường', 'Mâm ngũ quả'].map(item => (
-                            <div key={item} className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                        {product.variants && product.variants[selectedVariantIndex]?.items && product.variants[selectedVariantIndex].items.length > 0 ? (
+                          product.variants[selectedVariantIndex].items.map((item, idx) => (
+                            <div key={idx} className="flex items-center gap-2 text-xs font-medium text-slate-600">
                                 <span className="text-gold">✓</span>
                                 {item}
                             </div>
-                        ))}
+                          ))
+                        ) : (
+                          <div className="col-span-2 text-xs text-slate-400 italic">
+                            Đang cập nhật danh sách lễ vật...
+                          </div>
+                        )}
                     </div>
                 </div>
 

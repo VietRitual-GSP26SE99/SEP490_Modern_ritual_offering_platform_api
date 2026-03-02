@@ -40,9 +40,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
         { 
           label: 'Dịch vụ',
           submenu: [
-            { path: '/shop', label: 'Mâm cúng trọn gói' },
-            { path: '/shop', label: 'Tư vấn lịch tốt' },
-            { path: '/shop', label: 'Giao hàng nhanh' }
+            { path: '/services/packages', label: 'Mâm cúng trọn gói' },
+            { path: '/services/consultation', label: 'Tư vấn lịch tốt' },
+            { path: '/services/delivery', label: 'Giao hàng nhanh' }
           ]
         },
         { path: '/tracking', label: 'Theo dõi' },
@@ -93,9 +93,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                     <div className={`absolute left-0 top-full mt-0 w-48 bg-white border border-gray-200 shadow-lg rounded-lg overflow-hidden transition-all duration-200 z-50 ${
                       openDropdown === item.label ? 'opacity-100 visible' : 'opacity-0 invisible pointer-events-none'
                     }`}>
-                      {item.submenu.map((submenuItem) => (
+                      {item.submenu.map((submenuItem, idx) => (
                         <button
-                          key={submenuItem.path}
+                          key={`${submenuItem.path}-${idx}`}
                           onClick={(e) => {
                             e.stopPropagation();
                             onNavigate(submenuItem.path);

@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { MOCK_PRODUCTS } from '../../constants';
-import { AppRoute, Occasion } from '../../types';
+import { AppRoute, Occasion, Product } from '../../types';
 import { useSearchParams } from 'react-router-dom';
+import { packageService } from '../../services/packageService';
 
 const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void }> = ({ onNavigate }) => {
   const [searchParams] = useSearchParams();
   const [activeFilter, setActiveFilter] = useState<Occasion | 'All'>('All');
+  const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
+  const [loading, setLoading] = useState(true);
   const [priceRanges, setPriceRanges] = useState({
     p1: false, // Dưới 1 triệu
     p2: false, // 1-3 triệu
@@ -18,6 +21,35 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
     r3: false, // 3 sao
   });
   const [sortBy, setSortBy] = useState('popular'); // popular, price-asc, price-desc
+
+  // Fetch products from API
+  useEffect(() => {
+    const fetchProducts = async () => {
+      setLoading(true);
+      try {
+        console.log('🚀 Starting to fetch products...');
+        const apiPackages = await packageService.getAllPackages();
+        console.log('📦 Received packages:', apiPackages);
+        
+        if (apiPackages.length > 0) {
+          const mappedProducts = packageService.mapToProducts(apiPackages);
+          console.log('✨ Mapped products:', mappedProducts);
+          setProducts(mappedProducts);
+        } else {
+          console.warn('⚠️ No packages from API, using mock data');
+          // Fallback to mock data if API fails
+          setProducts(MOCK_PRODUCTS);
+        }
+      } catch (error) {
+        console.error('❌ Error fetching products:', error);
+        setProducts(MOCK_PRODUCTS);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, []);
 
   // Handle URL params for category filter
   useEffect(() => {
@@ -46,7 +78,7 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
     return false;
   };
 
-  const filteredProducts = MOCK_PRODUCTS.filter(p => {
+  const filteredProducts = products.filter(p => {
     const categoryMatch = activeFilter === 'All' || p.category === activeFilter;
     const priceMatch = filterByPrice(p.price);
     const ratingMatch = filterByRating(p.rating);
@@ -208,7 +240,16 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
 
       {/* Product Grid */}
       <section className="flex-1 space-y-8">
-        <div className="flex items-center justify-between mb-8 bg-white p-6 rounded-2xl border border-gold/10">
+        {loading ? (
+          <div className="flex items-center justify-center py-24">
+            <div className="text-center">
+              <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent mb-4"></div>
+              <p className="text-slate-600 font-semibold">Đang tải sản phẩm...</p>
+            </div>
+          </div>
+        ) : (
+          <>
+            <div className="flex items-center justify-between mb-8 bg-white p-6 rounded-2xl border border-gold/10">
             <h2 className="text-xl font-bold text-slate-900">Danh sách mâm cúng ({filteredProducts.length})</h2>
             <div className="flex items-center gap-4">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sắp xếp:</span>
@@ -259,6 +300,8 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
                 </div>
             ))}
         </div>
+          </>
+        )}
       </section>
     </div>
   );

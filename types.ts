@@ -15,6 +15,46 @@ export interface Product {
   rating: number;
   reviews: number;
   tag?: string;
+  variants?: ProductVariant[]; // UI variants
+}
+
+// API Types
+export interface PackageVariant {
+  variantId: number;
+  packageId: number;
+  variantName: string;
+  price: number;
+  description: string;
+  isActive: boolean;
+  createdAt: string;
+}
+
+export interface ApiPackage {
+  packageId: number;
+  packageName: string;
+  description: string;
+  vendorProfileId: string;
+  categoryId: number;
+  isActive: boolean;
+  createdAt: string;
+  packageVariants?: PackageVariant[];
+}
+
+// Product Variant for UI (parsed from API)
+export interface ProductVariant {
+  variantId: number;
+  packageId: number;
+  tier: string;
+  price: number;
+  description: string;
+  items: string[];
+}
+
+export interface ApiResponse<T> {
+  statusCode: string;
+  isSuccess: boolean;
+  errorMessages: string[];
+  result: T;
 }
 
 export interface CartItem extends Product {
