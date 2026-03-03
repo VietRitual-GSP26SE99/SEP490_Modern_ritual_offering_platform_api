@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { UserRole } from '../../types';
 import { login, register, LoginRequest, RegisterRequest } from '../../services/auth';
+import toast from '../../services/toast';
 
 interface AuthPageProps {
   onNavigate: (path: string) => void;
@@ -135,7 +136,12 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
           if (isProfileIncomplete) {
             // First-time login - redirect to profile page
             console.log('⚠️ Profile incomplete - redirecting to profile setup');
-            alert('Chào mừng bạn đến với Modern Ritual!\n\nĐể tiếp tục, vui lòng hoàn thành thông tin cá nhân của bạn.');
+            toast.message({
+              title: 'Chào mừng bạn đến với Modern Ritual!',
+              text: 'Để tiếp tục, vui lòng hoàn thành thông tin cá nhân của bạn.',
+              icon: 'info',
+              confirmButtonText: 'Hoàn thành hồ sơ'
+            });
             
             if (onLogin) {
               onLogin(response.role as UserRole, true); // Pass true for first-time login
@@ -148,7 +154,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
         }
 
         // Thông báo thành công
-        alert('Đăng nhập thành công!');
+        toast.success('Đăng nhập thành công!');
 
         if (onLogin) {
           onLogin(response.role as UserRole);
@@ -182,8 +188,19 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
         console.log('✅ Registration successful:', response);
 
         // Show success message with better instructions
-        const successMessage = `✅ Đăng ký thành công!\n\n📧 Chúng tôi đã gửi email xác nhận đến:\n${formData.email}\n\nVui lòng kiểm tra hộp thư (và cả thư mục Spam) để xác nhận tài khoản.\n\n⏱️ Link xác nhận sẽ hết hạn sau 24 giờ.`;
-        alert(successMessage);
+        toast.message({
+          title: '✅ Đăng ký thành công!',
+          html: `
+            <div style="text-align: left;">
+              <p style="margin-bottom: 12px;">📧 Chúng tôi đã gửi email xác nhận đến:</p>
+              <p style="font-weight: bold; margin-bottom: 12px;">${formData.email}</p>
+              <p style="margin-bottom: 12px;">Vui lòng kiểm tra hộp thư (và cả thư mục Spam) để xác nhận tài khoản.</p>
+              <p style="color: #64748b;">⏱️ Link xác nhận sẽ hết hạn sau 24 giờ.</p>
+            </div>
+          `,
+          icon: 'success',
+          confirmButtonText: 'Đã hiểu'
+        });
 
         // Chuyển về form đăng nhập
         setIsLogin(true);

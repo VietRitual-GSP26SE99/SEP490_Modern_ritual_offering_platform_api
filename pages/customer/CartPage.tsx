@@ -1,51 +1,192 @@
-import React, { useState } from 'react';
-
-interface CartItem {
-  id: string;
-  name: string;
-  price: number;
-  quantity: number;
-  image: string;
-}
+import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { cartService, CartApi } from '../../services/cartService';
+import { getCurrentUser } from '../../services/auth';
+import toast from '../../services/toast';
 
 const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate }) => {
-  const [cartItems, setCartItems] = useState<CartItem[]>([
-    {
-      id: '1',
-      name: 'Mâm Cúng Đầy Tháng - Gói Đặc Biệt',
-      price: 2500000,
-      quantity: 1,
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAmfCyEl04cwWpaZXOkMs7fYlLyWDwtMEnf5G_uRg4n59rYYy-eS9wUnZrHYzLXvLd-zB7Wywvxnqfs7atQBNPcPb0CX9zsIAFph9WRg5ftfGisqH7gXz-D7-nF4BPCRBH9xzV-AjamO-K9f2QSm6s-jXhCCf65fhW-ipfEanWxgipMRJdKxG-PPAOHocXYLGgXgSHkeNWg6ShHNmsrKGd0Y45BFWq9pVGAw52130misHEtU4NlZStzWGrrnAP4yAQCc31mez3LQfUs'
-    },
-    {
-      id: '2',
-      name: 'Mâm Cúng Tết Nguyên Đán',
-      price: 1800000,
-      quantity: 2,
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAmfCyEl04cwWpaZXOkMs7fYlLyWDwtMEnf5G_uRg4n59rYYy-eS9wUnZrHYzLXvLd-zB7Wywvxnqfs7atQBNPcPb0CX9zsIAFph9WRg5ftfGisqH7gXz-D7-nF4BPCRBH9xzV-AjamO-K9f2QSm6s-jXhCCf65fhW-ipfEanWxgipMRJdKxG-PPAOHocXYLGgXgSHkeNWg6ShHNmsrKGd0Y45BFWq9pVGAw52130misHEtU4NlZStzWGrrnAP4yAQCc31mez3LQfUs'
-    }
-  ]);
+  const navigate = useNavigate();
+  const [cart, setCart] = useState<CartApi | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState<number | null>(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
-  const updateQuantity = (id: string, quantity: number) => {
-    if (quantity <= 0) {
-      removeItem(id);
+  // Check authentication
+  useEffect(() => {
+    const user = getCurrentUser();
+    if (!user) {
+      console.log(' User not authenticated, redirecting to login');
+      navigate('/auth?redirect=/cart');
       return;
     }
-    setCartItems(cartItems.map(item => item.id === id ? { ...item, quantity } : item));
+    setIsCheckingAuth(false);
+  }, [navigate]);
+
+  // Fetch cart from API
+  useEffect(() => {
+    if (isCheckingAuth) return;
+    
+    const fetchCart = async () => {
+      try {
+        console.log(' Fetching cart...');
+        const cartData = await cartService.getCart();
+        setCart(cartData);
+        console.log(' Cart loaded:', cartData);
+
+      } catch (error) {
+        console.error(' Failed to fetch cart:', error);
+        toast.error('Không thể tải giỏ hàng');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchCart();
+  }, [isCheckingAuth]);
+
+  const updateQuantity = async (cartItemId: number, newQuantity: number) => {
+    if (newQuantity <= 0) {
+      removeItem(cartItemId);
+      return;
+    }
+
+    setUpdating(cartItemId);
+    try {
+      console.log('📝 Updating quantity:', { cartItemId, newQuantity });
+      // API endpoint expects 'itemId' parameter even though response has 'cartItemId'
+      const success = await cartService.updateCartItem({ itemId: cartItemId, quantity: newQuantity });
+      
+      if (success) {
+        // Re-fetch cart from server to ensure sync
+        console.log(' Re-fetching cart after update...');
+        const updatedCart = await cartService.getCart();
+        setCart(updatedCart);
+        
+        toast.success('Đã cập nhật số lượng');
+        // Trigger cart update event
+        window.dispatchEvent(new Event('cartUpdated'));
+      } else {
+        toast.error('Không thể cập nhật số lượng');
+      }
+    } catch (error) {
+      console.error(' Failed to update quantity:', error);
+      toast.error('Đã xảy ra lỗi');
+    } finally {
+      setUpdating(null);
+    }
   };
 
-  const removeItem = (id: string) => {
-    setCartItems(cartItems.filter(item => item.id !== id));
+  const removeItem = async (cartItemId: number) => {
+    const result = await toast.confirm({
+      title: 'Xóa sản phẩm?',
+      text: 'Bạn có chắc chắn muốn xóa sản phẩm này khỏi giỏ hàng?',
+      icon: 'warning',
+      confirmButtonText: 'Xóa',
+      cancelButtonText: 'Hủy'
+    });
+
+    if (!result.isConfirmed) return;
+
+    setUpdating(cartItemId);
+    try {
+      console.log('🗑️ Removing item:', cartItemId);
+      const success = await cartService.removeCartItem(cartItemId);
+      
+      if (success) {
+        // Re-fetch cart from server to ensure sync
+        console.log(' Re-fetching cart after delete...');
+        const updatedCart = await cartService.getCart();
+        setCart(updatedCart);
+        
+        toast.success('Đã xóa sản phẩm');
+        // Trigger cart update event
+        window.dispatchEvent(new Event('cartUpdated'));
+      } else {
+        toast.error('Không thể xóa sản phẩm');
+      }
+    } catch (error: any) {
+      // If 404, item might already be deleted, re-fetch cart
+      if (error.message && error.message.includes('404')) {
+        console.log(' Item not found (404), re-fetching cart...');
+        const updatedCart = await cartService.getCart();
+        setCart(updatedCart);
+        
+        toast.info('Sản phẩm đã được xóa');
+        // Trigger cart update event
+        window.dispatchEvent(new Event('cartUpdated'));
+      } else {
+        console.error(' Failed to remove item:', error);
+        toast.error('Đã xảy ra lỗi');
+      }
+    } finally {
+      setUpdating(null);
+    }
   };
 
-  const subtotal = cartItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-  const shipping = 50000;
-  const tax = Math.round(subtotal * 0.1);
-  const total = subtotal + shipping + tax;
+  const clearAllCart = async () => {
+    const result = await toast.confirm({
+      title: 'Xóa toàn bộ giỏ hàng?',
+      text: 'Bạn có chắc chắn muốn xóa tất cả sản phẩm khỏi giỏ hàng?',
+      icon: 'warning',
+      confirmButtonText: 'Xóa tất cả',
+      cancelButtonText: 'Hủy'
+    });
+
+    if (!result.isConfirmed) return;
+
+    setUpdating(-1); // Use -1 to indicate clearing all
+    try {
+      console.log(' Clearing cart...');
+      const success = await cartService.clearCart();
+      
+      if (success) {
+        // Re-fetch cart from server to ensure sync
+        console.log(' Re-fetching cart after clear...');
+        const updatedCart = await cartService.getCart();
+        setCart(updatedCart);
+        
+        toast.success('Đã xóa toàn bộ giỏ hàng');
+        // Trigger cart update event
+        window.dispatchEvent(new Event('cartUpdated'));
+      } else {
+        toast.error('Không thể xóa giỏ hàng');
+      }
+    } catch (error) {
+      console.error(' Failed to clear cart:', error);
+      toast.error('Đã xảy ra lỗi');
+    } finally {
+      setUpdating(null);
+    }
+  };
+
+  if (isCheckingAuth || loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-6 md:px-10 py-16 flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-16 w-16 border-4 border-primary border-t-transparent mb-4"></div>
+          <p className="text-slate-600">Đang tải giỏ hàng...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const cartItems = cart?.cartItems || [];
+  const { subtotal, shipping, tax, total } = cartService.calculateTotal(cart);
 
   return (
     <div className="max-w-7xl mx-auto px-6 md:px-10 py-16">
-      <h1 className="text-4xl font-display font-black text-primary mb-12">Giỏ Hàng</h1>
+      <div className="flex items-center justify-between mb-12">
+        <h1 className="text-4xl font-display font-black text-primary">Giỏ Hàng</h1>
+        {cartItems.length > 0 && (
+          <button
+            onClick={clearAllCart}
+            disabled={updating !== null}
+            className="text-red-500 font-bold text-sm hover:text-red-700 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+             Xóa tất cả
+          </button>
+        )}
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
         {/* Cart Items */}
@@ -61,44 +202,76 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
               </button>
             </div>
           ) : (
-            cartItems.map(item => (
-              <div key={item.id} className="bg-white p-6 rounded-2xl border border-gold/10 shadow-sm hover:shadow-lg transition-all">
-                <div className="flex gap-6">
-                  <div className="w-24 h-24 rounded-xl overflow-hidden flex-shrink-0">
-                    <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
-                  </div>
-                  <div className="flex-1 flex flex-col justify-between">
-                    <div>
-                      <h3 className="text-lg font-bold text-primary mb-2">{item.name}</h3>
-                      <p className="text-2xl font-black text-gold">{item.price.toLocaleString()}đ</p>
+            cartItems.map(item => {
+              const isUpdating = updating === item.cartItemId;
+              return (
+                <div key={item.cartItemId} className="bg-white p-6 rounded-2xl border border-gold/10 shadow-sm hover:shadow-lg transition-all">
+                  <div className="flex gap-6">
+                    <div className="w-24 h-24 rounded-xl overflow-hidden flex-shrink-0 bg-slate-100 flex items-center justify-center">
+                      {item.imageUrl ? (
+                        <img 
+                          src={item.imageUrl} 
+                          alt={item.packageName} 
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            e.currentTarget.parentElement!.innerHTML = '<div class="text-slate-400 text-xs text-center p-2">No Image</div>';
+                          }}
+                        />
+                      ) : (
+                        <div className="text-slate-400 text-xs text-center p-2">No Image</div>
+                      )}
                     </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3 bg-slate-100 rounded-lg p-2">
+                    <div className="flex-1 flex flex-col justify-between">
+                      <div>
+                        <h3 className="text-lg font-bold text-primary mb-1">{item.packageName}</h3>
+                        <p className="text-sm text-slate-500 mb-2">{item.variantName}</p>
+                        <p className="text-2xl font-black text-gold">{item.price.toLocaleString()}đ</p>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3 bg-slate-100 rounded-lg p-2">
+                          <button 
+                            onClick={() => updateQuantity(item.cartItemId, item.quantity - 1)}
+                            disabled={isUpdating}
+                            className="w-8 h-8 rounded bg-white text-primary font-bold hover:bg-primary hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            −
+                          </button>
+                          <input
+                            type="number"
+                            min="1"
+                            value={isUpdating ? '' : item.quantity}
+                            onChange={(e) => {
+                              const newValue = parseInt(e.target.value);
+                              if (!isNaN(newValue) && newValue > 0) {
+                                updateQuantity(item.cartItemId, newValue);
+                              }
+                            }}
+                            disabled={isUpdating}
+                            className="w-12 text-center font-bold text-primary bg-transparent border-none focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            placeholder={isUpdating ? '...' : ''}
+                          />
+                          <button 
+                            onClick={() => updateQuantity(item.cartItemId, item.quantity + 1)}
+                            disabled={isUpdating}
+                            className="w-8 h-8 rounded bg-white text-primary font-bold hover:bg-primary hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            +
+                          </button>
+                        </div>
                         <button 
-                          onClick={() => updateQuantity(item.id, item.quantity - 1)}
-                          className="w-8 h-8 rounded bg-white text-primary font-bold hover:bg-primary hover:text-white transition-all"
+                          onClick={() => removeItem(item.cartItemId)}
+                          disabled={isUpdating}
+                          className="text-red-500 font-bold text-sm hover:text-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          −
-                        </button>
-                        <span className="w-8 text-center font-bold text-primary">{item.quantity}</span>
-                        <button 
-                          onClick={() => updateQuantity(item.id, item.quantity + 1)}
-                          className="w-8 h-8 rounded bg-white text-primary font-bold hover:bg-primary hover:text-white transition-all"
-                        >
-                          +
+                          {isUpdating ? 'Đang xử lý...' : 'Xóa'}
                         </button>
                       </div>
-                      <button 
-                        onClick={() => removeItem(item.id)}
-                        className="text-red-500 font-bold text-sm hover:text-red-700 transition-all"
-                      >
-                        Xóa
-                      </button>
                     </div>
                   </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
 
@@ -129,7 +302,8 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
 
             <button 
               onClick={() => onNavigate('/checkout')}
-              className="w-full bg-primary text-white py-4 rounded-lg font-bold text-lg hover:bg-primary/90 transition-all mb-3"
+              disabled={updating !== null}
+              className="w-full bg-primary text-white py-4 rounded-lg font-bold text-lg hover:bg-primary/90 transition-all mb-3 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Thanh toán
             </button>
@@ -142,7 +316,7 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
             </button>
 
             <div className="mt-6 p-4 bg-gold/10 rounded-lg text-sm text-slate-600 space-y-2">
-              <p className="font-bold text-primary">ℹ️ Thông tin đơn hàng</p>
+              <p className="font-bold text-primary">Thông tin đơn hàng</p>
               <p>✓ Giao hàng trong 24 giờ</p>
               <p>✓ Miễn phí đổi trả trong 7 ngày</p>
               <p>✓ Hỗ trợ 24/7</p>

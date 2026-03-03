@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import toast from '../../services/toast';
 
 interface ProductManagementProps {
   onNavigate: (path: string) => void;
@@ -72,9 +73,9 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
       console.log('Add product:', newProduct);
       setNewProduct({ name: '', category: 'Đầy Tháng', price: '', stock: '', description: '' });
       setShowAddForm(false);
-      alert('Sản phẩm thêm thành công!');
+      toast.success('Sản phẩm thêm thành công!');
     } else {
-      alert('Vui lòng điền đầy đủ thông tin');
+      toast.warning('Vui lòng điền đầy đủ thông tin');
     }
   };
 
@@ -244,7 +245,18 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
                         <button
                           className="p-2 text-red-600 border-2 border-red-300 hover:bg-red-100 rounded-lg transition-colors"
                           title="Xóa"
-                          onClick={() => alert('Xóa sản phẩm: ' + product.name)}
+                          onClick={async () => {
+                            const result = await toast.confirm({
+                              title: 'Xóa sản phẩm?',
+                              text: `Bạn có chắc chắn muốn xóa "${product.name}"?`,
+                              icon: 'warning',
+                              confirmButtonText: 'Xóa',
+                              cancelButtonText: 'Hủy'
+                            });
+                            if (result.isConfirmed) {
+                              toast.success('Xóa sản phẩm thành công!');
+                            }
+                          }}
                         >
                           <span className="material-symbols-outlined">delete</span>
                         </button>

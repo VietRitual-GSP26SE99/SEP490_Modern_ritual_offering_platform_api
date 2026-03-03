@@ -1,7 +1,9 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { UserRole, AppRoute, getPath } from '../types';
-import { logoutAndRedirect } from '../services/auth';
+import { logoutAndRedirect, getCurrentUser } from '../services/auth';
+import { cartService } from '../services/cartService';
+import CartDropdown from './CartDropdown';
 
 interface NavItem {
   path?: string;
@@ -20,9 +22,63 @@ interface LayoutProps {
 
 const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, userRole = 'customer', onLogout, hideHeader = false }) => {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
+  const [cartCount, setCartCount] = useState<number>(0);
+  const [isCartDropdownOpen, setIsCartDropdownOpen] = useState<boolean>(false);
+  const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState<boolean>(false);
+  const [userName, setUserName] = useState<string>('');
+  const cartDropdownTimeout = useRef<NodeJS.Timeout | null>(null);
+  const accountDropdownTimeout = useRef<NodeJS.Timeout | null>(null);
   const isCustomer = userRole === 'customer' || userRole === 'guest';
   const isVendor = userRole === 'vendor';
   const isAdmin = userRole === 'admin';
+
+  // Fetch user info
+  useEffect(() => {
+    const user = getCurrentUser();
+    if (user) {
+      setUserName(user.name || user.email?.split('@')[0] || 'Người dùng');
+    }
+  }, [activeRoute]);
+
+  // Fetch cart count
+  useEffect(() => {
+    const fetchCartCount = async () => {
+      if (!isCustomer) return;
+      
+      const user = getCurrentUser();
+      if (!user) return;
+
+      try {
+        const cart = await cartService.getCart();
+        if (cart && cart.cartItems) {
+          const totalItems = cart.cartItems.reduce((sum, item) => sum + item.quantity, 0);
+          setCartCount(totalItems);
+        } else {
+          setCartCount(0);
+        }
+      } catch (error) {
+        console.error('❌ Failed to fetch cart count:', error);
+      }
+    };
+
+    fetchCartCount();
+
+    // Listen for cart update events
+    const handleCartUpdate = () => {
+      console.log('🔄 Cart updated, refreshing count...');
+      fetchCartCount();
+    };
+    
+    window.addEventListener('cartUpdated', handleCartUpdate);
+
+    // Refresh cart count every 30 seconds
+    const interval = setInterval(fetchCartCount, 30000);
+    
+    return () => {
+      window.removeEventListener('cartUpdated', handleCartUpdate);
+      clearInterval(interval);
+    };
+  }, [isCustomer, activeRoute]); // Re-fetch when route changes
 
   const getNavItems = (): NavItem[] => {
     if (isCustomer) {
@@ -120,23 +176,132 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
             <div className="hidden md:flex items-center gap-2 text-primary font-bold">
               <span className="text-sm">1900 8888</span>
             </div>
-            <button 
-                onClick={() => onNavigate('/profile')}
-                className="hidden md:flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-primary font-bold text-sm hover:border-primary transition-all"
-                title="Hồ sơ cá nhân"
-            >
-              <span className="hidden lg:inline">Tài khoản</span>
-            </button>
+            
+            {/* Account Dropdown */}
+            {userName && (
+              <div 
+                className="relative hidden md:block"
+                onMouseEnter={() => {
+                  if (accountDropdownTimeout.current) {
+                    clearTimeout(accountDropdownTimeout.current);
+                  }
+                  setIsAccountDropdownOpen(true);
+                }}
+                onMouseLeave={() => {
+                  accountDropdownTimeout.current = setTimeout(() => {
+                    setIsAccountDropdownOpen(false);
+                  }, 200);
+                }}
+              >
+                <button 
+                    onClick={() => onNavigate('/profile')}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-primary font-bold text-sm hover:border-primary transition-all"
+                    title="Hồ sơ cá nhân"
+                >
+                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                  </svg>
+                  <span className="hidden lg:inline max-w-[120px] truncate">{userName}</span>
+                </button>
+                
+                {/* Dropdown Menu */}
+                {isAccountDropdownOpen && (
+                  <div 
+                    className="absolute top-full right-0 mt-0 w-48 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden animate-slideDown"
+                    onMouseEnter={() => {
+                      if (accountDropdownTimeout.current) {
+                        clearTimeout(accountDropdownTimeout.current);
+                      }
+                    }}
+                  >
+                    <button
+                      onClick={() => {
+                        onNavigate('/profile');
+                        setIsAccountDropdownOpen(false);
+                      }}
+                      className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-3"
+                    >
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+                      </svg>
+                      Hồ sơ cá nhân
+                    </button>
+                    {isCustomer && (
+                      <button
+                        onClick={() => {
+                          onNavigate('/tracking');
+                          setIsAccountDropdownOpen(false);
+                        }}
+                        className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-3"
+                      >
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>
+                        </svg>
+                        Theo dõi đơn hàng
+                      </button>
+                    )}
+                    {onLogout && (
+                      <button
+                        onClick={() => {
+                          logoutAndRedirect();
+                          setIsAccountDropdownOpen(false);
+                        }}
+                        className="w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-3 border-t border-gray-100"
+                      >
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z"/>
+                        </svg>
+                        Đăng xuất
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
             {isCustomer && (
               <>
-                <button 
-                    onClick={() => onNavigate('/cart')}
-                    className="relative hidden md:flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-primary font-bold text-sm hover:border-primary transition-all"
-                    title="Giỏ hàng"
+                {/* Cart with Dropdown */}
+                <div 
+                  className="relative hidden md:block"
+                  onMouseEnter={() => {
+                    if (cartDropdownTimeout.current) {
+                      clearTimeout(cartDropdownTimeout.current);
+                    }
+                    setIsCartDropdownOpen(true);
+                  }}
+                  onMouseLeave={() => {
+                    cartDropdownTimeout.current = setTimeout(() => {
+                      setIsCartDropdownOpen(false);
+                    }, 200);
+                  }}
                 >
-                  <span className="hidden lg:inline">Giỏ hàng</span>
-                  <span className="absolute -top-2 -right-2 bg-primary text-white text-[10px] font-black rounded-full w-5 h-5 flex items-center justify-center">2</span>
-                </button>
+                  <button 
+                      onClick={() => onNavigate('/cart')}
+                      className="relative flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-primary font-bold text-sm hover:border-primary transition-all"
+                      title="Giỏ hàng"
+                  >
+                    <svg 
+                      className="w-5 h-5" 
+                      viewBox="0 0 24 24" 
+                      fill="currentColor"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/>
+                    </svg>
+                    {cartCount > 0 && (
+                      <span className="absolute -top-2 -right-2 bg-primary text-white text-[10px] font-black rounded-full w-5 h-5 flex items-center justify-center">
+                        {cartCount > 99 ? '99+' : cartCount}
+                      </span>
+                    )}
+                  </button>
+                  <CartDropdown 
+                    isOpen={isCartDropdownOpen}
+                    onClose={() => setIsCartDropdownOpen(false)}
+                    onNavigateToCart={() => onNavigate('/cart')}
+                    onNavigateToShop={() => onNavigate('/shop')}
+                  />
+                </div>
+                {/* Call to Action Button */}
                 <button 
                     onClick={() => onNavigate('/shop')}
                     className="border-2 border-primary text-primary hover:bg-primary/5 rounded-lg px-6 py-2 text-sm font-bold transition-all"
@@ -161,19 +326,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                 Quản lý
               </button>
             )}
-            {onLogout && (
-              <button 
-                  onClick={() => {
-                    console.log('🚪 Logging out...');
-                    logoutAndRedirect();
-                  }}
-                  className="hidden md:flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-primary text-primary font-bold text-sm hover:bg-primary/5 transition-all"
-                  title="Đăng xuất"
-              >
-                <span className="hidden lg:inline">Đăng xuất</span>
-              </button>
-            )}
-            {!onLogout && !isCustomer && !isVendor && !isAdmin && (
+            {!onLogout && !userName && (
               <button 
                   onClick={() => onNavigate('/auth')}
                   className="hidden md:flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-primary text-primary font-bold text-sm hover:bg-primary/5 transition-all"

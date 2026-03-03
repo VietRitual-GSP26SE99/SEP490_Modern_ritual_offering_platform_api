@@ -5,6 +5,9 @@ import { MOCK_PRODUCTS } from '../../constants';
 import ImageModal from '../../components/ImageModal';
 import { packageService } from '../../services/packageService';
 import { Product } from '../../types';
+import toast from '../../services/toast';
+import { cartService } from '../../services/cartService';
+import { getCurrentUser } from '../../services/auth';
 
 const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate }) => {
   const { id } = useParams<{ id: string }>();
@@ -19,6 +22,8 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
   const [userRating, setUserRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
+  const [quantity, setQuantity] = useState(1);
+  const [addingToCart, setAddingToCart] = useState(false);
 
   // Fetch product from API
   useEffect(() => {
@@ -124,11 +129,54 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
 
   const handleSubmitReview = () => {
     if (userRating > 0 && reviewText.trim()) {
-      alert('Cảm ơn bạn đã đánh giá!');
+      toast.success('Cảm ơn bạn đã đánh giá!');
       setUserRating(0);
       setReviewText('');
     } else {
-      alert('Vui lòng chọn số sao và viết đánh giá');
+      toast.warning('Vui lòng chọn số sao và viết đánh giá');
+    }
+  };
+
+  const handleAddToCart = async () => {
+    // Check authentication
+    const user = getCurrentUser();
+    if (!user) {
+      toast.warning('Vui lòng đăng nhập để thêm vào giỏ hàng');
+      navigate(`/auth?redirect=/product/${id}`);
+      return;
+    }
+
+    // Get selected variant
+    const selectedVariant = product?.variants?.[selectedVariantIndex];
+    if (!selectedVariant || !selectedVariant.variantId) {
+      toast.error('Vui lòng chọn gói lễ');
+      return;
+    }
+
+    setAddingToCart(true);
+    try {
+      console.log('🛒 Adding to cart:', {
+        variantId: selectedVariant.variantId,
+        quantity
+      });
+
+      const success = await cartService.addToCart({
+        variantId: selectedVariant.variantId,
+        quantity
+      });
+
+      if (success) {
+        toast.success('Đã thêm vào giỏ hàng!');
+        // Trigger cart update event
+        window.dispatchEvent(new Event('cartUpdated'));
+      } else {
+        toast.error('Không thể thêm vào giỏ hàng. Vui lòng thử lại.');
+      }
+    } catch (error) {
+      console.error('❌ Error adding to cart:', error);
+      toast.error('Đã xảy ra lỗi. Vui lòng thử lại.');
+    } finally {
+      setAddingToCart(false);
     }
   };
 
@@ -263,11 +311,38 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                     </div>
                 </div>
 
+                {/* Quantity Selector */}
+                <div className="pt-6 border-t border-gold/10">
+                    <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-4">Số lượng</label>
+                    <div className="flex items-center gap-3">
+                        <button 
+                          onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                          className="w-12 h-12 rounded-xl border-2 border-slate-200 text-primary font-bold hover:bg-primary hover:text-white hover:border-primary transition-all"
+                        >
+                          −
+                        </button>
+                        <input 
+                          type="number" 
+                          min="1" 
+                          value={quantity} 
+                          onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                          className="w-20 h-12 text-center text-lg font-bold border-2 border-slate-200 rounded-xl focus:border-primary focus:outline-none"
+                        />
+                        <button 
+                          onClick={() => setQuantity(quantity + 1)}
+                          className="w-12 h-12 rounded-xl border-2 border-slate-200 text-primary font-bold hover:bg-primary hover:text-white hover:border-primary transition-all"
+                        >
+                          +
+                        </button>
+                    </div>
+                </div>
+
                 <button 
-                  onClick={() => onNavigate('/cart')}
-                  className="w-full border-3 border-primary text-primary py-4 rounded-lg font-bold uppercase tracking-widest hover:bg-primary hover:text-white transition-all mb-3"
+                  onClick={handleAddToCart}
+                  disabled={addingToCart}
+                  className="w-full border-3 border-primary text-primary py-4 rounded-lg font-bold uppercase tracking-widest hover:bg-primary hover:text-white transition-all mb-3 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                     Thêm vào giỏ
+                  {addingToCart ? ' Đang thêm...' : ' Thêm vào giỏ'}
                 </button>
                 <button 
                   onClick={() => onNavigate('/checkout')}
@@ -335,7 +410,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                     </div>
                     <p className="text-sm text-slate-600 mb-3">{review.comment}</p>
                     <button className="text-xs text-slate-500 hover:text-primary font-semibold flex items-center gap-1">
-                      <span>👍</span> Hữu ích ({review.helpful})
+                      <span></span> Hữu ích ({review.helpful})
                     </button>
                   </div>
                 </div>

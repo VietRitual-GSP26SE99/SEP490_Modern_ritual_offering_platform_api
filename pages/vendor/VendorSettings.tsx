@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import toast from '../../services/toast';
 
 interface VendorSettingsProps {
   onNavigate: (path: string) => void;
@@ -28,7 +29,7 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
 
   const handleSave = () => {
     console.log('Saved:', shopInfo, bankInfo);
-    alert('Cập nhật thông tin thành công!');
+    toast.success('Cập nhật thông tin thành công!');
     setIsEditing(false);
   };
 

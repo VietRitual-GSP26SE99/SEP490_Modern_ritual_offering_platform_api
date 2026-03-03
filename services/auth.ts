@@ -60,8 +60,8 @@ function decodeJWT(token: string): any {
  */
 export async function login(credentials: LoginRequest): Promise<LoginResponse> {
   try {
-    console.log('🔐 Calling login API...');
-    console.log('📤 Request payload:', credentials);
+    console.log(' Calling login API...');
+    console.log(' Request payload:', credentials);
 
     const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
       method: 'POST',
@@ -72,11 +72,11 @@ export async function login(credentials: LoginRequest): Promise<LoginResponse> {
       body: JSON.stringify(credentials),
     });
 
-    console.log('📡 Response status:', response.status);
+    console.log(' Response status:', response.status);
 
     // Đọc response text trước để debug
     const responseText = await response.text();
-    console.log('📥 Response text:', responseText);
+    console.log(' Response text:', responseText);
 
     if (!response.ok) {
       let errorMessage = `HTTP error! status: ${response.status}`;
@@ -95,12 +95,12 @@ export async function login(credentials: LoginRequest): Promise<LoginResponse> {
     }
 
     const data: ApiResponse<LoginApiResponse> = JSON.parse(responseText);
-    console.log('✅ Login API Response:', data);
+    console.log(' Login API Response:', data);
 
     if (data.isSuccess && data.result) {
       // Decode JWT to get user info
       const decodedToken = decodeJWT(data.result.token);
-      console.log('🔓 Decoded JWT:', decodedToken);
+      console.log(' Decoded JWT:', decodedToken);
 
       // Get role from JWT and normalize to lowercase
       const role = (
@@ -118,14 +118,14 @@ export async function login(credentials: LoginRequest): Promise<LoginResponse> {
         name: decodedToken.name || decodedToken.given_name || decodedToken.email || credentials.usernameOrEmail,
       };
 
-      console.log('📦 Login Response (normalized):', loginResponse);
+      console.log(' Login Response (normalized):', loginResponse);
       return loginResponse;
     } else {
-      console.error('❌ Login failed:', data.errorMessages);
+      console.error(' Login failed:', data.errorMessages);
       throw new Error(data.errorMessages.join(', ') || 'Đăng nhập thất bại');
     }
   } catch (error) {
-    console.error('❌ Login error:', error);
+    console.error(' Login error:', error);
     throw error;
   }
 }
