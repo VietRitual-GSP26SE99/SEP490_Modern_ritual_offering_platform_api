@@ -1,7 +1,8 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import Layout from './components/Layout';
+import { getCurrentUser, isAuthenticated as checkAuth } from './services/auth';
 
 
 // Customer Pages
@@ -102,6 +103,34 @@ const AppContent: React.FC<{
 const App: React.FC = () => {
   const [userRole, setUserRole] = useState<UserRole>('guest');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
+
+  // Restore authentication state from localStorage on mount
+  useEffect(() => {
+    console.log('🔄 Checking authentication state on app mount...');
+    
+    // Check if user is authenticated
+    const authenticated = checkAuth();
+    
+    if (authenticated) {
+      // Get user data from localStorage
+      const currentUser = getCurrentUser();
+      
+      if (currentUser && currentUser.role) {
+        console.log('✅ User found in localStorage:', currentUser);
+        setUserRole(currentUser.role as UserRole);
+        setIsAuthenticated(true);
+        console.log('✅ Authentication state restored');
+      } else {
+        console.log('⚠️ Token found but no user data');
+      }
+    } else {
+      console.log('ℹ️ No authentication token found');
+    }
+    
+    // Mark auth check as complete
+    setIsAuthChecking(false);
+  }, []);
 
   const handleLogout = () => {
     setUserRole('guest');
@@ -112,6 +141,18 @@ const App: React.FC = () => {
     setUserRole(role);
     setIsAuthenticated(true);
   };
+
+  // Show loading screen while checking authentication
+  if (isAuthChecking) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent mb-4"></div>
+          <p className="text-slate-500 font-semibold">Đang kiểm tra đăng nhập...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <BrowserRouter>

@@ -276,6 +276,73 @@ export interface CurrentUser {
   role: string;
 }
 
+// ==================== PROFILE ====================
+
+export interface UserProfile {
+  profileId: string;
+  userId: string;
+  fullName: string;
+  phoneNumber: string;
+  avatarUrl: string | null;
+  gender: string;
+  dateOfBirth: string;
+  addressText: string;
+  latitude: number;
+  longitude: number;
+  isVendor: boolean;
+  shopName: string | null;
+  businessLicenseNo: string | null;
+  verificationStatus: string | null;
+  ratingAvg: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
+ * Fetch user profile from backend
+ * GET /api/profile
+ */
+export async function getProfile(): Promise<UserProfile> {
+  console.log('📱 Fetching user profile...');
+  
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('No authentication token found');
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/profile`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'accept': '*/*'
+      }
+    });
+
+    console.log('📱 Profile response status:', response.status);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch profile: ${response.status}`);
+    }
+
+    const data: ApiResponse<UserProfile> = await response.json();
+    console.log('📱 Profile API response:', data);
+
+    if (!data.isSuccess) {
+      throw new Error(data.errorMessages?.join(', ') || 'Failed to fetch profile');
+    }
+
+    console.log('✅ Profile fetched successfully:', data.result);
+    return data.result;
+  } catch (error) {
+    console.error('❌ Error fetching profile:', error);
+    throw error;
+  }
+}
+
+// ==================== HELPER FUNCTIONS ====================
+
 /**
  * Get current logged-in user from localStorage
  */
