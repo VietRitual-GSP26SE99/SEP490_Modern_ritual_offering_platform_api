@@ -1,6 +1,7 @@
 
 import React, { useState } from 'react';
 import { UserRole, AppRoute, getPath } from '../types';
+import { logoutAndRedirect } from '../services/auth';
 
 interface NavItem {
   path?: string;
@@ -159,7 +160,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
             )}
             {onLogout && (
               <button 
-                  onClick={onLogout}
+                  onClick={() => {
+                    console.log('🚪 Logging out...');
+                    logoutAndRedirect();
+                  }}
                   className="hidden md:flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-primary text-primary font-bold text-sm hover:bg-primary/5 transition-all"
                   title="Đăng xuất"
               >

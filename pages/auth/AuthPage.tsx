@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { UserRole } from '../../types';
+import { login, register, LoginRequest, RegisterRequest } from '../../services/auth';
 
 interface AuthPageProps {
   onNavigate: (path: string) => void;
@@ -74,13 +75,46 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isLogin) {
       // Handle login
-      console.log('Login:', { email: formData.email, password: formData.password });
-      if (onLogin) {
-        onLogin(formData.userType);
+      try {
+        const credentials: LoginRequest = {
+          username: formData.email,
+          password: formData.password,
+        };
+
+        console.log('🔐 Logging in with:', credentials);
+        const response = await login(credentials);
+        console.log('✅ Login successful:', response);
+
+        // Prepare user data to save
+        const userData = {
+          id: response.userId,
+          name: response.name,
+          email: response.email,
+          role: response.role
+        };
+
+        // Lưu token và user info vào localStorage
+        localStorage.setItem('smart-child-token', response.token);
+        localStorage.setItem('smart-child-user', JSON.stringify(userData));
+        
+        console.log('💾 Saved to localStorage:', {
+          token: response.token.substring(0, 20) + '...',
+          user: userData
+        });
+
+        // Thông báo thành công
+        alert('Đăng nhập thành công!');
+
+        if (onLogin) {
+          onLogin(response.role as UserRole);
+        }
+      } catch (error) {
+        console.error('❌ Login failed:', error);
+        alert('Đăng nhập thất bại: ' + (error instanceof Error ? error.message : 'Lỗi không xác định'));
       }
     } else {
       // Handle registration
@@ -92,10 +126,25 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
         alert('Vui lòng đồng ý với điều khoản sử dụng');
         return;
       }
-      console.log('Register:', formData);
-      // Đăng ký với role mặc định là customer, admin sẽ phân quyền sau
-      if (onLogin) {
-        onLogin('customer');
+
+      try {
+        const registerData: RegisterRequest = {
+          username: formData.name,
+          email: formData.email,
+          password: formData.password,
+        };
+
+        console.log('📝 Registering:', registerData);
+        const response = await register(registerData);
+        console.log('✅ Registration successful:', response);
+
+        alert('Đăng ký thành công! Vui lòng kiểm tra email để xác nhận tài khoản.');
+
+        // Chuyển về form đăng nhập
+        setIsLogin(true);
+      } catch (error) {
+        console.error('❌ Registration failed:', error);
+        alert('Đăng ký thất bại: ' + (error instanceof Error ? error.message : 'Lỗi không xác định'));
       }
     }
   };
