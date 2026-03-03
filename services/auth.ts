@@ -14,7 +14,7 @@ export interface ApiResponse<T> {
 // ==================== LOGIN ====================
 
 export interface LoginRequest {
-  username: string;
+  usernameOrEmail: string;
   password: string;
 }
 
@@ -113,9 +113,9 @@ export async function login(credentials: LoginRequest): Promise<LoginResponse> {
         token: data.result.token,
         refreshToken: data.result.refreshToken,
         userId: decodedToken.sub || decodedToken.userId || '',
-        email: decodedToken.email || credentials.username,
+        email: decodedToken.email || credentials.usernameOrEmail,
         role: role,
-        name: decodedToken.name || decodedToken.given_name || decodedToken.email || credentials.username,
+        name: decodedToken.name || decodedToken.given_name || decodedToken.email || credentials.usernameOrEmail,
       };
 
       console.log('📦 Login Response (normalized):', loginResponse);
@@ -138,10 +138,11 @@ export interface RegisterRequest {
   password: string;
 }
 
+// Backend trả về string message, không phải object
 export interface RegisterResponse {
-  userId: string;
-  email: string;
-  username: string;
+  userId?: string;
+  email?: string;
+  username?: string;
   message?: string;
 }
 
@@ -152,6 +153,8 @@ export interface RegisterResponse {
 export async function register(data: RegisterRequest): Promise<RegisterResponse> {
   try {
     console.log('📝 Calling register API...');
+    console.log('🌐 API_BASE_URL:', API_BASE_URL);
+    console.log('🔗 Full URL:', `${API_BASE_URL}/api/auth/register`);
     console.log('📤 Request data:', data);
 
     const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
@@ -183,11 +186,25 @@ export async function register(data: RegisterRequest): Promise<RegisterResponse>
       throw new Error(errorMessage);
     }
 
-    const responseData: ApiResponse<RegisterResponse> = JSON.parse(responseText);
+    const responseData: ApiResponse<RegisterResponse | string> = JSON.parse(responseText);
     console.log('✅ Register API Response:', responseData);
 
-    if (responseData.isSuccess && responseData.result) {
-      return responseData.result;
+    if (responseData.isSuccess) {
+      // Backend might return string message or object
+      if (typeof responseData.result === 'string') {
+        // Result is just a message string
+        return {
+          message: responseData.result,
+          userId: '',
+          email: data.email,
+          username: data.username
+        };
+      } else if (responseData.result) {
+        // Result is RegisterResponse object
+        return responseData.result;
+      } else {
+        throw new Error('No result in response');
+      }
     } else {
       console.error('❌ Register failed:', responseData.errorMessages);
       throw new Error(responseData.errorMessages.join(', ') || 'Đăng ký thất bại');
@@ -217,29 +234,88 @@ export interface ConfirmEmailResponse {
 export async function confirmEmail(data: ConfirmEmailRequest): Promise<ConfirmEmailResponse> {
   try {
     console.log('✉️ Calling confirm-email API...');
+    console.log('📤 Request data:', { email: data.email, token: data.token.substring(0, 20) + '...' });
+    
     const response = await fetch(`${API_BASE_URL}/api/auth/confirm-email`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Accept: 'text/plain',
+        Accept: '*/*',
       },
       body: JSON.stringify(data),
     });
 
     console.log('📡 Response status:', response.status);
 
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+    // Read response text first for debugging
+    const responseText = await response.text();
+    console.log('📥 Response text:', responseText);
+
+    // Special case: 409 = Email already confirmed (treat as success)
+    if (response.status === 409) {
+      try {
+        const errorData = JSON.parse(responseText);
+        if (errorData.errorMessages && errorData.errorMessages.length > 0) {
+          const message = errorData.errorMessages[0];
+          if (message.includes('đã được xác nhận') || message.includes('already confirmed')) {
+            console.log('✅ Email already verified, treating as success');
+            return {
+              success: true,
+              message: 'Email đã được xác nhận trước đó. Bạn có thể đăng nhập ngay.'
+            };
+          }
+        }
+      } catch (e) {
+        // Continue to error handling below
+      }
     }
 
-    const responseData: ApiResponse<ConfirmEmailResponse> = await response.json();
+    if (!response.ok) {
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      try {
+        const errorData = JSON.parse(responseText);
+        if (errorData.errorMessages && errorData.errorMessages.length > 0) {
+          const message = errorData.errorMessages[0];
+          
+          // Special case: Concurrency failure = email was just verified (treat as success)
+          if (message.includes('Optimistic concurrency failure') || 
+              message.includes('object has been modified')) {
+            console.log('✅ Concurrency error detected - email was already verified, treating as success');
+            return {
+              success: true,
+              message: 'Email đã được xác nhận thành công! Bạn có thể đăng nhập ngay.'
+            };
+          }
+          
+          errorMessage = errorData.errorMessages.join(', ');
+        }
+      } catch (e) {
+        errorMessage = responseText || errorMessage;
+      }
+      throw new Error(errorMessage);
+    }
+
+    const responseData: ApiResponse<ConfirmEmailResponse | string> = JSON.parse(responseText);
     console.log('✅ Confirm Email API Response:', responseData);
 
-    if (responseData.isSuccess && responseData.result) {
-      return responseData.result;
+    if (responseData.isSuccess) {
+      // Backend might return string message or object
+      if (typeof responseData.result === 'string') {
+        return {
+          success: true,
+          message: responseData.result
+        };
+      } else if (responseData.result) {
+        return responseData.result;
+      } else {
+        return {
+          success: true,
+          message: 'Email đã được xác nhận thành công'
+        };
+      }
     } else {
       console.error('❌ Confirm email failed:', responseData.errorMessages);
-      throw new Error(responseData.errorMessages.join(', ') || 'Xác nhận email thất bại');
+      throw new Error(responseData.errorMessages?.join(', ') || 'Xác nhận email thất bại');
     }
   } catch (error) {
     console.error('❌ Confirm email error:', error);
@@ -248,6 +324,49 @@ export async function confirmEmail(data: ConfirmEmailRequest): Promise<ConfirmEm
 }
 
 // ==================== LOGOUT ====================
+
+/**
+ * Logout API call - Send logout request to server
+ */
+export async function logoutApi(): Promise<void> {
+  try {
+    console.log('🔄 Calling Logout API...');
+    
+    const token = getAuthToken();
+    if (!token) {
+      console.warn('⚠️ No token found, skipping API logout');
+      return;
+    }
+
+    // Get refresh token from localStorage
+    const refreshToken = localStorage.getItem('smart-child-refresh-token');
+    if (!refreshToken) {
+      console.warn('⚠️ No refresh token found, proceeding with logout');
+    }
+
+    const response = await fetch('/api/auth/logout', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        refreshToken: refreshToken || ''
+      })
+    });
+
+    console.log('📡 Logout API status:', response.status);
+    
+    if (!response.ok) {
+      console.warn('⚠️ Logout API failed, but proceeding with local logout');
+    } else {
+      console.log('✅ Logout API successful');
+    }
+  } catch (error) {
+    console.error('❌ Logout API Error:', error);
+    console.warn('⚠️ API logout failed, but proceeding with local logout');
+  }
+}
 
 /**
  * Logout - Clear ALL local storage data
@@ -259,7 +378,24 @@ export function logout(): void {
 }
 
 /**
- * Logout và redirect về trang login
+ * Complete logout - API call + clear storage + redirect
+ */
+export async function logoutComplete(): Promise<void> {
+  try {
+    // Try API logout first
+    await logoutApi();
+  } catch (error) {
+    console.warn('API logout failed, continuing with local logout');
+  } finally {
+    // Always clear local storage regardless of API result
+    logout();
+    // Reload page để về trang login
+    window.location.href = '/';
+  }
+}
+
+/**
+ * Logout và redirect về trang login (legacy - kept for compatibility)
  */
 export function logoutAndRedirect(): void {
   logout();
@@ -321,6 +457,31 @@ export async function getProfile(): Promise<UserProfile> {
     });
 
     console.log('📱 Profile response status:', response.status);
+
+    // If 404, profile doesn't exist yet - return empty profile
+    if (response.status === 404) {
+      console.log('⚠️ Profile not found (404) - returning empty profile for first-time setup');
+      const currentUser = getCurrentUser();
+      return {
+        profileId: '',
+        userId: currentUser?.id || '',
+        fullName: '',
+        phoneNumber: '',
+        avatarUrl: null,
+        gender: '',
+        dateOfBirth: '',
+        addressText: '',
+        latitude: 0,
+        longitude: 0,
+        isVendor: false,
+        shopName: null,
+        businessLicenseNo: null,
+        verificationStatus: null,
+        ratingAvg: 0,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+    }
 
     if (!response.ok) {
       throw new Error(`Failed to fetch profile: ${response.status}`);
@@ -452,3 +613,195 @@ export function getAuthToken(): string | null {
 export function isAuthenticated(): boolean {
   return !!getAuthToken();
 }
+
+// ==================== FORGOT PASSWORD ====================
+
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ForgotPasswordResponse {
+  message: string;
+}
+
+/**
+ * Forgot Password API
+ * POST /api/auth/forget-password
+ */
+export async function forgotPassword(email: string): Promise<ForgotPasswordResponse> {
+  try {
+    console.log('📧 Calling forgot password API...');
+    console.log('🔗 Full URL:', `${API_BASE_URL}/api/auth/forget-password`);
+    console.log('📤 Request data:', { email });
+
+    const response = await fetch(`${API_BASE_URL}/api/auth/forget-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({ email }),
+    });
+
+    console.log('📡 Response status:', response.status);
+
+    const responseText = await response.text();
+    console.log('📥 Response text:', responseText);
+
+    if (!response.ok) {
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      try {
+        const errorData = JSON.parse(responseText);
+        if (errorData.errorMessages && errorData.errorMessages.length > 0) {
+          errorMessage = errorData.errorMessages.join(', ');
+        }
+      } catch (e) {
+        errorMessage = responseText || errorMessage;
+      }
+      throw new Error(errorMessage);
+    }
+
+    const responseData: ApiResponse<any> = JSON.parse(responseText);
+    console.log('✅ Forgot Password API Response:', responseData);
+
+    if (responseData.isSuccess) {
+      const resultMessage = typeof responseData.result === 'string' 
+        ? responseData.result 
+        : responseData.result?.message || 'Email đặt lại mật khẩu đã được gửi đến địa chỉ email của bạn.';
+      
+      return {
+        message: resultMessage,
+      };
+    } else {
+      const errorMsg = responseData.errorMessages?.join(', ') || 'Không thể gửi email đặt lại mật khẩu.';
+      throw new Error(errorMsg);
+    }
+  } catch (error) {
+    console.error('❌ Forgot Password API Error:', error);
+    throw error;
+  }
+}
+
+// ==================== RESET PASSWORD ====================
+
+export interface ResetPasswordRequest {
+  email: string;
+  token: string;
+  newPassword: string;
+}
+
+export interface ResetPasswordResponse {
+  message: string;
+}
+
+/**
+ * Reset Password API
+ * POST /api/auth/reset-password
+ */
+export async function resetPassword(data: ResetPasswordRequest): Promise<ResetPasswordResponse> {
+  try {
+    console.log('🔑 Calling reset password API...');
+    console.log('🔗 Full URL:', `${API_BASE_URL}/api/auth/reset-password`);
+    console.log('📤 Request data:', { email: data.email, token: data.token });
+
+    const response = await fetch(`${API_BASE_URL}/api/auth/reset-password`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify(data),
+    });
+
+    console.log('📡 Response status:', response.status);
+
+    const responseText = await response.text();
+    console.log('📥 Response text:', responseText);
+
+    if (!response.ok) {
+      let errorMessage = `HTTP error! status: ${response.status}`;
+      try {
+        const errorData = JSON.parse(responseText);
+        if (errorData.errorMessages && errorData.errorMessages.length > 0) {
+          errorMessage = errorData.errorMessages.join(', ');
+        }
+      } catch (e) {
+        errorMessage = responseText || errorMessage;
+      }
+      throw new Error(errorMessage);
+    }
+
+    const responseData: ApiResponse<any> = JSON.parse(responseText);
+    console.log('✅ Reset Password API Response:', responseData);
+
+    if (responseData.isSuccess) {
+      const resultMessage = typeof responseData.result === 'string' 
+        ? responseData.result 
+        : responseData.result?.message || 'Mật khẩu đã được đặt lại thành công.';
+      
+      return {
+        message: resultMessage,
+      };
+    } else {
+      const errorMsg = responseData.errorMessages?.join(', ') || 'Không thể đặt lại mật khẩu.';
+      throw new Error(errorMsg);
+    }
+  } catch (error) {
+    console.error('❌ Reset Password API Error:', error);
+    throw error;
+  }
+}
+
+// Change Password (for logged-in users)
+export interface ChangePasswordRequest {
+  oldPassword: string;
+  newPassword: string;
+}
+
+export async function changePassword(data: ChangePasswordRequest): Promise<{ message: string }> {
+  try {
+    console.log('🔄 Calling Change Password API...');
+    console.log('📤 Request:', { oldPassword: '***', newPassword: '***' });
+    
+    const token = getAuthToken();
+    if (!token) {
+      throw new Error('Vui lòng đăng nhập để đổi mật khẩu');
+    }
+
+    const response = await fetch('/api/auth/change-password', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({
+        oldPassword: data.oldPassword,
+        newPassword: data.newPassword
+      })
+    });
+
+    console.log('📡 Response status:', response.status);
+    
+    const responseText = await response.text();
+    console.log('📥 Response text:', responseText);
+    
+    const responseData: ApiResponse<any> = JSON.parse(responseText);
+
+    if (responseData.isSuccess) {
+      const resultMessage = typeof responseData.result === 'string'
+        ? responseData.result
+        : responseData.result?.message || 'Mật khẩu đã được thay đổi thành công!';
+      
+      console.log('✅ Change Password successful');
+      return { message: resultMessage };
+    } else {
+      const errorMessage = responseData.errorMessages?.join(', ') || 'Đổi mật khẩu không thành công';
+      console.error('❌ Change Password failed:', errorMessage);
+      throw new Error(errorMessage);
+    }
+  } catch (error: any) {
+    console.error('❌ Change Password API Error:', error);
+    throw error;
+  }
+}
+

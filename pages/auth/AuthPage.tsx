@@ -4,11 +4,12 @@ import { login, register, LoginRequest, RegisterRequest } from '../../services/a
 
 interface AuthPageProps {
   onNavigate: (path: string) => void;
-  onLogin?: (role: UserRole) => void;
+  onLogin?: (role: UserRole, firstTimeLogin?: boolean) => void;
 }
 
 const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
   const [isLogin, setIsLogin] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     email: '',
     password: '',
@@ -22,6 +23,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
     const checked = (e.target as HTMLInputElement).checked;
+    // Clear error when user starts typing
+    if (error) setError(null);
     setFormData(prev => ({
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
@@ -80,8 +83,9 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
     if (isLogin) {
       // Handle login
       try {
+        setError(null);
         const credentials: LoginRequest = {
-          username: formData.email,
+          usernameOrEmail: formData.email,
           password: formData.password,
         };
 
@@ -99,12 +103,49 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
 
         // Lưu token và user info vào localStorage
         localStorage.setItem('smart-child-token', response.token);
+        localStorage.setItem('smart-child-refresh-token', response.refreshToken);
         localStorage.setItem('smart-child-user', JSON.stringify(userData));
         
         console.log('💾 Saved to localStorage:', {
           token: response.token.substring(0, 20) + '...',
+          refreshToken: response.refreshToken.substring(0, 20) + '...',
           user: userData
         });
+
+        // Check if profile is complete (for first-time login)
+        try {
+          console.log('🔍 Checking if profile is complete...');
+          const { getProfile } = await import('../../services/auth');
+          const profile = await getProfile();
+          
+          // Check if required fields are filled
+          const isProfileIncomplete = !profile.fullName || 
+                                      !profile.phoneNumber || 
+                                      !profile.dateOfBirth || 
+                                      !profile.addressText;
+          
+          console.log('📋 Profile status:', {
+            fullName: profile.fullName,
+            phoneNumber: profile.phoneNumber,
+            dateOfBirth: profile.dateOfBirth,
+            addressText: profile.addressText,
+            isIncomplete: isProfileIncomplete
+          });
+
+          if (isProfileIncomplete) {
+            // First-time login - redirect to profile page
+            console.log('⚠️ Profile incomplete - redirecting to profile setup');
+            alert('Chào mừng bạn đến với Modern Ritual!\n\nĐể tiếp tục, vui lòng hoàn thành thông tin cá nhân của bạn.');
+            
+            if (onLogin) {
+              onLogin(response.role as UserRole, true); // Pass true for first-time login
+            }
+            return;
+          }
+        } catch (profileError) {
+          console.error('⚠️ Could not check profile completeness:', profileError);
+          // Continue with normal login flow if profile check fails
+        }
 
         // Thông báo thành công
         alert('Đăng nhập thành công!');
@@ -114,20 +155,22 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
         }
       } catch (error) {
         console.error('❌ Login failed:', error);
-        alert('Đăng nhập thất bại: ' + (error instanceof Error ? error.message : 'Lỗi không xác định'));
+        const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
+        setError(errorMessage);
       }
     } else {
       // Handle registration
       if (formData.password !== formData.confirmPassword) {
-        alert('Mật khẩu không khớp');
+        setError('Mật khẩu không khớp');
         return;
       }
       if (!formData.agreeTerms) {
-        alert('Vui lòng đồng ý với điều khoản sử dụng');
+        setError('Vui lòng đồng ý với điều khoản sử dụng');
         return;
       }
 
       try {
+        setError(null);
         const registerData: RegisterRequest = {
           username: formData.name,
           email: formData.email,
@@ -138,13 +181,17 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
         const response = await register(registerData);
         console.log('✅ Registration successful:', response);
 
-        alert('Đăng ký thành công! Vui lòng kiểm tra email để xác nhận tài khoản.');
+        // Show success message with better instructions
+        const successMessage = `✅ Đăng ký thành công!\n\n📧 Chúng tôi đã gửi email xác nhận đến:\n${formData.email}\n\nVui lòng kiểm tra hộp thư (và cả thư mục Spam) để xác nhận tài khoản.\n\n⏱️ Link xác nhận sẽ hết hạn sau 24 giờ.`;
+        alert(successMessage);
 
         // Chuyển về form đăng nhập
         setIsLogin(true);
+        setError(null);
       } catch (error) {
         console.error('❌ Registration failed:', error);
-        alert('Đăng ký thất bại: ' + (error instanceof Error ? error.message : 'Lỗi không xác định'));
+        const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
+        setError(errorMessage);
       }
     }
   };
@@ -188,6 +235,19 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
 
             {/* Registration Form */}
             <form onSubmit={handleSubmit} className="space-y-5">
+              {/* Error Display */}
+              {error && (
+                <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 flex items-start gap-3 animate-shake">
+                  <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                  </svg>
+                  <div className="flex-1">
+                    <p className="text-sm font-semibold text-red-800">Đăng ký thất bại</p>
+                    <p className="text-sm text-red-700 mt-1">{error}</p>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
                   <span>Tên đầy đủ</span>
@@ -265,9 +325,36 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
                   />
                 </div>
               </div>
-              <p className="text-xs text-gray-500 flex items-center gap-1">
-                <span>Mật khẩu tối thiểu 6 ký tự</span>
-              </p>
+              <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                <p className="text-xs font-semibold text-gray-700 mb-2">Yêu cầu mật khẩu:</p>
+                <ul className="text-xs text-gray-600 space-y-1">
+                  <li className="flex items-center gap-2">
+                    <span className="text-gray-400">•</span>
+                    <span>Tối thiểu 6 ký tự</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-gray-400">•</span>
+                    <span>Ít nhất 1 chữ cái viết HOA (A-Z)</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-gray-400">•</span>
+                    <span>Ít nhất 1 chữ cái viết thường (a-z)</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-gray-400">•</span>
+                    <span>Ít nhất 1 ký tự đặc biệt (!@#$%^&*)</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-gray-400">•</span>
+                    <span>Ít nhất 1 chữ số (0-9)</span>
+                  </li>
+                </ul>
+                <div className="mt-3 pt-3 border-t border-gray-300">
+                  <p className="text-xs text-gray-500">
+                    <span className="font-semibold text-gray-600">Ví dụ:</span> <span className="font-mono bg-white px-2 py-1 rounded border border-gray-300">Modern@123</span>
+                  </p>
+                </div>
+              </div>
 
               <label className="flex items-start gap-3 cursor-pointer p-4 rounded-xl hover:bg-gray-50 transition-all duration-300 border-2 border-transparent hover:border-gray-300 hover:shadow-sm group">
                 <input
@@ -315,7 +402,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
             {/* Back to login */}
             <div className="text-center mt-6">
               <button
-                onClick={() => setIsLogin(true)}
+                onClick={() => { setIsLogin(true); setError(null); }}
                 className="text-gray-600 hover:text-gray-900 font-semibold transition-colors text-sm"
               >
                 ← Đã có tài khoản? Đăng nhập
@@ -405,7 +492,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
               {/* Tabs */}
               <div className="flex gap-2 mb-8 bg-gray-100/80 backdrop-blur-sm p-1.5 rounded-xl shadow-inner">
                 <button
-                  onClick={() => { setIsLogin(true); }}
+                  onClick={() => { setIsLogin(true); setError(null); }}
                   className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all duration-300 ${
                     isLogin
                       ? 'bg-white text-gray-900 shadow-lg scale-105'
@@ -415,7 +502,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
                   Đăng Nhập
                 </button>
                 <button
-                  onClick={() => { setIsLogin(false); }}
+                  onClick={() => { setIsLogin(false); setError(null); }}
                   className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all duration-300 ${
                     !isLogin
                       ? 'bg-white text-gray-900 shadow-lg scale-105'
@@ -428,6 +515,19 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
 
               {/* Login Form */}
               <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Error Display */}
+                {error && (
+                  <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 flex items-start gap-3">
+                    <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-red-800">Đăng nhập thất bại</p>
+                      <p className="text-sm text-red-700 mt-1">{error}</p>
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
                   <input
@@ -459,7 +559,13 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
                     <input type="checkbox" className="w-4 h-4 text-gray-900 rounded" />
                     <span className="text-gray-600">Ghi nhớ đăng nhập</span>
                   </label>
-                  <a href="#" className="text-gray-900 font-semibold hover:underline">Quên mật khẩu?</a>
+                  <button
+                    type="button"
+                    onClick={() => onNavigate('/forgot-password')}
+                    className="text-gray-900 font-semibold hover:underline"
+                  >
+                    Quên mật khẩu?
+                  </button>
                 </div>
 
                 <button
@@ -485,48 +591,9 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
                 type="button"
                 className="w-full flex items-center justify-center gap-2 border-2 border-gray-300 text-gray-900 font-semibold py-3 rounded-xl hover:border-gray-900 hover:bg-gray-50 transition-all duration-300 shadow-sm hover:shadow-md group"
               >
-                <span className="group-hover:scale-110 transition-transform duration-300">🔐</span>
+                <span className="group-hover:scale-110 transition-transform duration-300"></span>
                 <span>Đăng nhập với Google</span>
               </button>
-
-              {/* Demo Accounts Section */}
-              <div className="mt-8 pt-6 border-t border-gray-200">
-                <h3 className="text-base font-bold text-gray-900 mb-2 text-center">Tài khoản Demo</h3>
-                <p className="text-xs text-gray-600 text-center mb-4">Nhấn để đăng nhập nhanh</p>
-                
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-                  {demoAccounts.map((account) => (
-                    <button
-                      key={account.role}
-                      onClick={() => handleDemoLogin(account)}
-                      className="bg-gradient-to-br from-white to-gray-50 border-2 border-gray-200 rounded-xl p-4 hover:border-gray-900 hover:shadow-lg hover:scale-105 transition-all duration-300 text-center group relative overflow-hidden"
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-br from-gray-900/0 to-gray-900/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                      <div className="text-2xl mb-2 group-hover:scale-125 transition-transform duration-300 relative z-10">
-                        {account.role === 'customer' && '🛍️'}
-                        {account.role === 'vendor' && '🏪'}
-                        {account.role === 'staff' && '👔'}
-                        {account.role === 'admin' && '👨‍💼'}
-                      </div>
-                      <h4 className="font-bold text-gray-900 text-xs mb-1 relative z-10">{account.label}</h4>
-                      <div className="space-y-0.5">
-                        <p className="text-xs text-gray-500 truncate">
-                          {account.email}
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          Pass: {account.password}
-                        </p>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-
-                <div className="mt-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                  <p className="text-xs text-gray-600 text-center">
-                    <span className="font-semibold">Mẹo:</span> Click vào tài khoản để tự động điền thông tin đăng nhập
-                  </p>
-                </div>
-              </div>
 
               {/* Trust Indicators */}
               <div className="mt-6 flex items-center justify-center gap-4 text-xs text-gray-500">
