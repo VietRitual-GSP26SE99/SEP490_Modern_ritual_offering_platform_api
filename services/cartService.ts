@@ -196,14 +196,15 @@ class CartService {
   }
 
   /**
-   * Tính tổng giá trị giỏ hàng
+   * Tính tổng giá trị giỏ hàng (dùng subtotal từ API)
    */
   calculateTotal(cart: CartApi | null): { subtotal: number; shipping: number; tax: number; total: number } {
     if (!cart || !cart.cartItems || cart.cartItems.length === 0) {
       return { subtotal: 0, shipping: 0, tax: 0, total: 0 };
     }
 
-    const subtotal = cart.cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    // Dùng subtotal từ API thay vì tính lại
+    const subtotal = cart.subtotal || cart.cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const shipping = subtotal > 0 ? 50000 : 0;
     const tax = Math.round(subtotal * 0.1);
     const total = subtotal + shipping + tax;

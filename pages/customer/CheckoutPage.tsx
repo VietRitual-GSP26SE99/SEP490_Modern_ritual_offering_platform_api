@@ -1,7 +1,161 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { checkoutService, CheckoutSummary } from '../../services/checkoutService';
+import { getCurrentUser } from '../../services/auth';
+import toast from '../../services/toast';
 
 const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate }) => {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const [summary, setSummary] = useState<CheckoutSummary | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [processing, setProcessing] = useState(false);
+
+  // Form states
+  const [deliveryDate, setDeliveryDate] = useState('');
+  const [deliveryTimeSlot, setDeliveryTimeSlot] = useState('07:00:00');
+  const [paymentMethod, setPaymentMethod] = useState('Vnpay');
+  const [decorationNotes, setDecorationNotes] = useState<{ [key: number]: string }>({});
+
+  // Time slot mapping for display
+  const timeSlots = [
+    { value: '07:00:00', label: '7:00 - 9:00 (Tý-Sửu)' },
+    { value: '09:00:00', label: '9:00 - 11:00 (Dần-Mão)' },
+    { value: '13:00:00', label: '13:00 - 15:00 (Tỵ-Ngọ)' },
+    { value: '15:00:00', label: '15:00 - 17:00 (Mùi-Thân)' },
+    { value: '17:00:00', label: '17:00 - 19:00 (Dậu-Tuất)' }
+  ];
+
+  // Check authentication
+  useEffect(() => {
+    const user = getCurrentUser();
+    if (!user) {
+      console.log('🔒 User not authenticated, redirecting to login');
+      navigate('/auth?redirect=/checkout');
+      return;
+    }
+    setIsCheckingAuth(false);
+  }, [navigate]);
+
+  // Fetch checkout summary
+  useEffect(() => {
+    if (isCheckingAuth) return;
+
+    const fetchSummary = async () => {
+      const cartItemId = searchParams.get('cartItemId');
+      
+      if (!cartItemId) {
+        toast.error('Không tìm thấy sản phẩm để thanh toán');
+        navigate('/cart');
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const summaryData = await checkoutService.getSummary([
+          parseInt(cartItemId)
+        ]);
+        
+        if (summaryData) {
+          setSummary(summaryData);
+        } else {
+          toast.error('Không thể tải thông tin thanh toán');
+          navigate('/cart');
+        }
+      } catch (error) {
+        console.error('❌ Failed to fetch checkout summary:', error);
+        toast.error('Đã xảy ra lỗi');
+        navigate('/cart');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchSummary();
+  }, [isCheckingAuth, searchParams, navigate]);
+
+  const handleCheckout = async () => {
+    // Validation
+    if (!deliveryDate) {
+      toast.error('Vui lòng chọn ngày giao hàng');
+      return;
+    }
+
+    if (!summary) {
+      toast.error('Không tìm thấy thông tin đơn hàng');
+      return;
+    }
+
+    console.log('📋 Form state:', { deliveryDate, deliveryTimeSlot, paymentMethod });
+    console.log('📦 Summary items:', summary.items);
+
+    setProcessing(true);
+    try {
+      const checkoutRequest = {
+        deliveryDate,
+        deliveryTime: deliveryTimeSlot, // TimeOnly format: "07:00:00"
+        paymentMethod,
+        items: summary.items.map(item => ({
+          cartItemId: item.cartItemId,
+          decorationNote: decorationNotes[item.cartItemId] || ''
+        }))
+      };
+      
+      console.log('🛒 Checkout request data:', JSON.stringify(checkoutRequest, null, 2));
+      
+      const result = await checkoutService.processCheckout(checkoutRequest);
+
+      console.log('🎯 Checkout result:', result);
+
+      if (result) {
+        toast.success('Đặt hàng thành công!');
+        
+        console.log('💳 Payment URL:', result.paymentUrl);
+        console.log('📦 Order ID:', result.orderId);
+        
+        // If there's a payment URL, redirect to it
+        if (result.paymentUrl) {
+          console.log('🔗 Redirecting to payment URL...');
+          window.location.href = result.paymentUrl;
+        } else {
+          console.log('⚠️ No payment URL, navigating to tracking...');
+          // Otherwise navigate to tracking page
+          navigate(`/tracking?orderId=${result.orderId}`);
+        }
+      } else {
+        toast.error('Không thể xử lý đơn hàng. Vui lòng kiểm tra thông tin giao hàng và thử lại.');
+      }
+    } catch (error: any) {
+      console.error('❌ Checkout failed:', error);
+      
+      // More helpful error message
+      if (error.message?.includes('500')) {
+        toast.error('Lỗi hệ thống. Vui lòng đảm bảo đã cập nhật đầy đủ thông tin tài khoản (Địa chỉ, SĐT) và thử lại sau.');
+      } else {
+        toast.error('Đã xảy ra lỗi khi thanh toán. Vui lòng thử lại.');
+      }
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  if (isCheckingAuth || loading) {
+    return (
+      <div className="max-w-7xl mx-auto px-6 md:px-10 py-16 flex justify-center items-center min-h-screen">
+        <div className="text-center">
+          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-primary mb-4"></div>
+          <p className="text-slate-500">Đang tải thông tin...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!summary) {
+    return null;
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-6 md:px-10 py-16 flex flex-col lg:flex-row gap-12">
       <div className="flex-1 space-y-8">
@@ -12,15 +166,20 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
                     <label className="text-xs font-bold uppercase text-slate-400">Họ và tên</label>
-                    <input type="text" defaultValue="Nguyễn Văn An" className="w-full bg-ritual-bg border-gold/10 rounded-2xl p-4 focus:ring-primary focus:border-primary" />
+                    <input type="text" defaultValue={getCurrentUser()?.name || ''} className="w-full bg-ritual-bg border-gold/10 rounded-2xl p-4 focus:ring-primary focus:border-primary" />
                 </div>
                 <div className="space-y-2">
                     <label className="text-xs font-bold uppercase text-slate-400">Số điện thoại</label>
-                    <input type="tel" defaultValue="0901234567" className="w-full bg-ritual-bg border-gold/10 rounded-2xl p-4 focus:ring-primary focus:border-primary" />
+                    <input type="tel" placeholder="Nhập số điện thoại" className="w-full bg-ritual-bg border-gold/10 rounded-2xl p-4 focus:ring-primary focus:border-primary" />
                 </div>
                 <div className="md:col-span-2 space-y-2">
                     <label className="text-xs font-bold uppercase text-slate-400">Địa chỉ nhận hàng</label>
-                    <input type="text" placeholder="Số nhà, tên đường..." className="w-full bg-ritual-bg border-gold/10 rounded-2xl p-4 focus:ring-primary focus:border-primary" />
+                    <input 
+                      type="text" 
+                      defaultValue={summary.deliveryAddress || ''} 
+                      placeholder="Số nhà, tên đường..." 
+                      className="w-full bg-ritual-bg border-gold/10 rounded-2xl p-4 focus:ring-primary focus:border-primary" 
+                    />
                 </div>
             </div>
         </section>
@@ -33,16 +192,24 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 <div className="space-y-2">
                     <label className="text-xs font-bold uppercase text-slate-400">Ngày giao hàng</label>
-                    <input type="date" className="w-full bg-ritual-bg border border-gold/10 rounded-2xl p-4 focus:ring-primary focus:border-primary" />
+                    <input 
+                      type="date" 
+                      value={deliveryDate}
+                      onChange={(e) => setDeliveryDate(e.target.value)}
+                      min={new Date().toISOString().split('T')[0]}
+                      className="w-full bg-ritual-bg border border-gold/10 rounded-2xl p-4 focus:ring-primary focus:border-primary" 
+                    />
                 </div>
                 <div className="space-y-2">
                     <label className="text-xs font-bold uppercase text-slate-400">Giờ giao hàng (Hoàng đạo)</label>
-                    <select className="w-full bg-ritual-bg border border-gold/10 rounded-2xl p-4 focus:ring-primary focus:border-primary">
-                        <option>7:00 - 9:00 (Tý-Sửu)</option>
-                        <option>9:00 - 11:00 (Dần-Mão)</option>
-                        <option>13:00 - 15:00 (Tỵ-Ngọ)</option>
-                        <option>15:00 - 17:00 (Mùi-Thân)</option>
-                        <option>17:00 - 19:00 (Dậu-Tuất)</option>
+                    <select 
+                      value={deliveryTimeSlot}
+                      onChange={(e) => setDeliveryTimeSlot(e.target.value)}
+                      className="w-full bg-ritual-bg border border-gold/10 rounded-2xl p-4 focus:ring-primary focus:border-primary"
+                    >
+                        {timeSlots.map(slot => (
+                          <option key={slot.value} value={slot.value}>{slot.label}</option>
+                        ))}
                     </select>
                 </div>
             </div>
@@ -55,17 +222,52 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
         </section>
 
         <section className="bg-white p-8 md:p-12 rounded-[2.5rem] border border-gray-200 shadow-sm">
+            <h2 className="text-2xl font-bold text-primary mb-8 flex items-center gap-3">
+                <span className="material-symbols-outlined p-2 bg-primary/10 rounded-xl">edit_note</span>
+                Ghi chú trang trí
+            </h2>
+            <div className="space-y-6">
+                {summary.items.map((item) => (
+                  <div key={item.cartItemId} className="space-y-2">
+                    <label className="text-sm font-bold text-slate-700">
+                      {item.packageName} - {item.variantName}
+                    </label>
+                    <textarea
+                      value={decorationNotes[item.cartItemId] || ''}
+                      onChange={(e) => setDecorationNotes(prev => ({
+                        ...prev,
+                        [item.cartItemId]: e.target.value
+                      }))}
+                      placeholder="VD: Thêm hoa tươi, nến, trái cây..."
+                      className="w-full bg-ritual-bg border border-gold/10 rounded-2xl p-4 focus:ring-primary focus:border-primary resize-none"
+                      rows={3}
+                    />
+                  </div>
+                ))}
+            </div>
+            <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200 text-sm text-blue-700">
+                <p className="font-bold mb-1">Lưu ý:</p>
+                <p>Ghi chú của bạn sẽ được chuyển tới người bán để chuẩn bị theo yêu cầu của bạn.</p>
+            </div>
+        </section>
+
+        <section className="bg-white p-8 md:p-12 rounded-[2.5rem] border border-gray-200 shadow-sm">
             <h2 className="text-2xl font-bold text-primary mb-8">
                 Phương thức thanh toán
             </h2>
             <div className="space-y-4">
                 {[
-                    { id: 'momo', label: 'Ví điện tử Momo', desc: 'Nhanh chóng & Tiện lợi' },
-                    { id: 'bank', label: 'Chuyển khoản VietQR', desc: 'Mọi ứng dụng ngân hàng' },
-                    { id: 'card', label: 'Thẻ Visa/Mastercard', desc: 'Hỗ trợ thẻ quốc tế' }
+                    { id: 'Vnpay', label: 'VNPay', desc: 'Chuyển khoản, Thẻ, QR - An toàn & Nhanh chóng' },
+                    { id: 'wallet', label: 'Ví điện tử', desc: 'Momo, ZaloPay - Tiện lợi & Đơn giản' }
                 ].map((m, i) => (
-                    <label key={m.id} className={`flex items-center p-6 border-2 rounded-3xl cursor-pointer transition-all ${i === 1 ? 'border-primary bg-gray-50' : 'border-gray-200 hover:border-primary'}`}>
-                        <input type="radio" name="pay" defaultChecked={i === 1} className="text-primary focus:ring-primary size-5" />
+                    <label key={m.id} className={`flex items-center p-6 border-2 rounded-3xl cursor-pointer transition-all ${paymentMethod === m.id ? 'border-primary bg-gray-50' : 'border-gray-200 hover:border-primary'}`}>
+                        <input 
+                          type="radio" 
+                          name="pay" 
+                          checked={paymentMethod === m.id}
+                          onChange={() => setPaymentMethod(m.id)}
+                          className="text-primary focus:ring-primary size-5" 
+                        />
                         <div className="ml-4">
                             <p className="font-bold text-slate-900">{m.label}</p>
                             <p className="text-xs text-slate-400">{m.desc}</p>
@@ -80,39 +282,68 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
         <div className="sticky top-28 bg-white p-8 rounded-[2.5rem] border border-gray-200 shadow-2xl">
             <h3 className="text-xl font-bold mb-8 border-b border-gray-200 pb-4">Đơn hàng của bạn</h3>
             <div className="space-y-6 mb-8">
-                <div className="flex gap-4">
-                    <div className="size-16 rounded-2xl bg-cover shrink-0" style={{ backgroundImage: 'url("https://picsum.photos/200/200?random=10")' }} />
-                    <div className="flex-1">
-                        <p className="text-sm font-bold leading-tight">Mâm Cúng Đầy Tháng Đặc Biệt</p>
-                        <p className="text-[10px] text-slate-400 uppercase mt-1">SL: 01 • Tier: Special</p>
-                        <p className="text-sm font-bold text-primary mt-1">2.500.000đ</p>
+                {summary.items.map((item) => (
+                  <div key={item.cartItemId} className="flex gap-4">
+                    <div className="size-16 rounded-2xl bg-slate-100 shrink-0 overflow-hidden flex items-center justify-center">
+                      <div className="text-slate-300 text-xs text-center">
+                        No Image
+                      </div>
                     </div>
-                </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-bold leading-tight">{item.packageName}</p>
+                      <p className="text-[10px] text-slate-400 uppercase mt-1">
+                        SL: {item.quantity.toString().padStart(2, '0')} • {item.variantName}
+                      </p>
+                      <p className="text-[10px] text-slate-400 mt-1">
+                         {item.vendorName}
+                      </p>
+                      <p className="text-sm font-bold text-primary mt-1">
+                        {item.lineTotal.toLocaleString()}đ
+                      </p>
+                    </div>
+                  </div>
+                ))}
             </div>
             
             <div className="space-y-3 pt-6 border-t border-gray-200">
                 <div className="flex justify-between text-sm text-slate-500">
-                    <span>Tạm tính</span>
-                    <span className="font-bold">2.500.000đ</span>
+                    <span>Tạm tính ({summary.totalItems} sản phẩm)</span>
+                    <span className="font-bold">{summary.subTotal.toLocaleString()}đ</span>
                 </div>
-                <div className="flex justify-between text-sm text-green-600 font-bold">
+                <div className="flex justify-between text-sm text-slate-500">
                     <span>Phí vận chuyển</span>
-                    <span>Miễn phí</span>
+                    <span className={`font-bold ${summary.shippingFee === 0 ? 'text-green-600' : ''}`}>
+                      {summary.shippingFee === 0 ? 'Miễn phí' : `${summary.shippingFee.toLocaleString()}đ`}
+                    </span>
                 </div>
+                {summary.deliveryAddress && (
+                  <div className="pt-3 border-t border-gray-100">
+                    <p className="text-xs text-slate-400 mb-1">Địa chỉ giao hàng:</p>
+                    <p className="text-xs text-slate-600">{summary.deliveryAddress}</p>
+                  </div>
+                )}
                 <div className="pt-4 flex justify-between items-end">
                     <div>
                         <p className="text-xs font-bold uppercase text-slate-400">Tổng cộng</p>
                         <p className="text-[10px] text-slate-300 italic">(Đã bao gồm VAT)</p>
                     </div>
-                    <p className="text-3xl font-black text-primary tracking-tight">2.500.000đ</p>
+                    <p className="text-3xl font-black text-primary tracking-tight">
+                      {summary.totalAmount.toLocaleString()}đ
+                    </p>
                 </div>
             </div>
 
             <button 
-                onClick={() => onNavigate('#')}
-                className="w-full mt-10 bg-primary text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:-translate-y-1 transition-all"
+                onClick={handleCheckout}
+                disabled={processing || !deliveryDate}
+                className="w-full mt-10 bg-primary text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:-translate-y-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
             >
-                Thanh toán ngay
+                {processing ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <span className="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-white"></span>
+                    Đang xử lý...
+                  </span>
+                ) : 'Thanh toán ngay'}
             </button>
         </div>
       </aside>

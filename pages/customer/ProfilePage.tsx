@@ -308,8 +308,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
       if (result) {
         setEditForm(prev => ({
           ...prev,
-          latitude: result.latitude.toString(),
-          longitude: result.longitude.toString()
+          latitude: result.latitude,
+          longitude: result.longitude
         }));
 
         console.log('✅ Coordinates updated:', {
@@ -1104,7 +1104,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                 {profile?.isVendor && (
                   <div>
                     <h3 className="text-lg font-bold text-primary mb-4 pb-2 border-b-2 border-gray-200">
-                      🏪 Thông Tin Vendor
+                      Thông Tin Vendor
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="p-4 rounded-xl bg-gray-50 border border-gray-200">
