@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { logoutAndRedirect } from '../../services/auth';
 
 interface StaffDashboardProps {
   onNavigate: (path: string) => void;
@@ -119,7 +120,10 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
                 <p className="text-xs text-gray-600">nhanvien@demo.com</p>
               </div>
               <button
-                onClick={onLogout}
+                onClick={() => {
+                  console.log('🚪 Logging out from Staff Dashboard...');
+                  logoutAndRedirect();
+                }}
                 className="px-4 py-2 border-2 border-gray-900 text-gray-900 font-semibold rounded-lg hover:bg-gray-900 hover:text-white transition-all"
               >
                 Đăng xuất

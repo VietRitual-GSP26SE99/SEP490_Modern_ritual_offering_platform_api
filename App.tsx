@@ -24,6 +24,12 @@ import VendorSettings from './pages/vendor/VendorSettings';
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
 
+// Staff Pages
+import StaffDashboard from './pages/staff/StaffDashboard';
+import CustomerManagement from './pages/staff/CustomerManagement';
+import PostManagement from './pages/staff/PostManagement';
+import SystemSettings from './pages/staff/SystemSettings';
+
 // Assistant
 import Assistant from './components/Assistant';
 
@@ -45,6 +51,8 @@ const AppContent: React.FC<{
       navigate('/');
     } else if (role === 'vendor') {
       navigate('/vendor/dashboard');
+    } else if (role === 'staff') {
+      navigate('/staff/dashboard');
     } else if (role === 'admin') {
       navigate('/admin/dashboard');
     }
@@ -75,6 +83,12 @@ const AppContent: React.FC<{
       <Route path="/vendor/orders" element={isAuthenticated && userRole === 'vendor' ? <Layout activeRoute="/vendor/orders" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><OrderManagement onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
       <Route path="/vendor/analytics" element={isAuthenticated && userRole === 'vendor' ? <Layout activeRoute="/vendor/analytics" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><VendorAnalytics onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
       <Route path="/vendor/settings" element={isAuthenticated && userRole === 'vendor' ? <Layout activeRoute="/vendor/settings" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><VendorSettings onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
+
+      {/* Staff Routes */}
+      <Route path="/staff/dashboard" element={isAuthenticated && userRole === 'staff' ? <StaffDashboard onNavigate={handleNavigate} onLogout={onLogout} /> : <Navigate to="/auth" />} />
+      <Route path="/staff-customers" element={isAuthenticated && userRole === 'staff' ? <CustomerManagement onNavigate={handleNavigate} onLogout={onLogout} /> : <Navigate to="/auth" />} />
+      <Route path="/staff-posts" element={isAuthenticated && userRole === 'staff' ? <PostManagement onNavigate={handleNavigate} onLogout={onLogout} /> : <Navigate to="/auth" />} />
+      <Route path="/staff-settings" element={isAuthenticated && userRole === 'staff' ? <SystemSettings onNavigate={handleNavigate} onLogout={onLogout} /> : <Navigate to="/auth" />} />
 
       {/* Admin Routes */}
       <Route path="/admin/dashboard" element={isAuthenticated && userRole === 'admin' ? <Layout activeRoute="/admin/dashboard" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><AdminDashboard onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
