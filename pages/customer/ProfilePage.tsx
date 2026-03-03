@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getProfile, UserProfile, getCurrentUser } from '../../services/auth';
+import { getProfile, UserProfile, getCurrentUser, updateProfile, UpdateProfileRequest } from '../../services/auth';
 
 interface ProfilePageProps {
   onNavigate: (path: string) => void;
@@ -9,8 +9,22 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
   const [activeTab, setActiveTab] = useState<'info' | 'orders' | 'reviews'>('info');
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [avatarPreview, setAvatarPreview] = useState<string | null>(null);
+  
+  // Form state for editing
+  const [editForm, setEditForm] = useState({
+    fullName: '',
+    gender: '',
+    phoneNumber: '',
+    dateOfBirth: '',
+    addressText: '',
+    latitude: 0,
+    longitude: 0
+  });
 
   // Fetch profile data on component mount
   useEffect(() => {
@@ -23,7 +37,22 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
         const profileData = await getProfile();
         setProfile(profileData);
         
+        // Populate edit form with current profile data
+        setEditForm({
+          fullName: profileData.fullName,
+          gender: profileData.gender,
+          phoneNumber: profileData.phoneNumber,
+          dateOfBirth: profileData.dateOfBirth.split('T')[0], // Convert to YYYY-MM-DD
+          addressText: profileData.addressText,
+          latitude: profileData.latitude || 0,
+          longitude: profileData.longitude || 0
+        });
+        
         console.log('✅ Profile loaded successfully:', profileData);
+        console.log('📍 Coordinates:', {
+          latitude: profileData.latitude,
+          longitude: profileData.longitude
+        });
       } catch (err) {
         console.error('❌ Failed to load profile:', err);
         setError('Không thể tải thông tin profile. Vui lòng thử lại.');
@@ -34,6 +63,99 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
 
     fetchProfile();
   }, []);
+
+  // Handle avatar file selection
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setAvatarFile(file);
+      // Create preview URL
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setAvatarPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Handle form input change
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    const { name, value } = e.target;
+    
+    // For latitude and longitude, keep as string in form but validate numeric pattern
+    if (name === 'latitude' || name === 'longitude') {
+      // Allow numbers, dots, minus sign for coordinates
+      const numericPattern = /^-?[0-9]*\.?[0-9]*$/;
+      if (value === '' || numericPattern.test(value)) {
+        setEditForm(prev => ({
+          ...prev,
+          [name]: value === '' ? 0 : value
+        }));
+      }
+    } else {
+      setEditForm(prev => ({
+        ...prev,
+        [name]: value
+      }));
+    }
+  };
+
+  // Handle form submit
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    try {
+      setUpdating(true);
+      setError(null);
+      console.log('💾 Submitting profile update...');
+      console.log('📝 Edit form data:', editForm);
+      
+      const updateData: UpdateProfileRequest = {
+        ...editForm,
+        // Convert coordinate strings to numbers before sending to API
+        latitude: typeof editForm.latitude === 'string' ? parseFloat(editForm.latitude) || 0 : editForm.latitude,
+        longitude: typeof editForm.longitude === 'string' ? parseFloat(editForm.longitude) || 0 : editForm.longitude,
+        avatarFile: avatarFile
+      };
+      
+      console.log('📤 Update data being sent:', updateData);
+      
+      const updatedProfile = await updateProfile(updateData);
+      
+      console.log('✅ Profile updated, reloading from server...');
+      
+      // Fetch fresh profile data from server to ensure we have the latest
+      const refreshedProfile = await getProfile();
+      
+      // Update local state with refreshed data
+      setProfile(refreshedProfile);
+      
+      // Update edit form with new data
+      setEditForm({
+        fullName: refreshedProfile.fullName,
+        gender: refreshedProfile.gender,
+        phoneNumber: refreshedProfile.phoneNumber,
+        dateOfBirth: refreshedProfile.dateOfBirth.split('T')[0],
+        addressText: refreshedProfile.addressText,
+        latitude: refreshedProfile.latitude || 0,
+        longitude: refreshedProfile.longitude || 0
+      });
+      
+      // Reset editing state
+      setIsEditing(false);
+      setAvatarFile(null);
+      setAvatarPreview(null);
+      
+      alert('✅ Cập nhật profile thành công!');
+      console.log('✅ Profile refreshed:', refreshedProfile);
+    } catch (err) {
+      console.error('❌ Failed to update profile:', err);
+      setError('Không thể cập nhật profile. Vui lòng thử lại.');
+      alert('❌ Cập nhật thất bại: ' + (err instanceof Error ? err.message : 'Lỗi không xác định'));
+    } finally {
+      setUpdating(false);
+    }
+  };
 
   const mockOrders = [
     {
@@ -98,7 +220,36 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
             </div>
           </div>
           <button
-            onClick={() => setIsEditing(!isEditing)}
+            onClick={() => {
+              if (!isEditing && profile) {
+                // When entering edit mode, reset form to current profile data
+                setEditForm({
+                  fullName: profile.fullName,
+                  gender: profile.gender,
+                  phoneNumber: profile.phoneNumber,
+                  dateOfBirth: profile.dateOfBirth.split('T')[0],
+                  addressText: profile.addressText,
+                  latitude: profile.latitude || 0,
+                  longitude: profile.longitude || 0
+                });
+              } else {
+                // When exiting edit mode, also reset
+                if (profile) {
+                  setEditForm({
+                    fullName: profile.fullName,
+                    gender: profile.gender,
+                    phoneNumber: profile.phoneNumber,
+                    dateOfBirth: profile.dateOfBirth.split('T')[0],
+                    addressText: profile.addressText,
+                    latitude: profile.latitude || 0,
+                    longitude: profile.longitude || 0
+                  });
+                }
+                setAvatarFile(null);
+                setAvatarPreview(null);
+              }
+              setIsEditing(!isEditing);
+            }}
             disabled={loading}
             className="bg-primary text-white px-6 py-3 rounded-xl font-bold text-sm uppercase tracking-wider hover:scale-105 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
           >
@@ -161,15 +312,184 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
         {activeTab === 'info' && (
           <div className="bg-white rounded-[2.5rem] border border-gray-200 shadow-lg p-8 md:p-12">
             {isEditing ? (
-              <div className="text-center py-12">
-                <p className="text-slate-500 text-lg mb-4">🚧 Chức năng chỉnh sửa đang được phát triển</p>
-                <button
-                  onClick={() => setIsEditing(false)}
-                  className="bg-primary text-white px-6 py-3 rounded-xl font-bold hover:scale-105 transition-all"
-                >
-                  Quay lại
-                </button>
-              </div>
+              <form onSubmit={handleSubmit} className="space-y-6">
+                <h3 className="text-2xl font-bold text-primary mb-6">Chỉnh Sửa Thông Tin</h3>
+                
+                {/* Avatar Upload */}
+                <div className="flex flex-col items-center mb-8">
+                  <div className="relative mb-4">
+                    <div 
+                      className="w-32 h-32 rounded-full bg-cover border-4 border-primary shadow-lg"
+                      style={{ 
+                        backgroundImage: avatarPreview 
+                          ? `url("${avatarPreview}")` 
+                          : profile?.avatarUrl 
+                            ? `url("${profile.avatarUrl}")` 
+                            : 'url("https://picsum.photos/200/200?random=profile")' 
+                      }}
+                    />
+                    <label className="absolute bottom-0 right-0 bg-primary text-white p-2 rounded-full cursor-pointer hover:bg-primary/90 transition-all">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleAvatarChange}
+                        className="hidden"
+                      />
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
+                      </svg>
+                    </label>
+                  </div>
+                  <p className="text-xs text-slate-500">Click vào icon để thay đổi ảnh đại diện</p>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Full Name */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-slate-400 tracking-widest">
+                      Họ và tên <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="fullName"
+                      value={editForm.fullName}
+                      onChange={handleInputChange}
+                      required
+                      className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                    />
+                  </div>
+
+                  {/* Phone Number */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-slate-400 tracking-widest">
+                      Số điện thoại <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      name="phoneNumber"
+                      value={editForm.phoneNumber}
+                      onChange={handleInputChange}
+                      required
+                      className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                    />
+                  </div>
+
+                  {/* Gender */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-slate-400 tracking-widest">
+                      Giới tính <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="gender"
+                      value={editForm.gender}
+                      onChange={handleInputChange}
+                      required
+                      className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                    >
+                      <option value="Nam">Nam</option>
+                      <option value="Nữ">Nữ</option>
+                      <option value="Khác">Khác</option>
+                    </select>
+                  </div>
+
+                  {/* Date of Birth */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-slate-400 tracking-widest">
+                      Ngày sinh <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      name="dateOfBirth"
+                      value={editForm.dateOfBirth}
+                      onChange={handleInputChange}
+                      required
+                      className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Address */}
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase text-slate-400 tracking-widest">
+                    Địa chỉ <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="addressText"
+                    value={editForm.addressText}
+                    onChange={handleInputChange}
+                    required
+                    className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                  />
+                </div>
+
+                {/* Coordinates */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-slate-400 tracking-widest">
+                      Vĩ độ (Latitude)
+                    </label>
+                    <input
+                      type="text"
+                      name="latitude"
+                      value={editForm.latitude}
+                      onChange={handleInputChange}
+                      placeholder="VD: 10.7886"
+                      pattern="[0-9]*\.?[0-9]*"
+                      className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-slate-400 tracking-widest">
+                      Kinh độ (Longitude)
+                    </label>
+                    <input
+                      type="text"
+                      name="longitude"
+                      value={editForm.longitude}
+                      onChange={handleInputChange}
+                      placeholder="VD: 106.6891"
+                      pattern="[0-9]*\.?[0-9]*"
+                      className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Buttons */}
+                <div className="flex gap-4 pt-4">
+                  <button
+                    type="submit"
+                    disabled={updating}
+                    className="flex-1 bg-primary text-white py-4 rounded-xl font-bold uppercase tracking-widest shadow-lg hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {updating ? 'Đang lưu...' : 'Lưu thay đổi'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      // Reset form to current profile data
+                      if (profile) {
+                        setEditForm({
+                          fullName: profile.fullName,
+                          gender: profile.gender,
+                          phoneNumber: profile.phoneNumber,
+                          dateOfBirth: profile.dateOfBirth.split('T')[0],
+                          addressText: profile.addressText,
+                          latitude: profile.latitude || 0,
+                          longitude: profile.longitude || 0
+                        });
+                      }
+                      setIsEditing(false);
+                      setAvatarFile(null);
+                      setAvatarPreview(null);
+                    }}
+                    disabled={updating}
+                    className="flex-1 bg-gray-200 text-gray-700 py-4 rounded-xl font-bold uppercase tracking-widest hover:bg-gray-300 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Hủy
+                  </button>
+                </div>
+              </form>
             ) : (
               <div className="space-y-8">
                 {/* Basic Information */}

@@ -341,6 +341,88 @@ export async function getProfile(): Promise<UserProfile> {
   }
 }
 
+/**
+ * Update user profile
+ * PUT /api/profile
+ */
+export interface UpdateProfileRequest {
+  fullName: string;
+  gender: string;
+  phoneNumber: string;
+  dateOfBirth: string;
+  addressText: string;
+  latitude: number;
+  longitude: number;
+  avatarFile?: File | null;
+}
+
+export async function updateProfile(profileData: UpdateProfileRequest): Promise<UserProfile> {
+  console.log('✏️ Updating user profile...');
+  
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('No authentication token found');
+  }
+
+  try {
+    // Create FormData for multipart/form-data
+    const formData = new FormData();
+    formData.append('FullName', profileData.fullName);
+    formData.append('Gender', profileData.gender);
+    formData.append('PhoneNumber', profileData.phoneNumber);
+    formData.append('DateOfBirth', profileData.dateOfBirth);
+    formData.append('AddressText', profileData.addressText);
+    formData.append('Latitude', profileData.latitude.toString());
+    formData.append('Longitude', profileData.longitude.toString());
+    
+    if (profileData.avatarFile) {
+      formData.append('AvatarFile', profileData.avatarFile);
+    }
+
+    console.log('📤 Updating profile with data:', {
+      fullName: profileData.fullName,
+      gender: profileData.gender,
+      phoneNumber: profileData.phoneNumber,
+      dateOfBirth: profileData.dateOfBirth,
+      addressText: profileData.addressText,
+      latitude: profileData.latitude,
+      longitude: profileData.longitude,
+      hasAvatar: !!profileData.avatarFile
+    });
+
+    const response = await fetch(`${API_BASE_URL}/api/profile`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'accept': '*/*'
+        // Note: Do NOT set Content-Type for FormData, browser will set it automatically with boundary
+      },
+      body: formData
+    });
+
+    console.log('✏️ Update profile response status:', response.status);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('❌ Update failed:', errorText);
+      throw new Error(`Failed to update profile: ${response.status}`);
+    }
+
+    const data: ApiResponse<UserProfile> = await response.json();
+    console.log('✏️ Update profile API response:', data);
+
+    if (!data.isSuccess) {
+      throw new Error(data.errorMessages?.join(', ') || 'Failed to update profile');
+    }
+
+    console.log('✅ Profile updated successfully:', data.result);
+    return data.result;
+  } catch (error) {
+    console.error('❌ Error updating profile:', error);
+    throw error;
+  }
+}
+
 // ==================== HELPER FUNCTIONS ====================
 
 /**
