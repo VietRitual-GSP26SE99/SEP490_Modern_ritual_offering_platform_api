@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { UserRole, AppRoute, getPath } from '../types';
 import { logoutAndRedirect, getCurrentUser } from '../services/auth';
 import { cartService } from '../services/cartService';
@@ -26,6 +26,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
   const [isCartDropdownOpen, setIsCartDropdownOpen] = useState<boolean>(false);
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState<boolean>(false);
   const [userName, setUserName] = useState<string>('');
+  const cartDropdownTimeout = useRef<NodeJS.Timeout | null>(null);
+  const accountDropdownTimeout = useRef<NodeJS.Timeout | null>(null);
   const isCustomer = userRole === 'customer' || userRole === 'guest';
   const isVendor = userRole === 'vendor';
   const isAdmin = userRole === 'admin';
@@ -179,8 +181,17 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
             {userName && (
               <div 
                 className="relative hidden md:block"
-                onMouseEnter={() => setIsAccountDropdownOpen(true)}
-                onMouseLeave={() => setIsAccountDropdownOpen(false)}
+                onMouseEnter={() => {
+                  if (accountDropdownTimeout.current) {
+                    clearTimeout(accountDropdownTimeout.current);
+                  }
+                  setIsAccountDropdownOpen(true);
+                }}
+                onMouseLeave={() => {
+                  accountDropdownTimeout.current = setTimeout(() => {
+                    setIsAccountDropdownOpen(false);
+                  }, 200);
+                }}
               >
                 <button 
                     onClick={() => onNavigate('/profile')}
@@ -195,7 +206,14 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                 
                 {/* Dropdown Menu */}
                 {isAccountDropdownOpen && (
-                  <div className="absolute top-full right-0 mt-1 w-48 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden animate-slideDown">
+                  <div 
+                    className="absolute top-full right-0 mt-0 w-48 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden animate-slideDown"
+                    onMouseEnter={() => {
+                      if (accountDropdownTimeout.current) {
+                        clearTimeout(accountDropdownTimeout.current);
+                      }
+                    }}
+                  >
                     <button
                       onClick={() => {
                         onNavigate('/profile');
@@ -245,8 +263,17 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                 {/* Cart with Dropdown */}
                 <div 
                   className="relative hidden md:block"
-                  onMouseEnter={() => setIsCartDropdownOpen(true)}
-                  onMouseLeave={() => setIsCartDropdownOpen(false)}
+                  onMouseEnter={() => {
+                    if (cartDropdownTimeout.current) {
+                      clearTimeout(cartDropdownTimeout.current);
+                    }
+                    setIsCartDropdownOpen(true);
+                  }}
+                  onMouseLeave={() => {
+                    cartDropdownTimeout.current = setTimeout(() => {
+                      setIsCartDropdownOpen(false);
+                    }, 200);
+                  }}
                 >
                   <button 
                       onClick={() => onNavigate('/cart')}

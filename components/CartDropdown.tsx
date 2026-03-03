@@ -51,8 +51,7 @@ const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose, onNavigate
 
   return (
     <div 
-      className="absolute top-full right-0 mt-1 w-[400px] bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden animate-slideDown"
-      onMouseEnter={(e) => e.stopPropagation()}
+      className="absolute top-full right-0 mt-0 w-[400px] bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden animate-slideDown"
     >
       {/* Header */}
       <div className="px-4 py-3 border-b border-gray-100">
@@ -67,7 +66,6 @@ const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose, onNavigate
         </div>
       ) : cartItems.length === 0 ? (
         <div className="px-4 py-12 text-center">
-          <div className="text-slate-300 text-6xl mb-3">🛒</div>
           <p className="text-slate-500 text-sm mb-4">Chưa có sản phẩm nào</p>
           <button 
             onClick={() => {
