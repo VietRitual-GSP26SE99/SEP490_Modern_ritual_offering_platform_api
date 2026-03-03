@@ -25,6 +25,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
   const [cartCount, setCartCount] = useState<number>(0);
   const [isCartDropdownOpen, setIsCartDropdownOpen] = useState<boolean>(false);
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState<boolean>(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState<boolean>(false);
   const [userName, setUserName] = useState<string>('');
   const cartDropdownTimeout = useRef<NodeJS.Timeout | null>(null);
   const accountDropdownTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -194,9 +195,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                 }}
               >
                 <button 
-                    onClick={() => onNavigate('/profile')}
+                    onClick={() => isCustomer ? onNavigate('/profile') : setIsAccountDropdownOpen(prev => !prev)}
                     className="flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-primary font-bold text-sm hover:border-primary transition-all"
-                    title="Hồ sơ cá nhân"
+                    title={isCustomer ? 'Hồ sơ cá nhân' : userName}
                 >
                   <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                     <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
@@ -214,6 +215,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                       }
                     }}
                   >
+                    {!isVendor && (
                     <button
                       onClick={() => {
                         onNavigate('/profile');
@@ -226,6 +228,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                       </svg>
                       Hồ sơ cá nhân
                     </button>
+                    )}
                     {isCustomer && (
                       <button
                         onClick={() => {
@@ -243,8 +246,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                     {onLogout && (
                       <button
                         onClick={() => {
-                          logoutAndRedirect();
                           setIsAccountDropdownOpen(false);
+                          setShowLogoutConfirm(true);
                         }}
                         className="w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-3 border-t border-gray-100"
                       >
@@ -387,6 +390,34 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
           </div>
         </div>
       </footer>
+      )}
+
+      {/* Logout Confirmation Dialog */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs p-6 flex flex-col items-center gap-4">
+            
+            <h3 className="text-lg font-bold text-gray-800">Đăng xuất?</h3>
+            <p className="text-sm text-gray-500 text-center">Bạn có chắc muốn đăng xuất khỏi tài khoản không?</p>
+            <div className="flex gap-3 w-full mt-1">
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 px-4 py-2.5 rounded-lg border-2 border-gray-200 text-gray-600 font-bold text-sm hover:bg-gray-50 transition-colors"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={() => {
+                  setShowLogoutConfirm(false);
+                  logoutAndRedirect();
+                }}
+                className="flex-1 px-4 py-2.5 rounded-lg bg-red-600 text-white font-bold text-sm hover:bg-red-700 transition-colors"
+              >
+                Đăng xuất
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

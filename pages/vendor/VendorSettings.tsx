@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import toast from '../../services/toast';
+import { getProfile, updateProfile, UserProfile, UpdateProfileRequest } from '../../services/auth';
+import { geocodingService } from '../../services/geocodingService';
 
 interface VendorSettingsProps {
   onNavigate: (path: string) => void;
@@ -7,15 +9,25 @@ interface VendorSettingsProps {
 
 const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
   const [activeTab, setActiveTab] = useState('shop');
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [saveLoading, setSaveLoading] = useState(false);
+  const [coordinateLoading, setCoordinateLoading] = useState(false);
+
   const [shopInfo, setShopInfo] = useState({
-    shopName: 'Modern Ritual Shop',
-    ownerName: 'Nguyễn Văn Chủ',
-    phone: '0901234567',
-    email: 'shop@modernritual.vn',
-    address: '123 Nguyễn Huệ, Q1, TP.HCM',
+    shopName: '',
+    ownerName: '',
+    phone: '',
+    email: '',
+    address: '',
     description: 'Chuyên cung cấp mâm cúng trọn gói chất lượng cao',
     businessLicense: 'Có',
-    tax: '1234567890',
+    tax: '',
+    gender: 'Nam',
+    dateOfBirth: '',
+    latitude: 0,
+    longitude: 0,
+    avatarFile: null as File | null,
   });
 
   const [bankInfo, setBankInfo] = useState({
@@ -27,10 +39,90 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
 
   const [isEditing, setIsEditing] = useState(false);
 
-  const handleSave = () => {
-    console.log('Saved:', shopInfo, bankInfo);
-    toast.success('Cập nhật thông tin thành công!');
-    setIsEditing(false);
+  // Fetch profile on mount
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        setProfileLoading(true);
+        const data = await getProfile();
+        setProfile(data);
+
+        let formattedDate = '';
+        if (data.dateOfBirth) {
+          const dateStr = data.dateOfBirth.toString();
+          formattedDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr.substring(0, 10);
+        }
+
+        setShopInfo(prev => ({
+          ...prev,
+          shopName: data.shopName || 'Modern Ritual Shop',
+          ownerName: data.fullName || '',
+          phone: data.phoneNumber || '',
+          email: `${data.userId}@vietritual.com`,
+          address: data.addressText || '',
+          tax: data.businessLicenseNo || '',
+          businessLicense: data.verificationStatus === 'Verified' ? 'Có' : 'Không',
+          gender: data.gender || 'Nam',
+          dateOfBirth: formattedDate,
+          latitude: data.latitude || 0,
+          longitude: data.longitude || 0,
+        }));
+      } catch (err) {
+        console.error('Failed to fetch profile:', err);
+        toast.error('Không thể tải thông tin cửa hàng');
+      } finally {
+        setProfileLoading(false);
+      }
+    };
+
+    fetchProfile();
+  }, []);
+
+  // Handle get coordinates from address
+  const handleGetCoordinates = async () => {
+    if (!shopInfo.address.trim()) {
+      toast.error('Vui lòng nhập địa chỉ trước!');
+      return;
+    }
+    try {
+      setCoordinateLoading(true);
+      const result = await geocodingService.geocodeAddress(shopInfo.address);
+      if (result) {
+        setShopInfo(prev => ({ ...prev, latitude: result.latitude, longitude: result.longitude }));
+        toast.success(`✅ Đã lấy tọa độ thành công!`);
+      } else {
+        toast.error('Không thể lấy tọa độ. Vui lòng thử địa chỉ khác.');
+      }
+    } catch {
+      toast.error('Lỗi khi lấy tọa độ.');
+    } finally {
+      setCoordinateLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    try {
+      setSaveLoading(true);
+      const apiData: UpdateProfileRequest = {
+        fullName: shopInfo.ownerName,
+        gender: shopInfo.gender,
+        phoneNumber: shopInfo.phone,
+        dateOfBirth: shopInfo.dateOfBirth,
+        addressText: shopInfo.address,
+        latitude: shopInfo.latitude,
+        longitude: shopInfo.longitude,
+        avatarFile: shopInfo.avatarFile,
+      };
+      await updateProfile(apiData);
+      toast.success('Cập nhật thông tin thành công!');
+      setIsEditing(false);
+      window.location.reload();
+    } catch (err) {
+      console.error('Failed to update profile:', err);
+      toast.error('Cập nhật thất bại: ' + (err instanceof Error ? err.message : 'Lỗi không xác định'));
+    } finally {
+      setSaveLoading(false);
+    }
   };
 
   return (
@@ -42,13 +134,21 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
           <p className="text-gray-600">Quản lý thông tin cửa hàng và thanh toán</p>
         </div>
 
+        {profileLoading ? (
+          <div className="flex items-center justify-center py-20">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-gray-600">Đang tải thông tin...</p>
+            </div>
+          </div>
+        ) : (<>
         {/* Tabs */}
         <div className="flex gap-2 mb-8 border-b-2 border-gold/20 flex-wrap">
           {[
-            { id: 'shop', label: '🏪 Thông Tin Cửa Hàng' },
-            { id: 'bank', label: '🏦 Thông Tin Ngân Hàng' },
-            { id: 'commission', label: '💰 Hoa Hồng & Phí' },
-            { id: 'notifications', label: '🔔 Thông Báo' },
+            { id: 'shop', label: ' Thông Tin Cửa Hàng' },
+            { id: 'bank', label: ' Thông Tin Ngân Hàng' },
+            { id: 'commission', label: ' Hoa Hồng & Phí' },
+            { id: 'notifications', label: ' Thông Báo' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -77,19 +177,22 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
                     : 'border-slate-400 text-slate-600 hover:bg-slate-50'
                 }`}
               >
-                {isEditing ? '❌ Hủy' : '✏️ Chỉnh Sửa'}
+                {isEditing ? 'Hủy' : 'Chỉnh Sửa'}
               </button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Tên Cửa Hàng</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  Tên Cửa Hàng
+                  
+                </label>
                 <input
                   type="text"
                   value={shopInfo.shopName}
-                  onChange={(e) => setShopInfo({ ...shopInfo, shopName: e.target.value })}
-                  disabled={!isEditing}
-                  className="w-full px-4 py-3 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed"
+                  readOnly
+                  disabled
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg bg-gray-100 cursor-not-allowed text-gray-500"
                 />
               </div>
 
@@ -116,35 +219,53 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Email</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  Email
+                  
+                </label>
                 <input
                   type="email"
                   value={shopInfo.email}
-                  onChange={(e) => setShopInfo({ ...shopInfo, email: e.target.value })}
-                  disabled={!isEditing}
-                  className="w-full px-4 py-3 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed"
+                  readOnly
+                  disabled
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg bg-gray-100 cursor-not-allowed text-gray-500"
                 />
               </div>
 
               <div className="md:col-span-2">
                 <label className="block text-sm font-bold text-gray-700 mb-2">Địa Chỉ Cửa Hàng</label>
-                <input
-                  type="text"
-                  value={shopInfo.address}
-                  onChange={(e) => setShopInfo({ ...shopInfo, address: e.target.value })}
-                  disabled={!isEditing}
-                  className="w-full px-4 py-3 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed"
-                />
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={shopInfo.address}
+                    onChange={(e) => setShopInfo({ ...shopInfo, address: e.target.value })}
+                    disabled={!isEditing}
+                    className="flex-1 px-4 py-3 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed"
+                  />
+                  {isEditing && (
+                    <button
+                      type="button"
+                      onClick={handleGetCoordinates}
+                      disabled={coordinateLoading || !shopInfo.address.trim()}
+                      className="px-4 py-3 bg-primary text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-primary/90 transition-colors whitespace-nowrap"
+                    >
+                      {coordinateLoading ? ' Đang lấy tọa độ...' : ' Lấy Tọa Độ'}
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-sm font-bold text-gray-700 mb-2">Mô Tả Cửa Hàng</label>
+                <label className="block text-sm font-bold text-gray-700 mb-2">
+                  Mô Tả Cửa Hàng
+                 
+                </label>
                 <textarea
                   value={shopInfo.description}
-                  onChange={(e) => setShopInfo({ ...shopInfo, description: e.target.value })}
-                  disabled={!isEditing}
+                  readOnly
+                  disabled
                   rows={4}
-                  className="w-full px-4 py-3 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg bg-gray-100 cursor-not-allowed text-gray-500"
                 />
               </div>
 
@@ -167,14 +288,30 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
                   className="w-full px-4 py-3 border-2 border-green-300 rounded-lg bg-green-50 cursor-not-allowed"
                 />
               </div>
+
+              {isEditing && (
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Ảnh Đại Diện</label>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => setShopInfo({ ...shopInfo, avatarFile: e.target.files?.[0] || null })}
+                    className="w-full px-4 py-3 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none"
+                  />
+                  {shopInfo.avatarFile && (
+                    <p className="text-sm text-green-600 mt-1">✅ Đã chọn: {shopInfo.avatarFile.name}</p>
+                  )}
+                </div>
+              )}
             </div>
 
             {isEditing && (
               <button
                 onClick={handleSave}
-                className="mt-6 w-full px-6 py-2.5 border-2 border-primary text-primary rounded-lg font-bold transition-all hover:bg-primary/5"
+                disabled={saveLoading}
+                className="mt-6 w-full px-6 py-2.5 border-2 border-primary text-primary rounded-lg font-bold transition-all hover:bg-primary/5 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                💾 Lưu Thay Đổi
+                {saveLoading ? '⏳ Đang lưu...' : 'Lưu Thay Đổi'}
               </button>
             )}
           </div>
@@ -193,7 +330,7 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
                     : 'border-slate-400 text-slate-600 hover:bg-slate-50'
                 }`}
               >
-                {isEditing ? '❌ Hủy' : '✏️ Chỉnh Sửa'}
+                {isEditing ? ' Hủy' : ' Chỉnh Sửa'}
               </button>
             </div>
 
@@ -245,7 +382,7 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
 
             <div className="mt-6 p-4 bg-yellow-50 border-2 border-yellow-200 rounded-lg">
               <p className="text-sm text-yellow-800">
-                <strong>⚠️ Lưu ý:</strong> Thông tin ngân hàng được mã hóa an toàn. Hãy chắc chắn nhập đúng để tránh lỗi thanh toán.
+                <strong>Lưu ý:</strong> Thông tin ngân hàng được mã hóa an toàn. Hãy chắc chắn nhập đúng để tránh lỗi thanh toán.
               </p>
             </div>
 
@@ -254,7 +391,7 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
                 onClick={handleSave}
                 className="mt-6 w-full px-6 py-2.5 border-2 border-primary text-primary rounded-lg font-bold transition-all hover:bg-primary/5"
               >
-                💾 Lưu Thay Đổi
+                 Lưu Thay Đổi
               </button>
             )}
           </div>
@@ -335,10 +472,11 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
             </div>
 
             <button className="mt-6 w-full px-6 py-2.5 border-2 border-primary text-primary rounded-lg font-bold transition-all hover:bg-primary/5">
-              💾 Lưu Cài Đặt Thông Báo
+               Lưu Cài Đặt Thông Báo
             </button>
           </div>
         )}
+        </>)}
       </div>
     </div>
   );
