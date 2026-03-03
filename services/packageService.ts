@@ -1,7 +1,7 @@
 import { ApiPackage, ApiResponse, Product, PackageVariant } from '../types';
 
 
-const API_BASE_URL = 'https://vietritual.click/api';
+const API_BASE_URL = '/api'; // Use proxy instead of direct URL
 
 class PackageService {
   /**
