@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { logoutAndRedirect } from '../../services/auth';
+import { logoutComplete } from '../../services/auth';
 
 interface StaffDashboardProps {
   onNavigate: (path: string) => void;

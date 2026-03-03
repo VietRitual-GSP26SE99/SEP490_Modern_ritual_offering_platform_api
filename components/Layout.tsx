@@ -15,9 +15,10 @@ interface LayoutProps {
   onNavigate: (path: string) => void;
   userRole?: UserRole;
   onLogout?: () => void;
+  hideHeader?: boolean; // Hide header for first-time setup
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, userRole = 'customer', onLogout }) => {
+const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, userRole = 'customer', onLogout, hideHeader = false }) => {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const isCustomer = userRole === 'customer' || userRole === 'guest';
   const isVendor = userRole === 'vendor';
@@ -63,6 +64,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
 
   return (
     <div className="min-h-screen flex flex-col font-sans">
+      {/* Header - Hidden during first-time setup */}
+      {!hideHeader && (
       <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-6 md:px-10 py-4 flex items-center justify-between">
           <div className="flex items-center gap-12">
@@ -182,11 +185,14 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
           </div>
         </div>
       </header>
+      )}
 
-      <main className="flex-grow">
+      <main className={hideHeader ? "flex-grow" : "flex-grow"}>
         {children}
       </main>
 
+      {/* Footer - Hidden during first-time setup */}
+      {!hideHeader && (
       <footer className="bg-white border-t border-gray-200 pt-16 pb-8">
         <div className="max-w-7xl mx-auto px-6 md:px-10">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
@@ -228,6 +234,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
           </div>
         </div>
       </footer>
+      )}
     </div>
   );
 };

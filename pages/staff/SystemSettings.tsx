@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { logoutAndRedirect } from '../../services/auth';
+import { logoutComplete } from '../../services/auth';
 
 interface SystemSettingsProps {
   onNavigate: (path: string) => void;
@@ -272,9 +272,9 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onNavigate, onLogout })
                 💾 Sao lưu dữ liệu
               </button>
               <button
-                onClick={() => {
+                onClick={async () => {
                   console.log('🚪 Logging out...');
-                  logoutAndRedirect();
+                  await logoutComplete();
                 }}
                 className="px-4 py-2 border-2 border-gray-900 text-gray-900 font-semibold rounded-lg hover:bg-gray-900 hover:text-white transition-all"
               >

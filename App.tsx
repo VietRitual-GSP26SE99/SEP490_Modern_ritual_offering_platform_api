@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate, Navigate, useSearchParams } from 'react-router-dom';
 import Layout from './components/Layout';
 import { getCurrentUser, isAuthenticated as checkAuth } from './services/auth';
 
@@ -36,6 +36,8 @@ import Assistant from './components/Assistant';
 
 import { UserRole } from './types';
 import AuthPage from './pages/auth/AuthPage';
+import VerifyEmailPage from './pages/auth/VerifyEmailPage';
+import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 
 // Route Wrapper Component
 const AppContent: React.FC<{
@@ -46,8 +48,16 @@ const AppContent: React.FC<{
 }> = ({ userRole, isAuthenticated, onLogout, onRoleChange }) => {
   const navigate = useNavigate();
 
-  const handleLogin = (role: UserRole) => {
+  const handleLogin = (role: UserRole, firstTimeLogin?: boolean) => {
     onRoleChange(role);
+    
+    // If first-time login for customer, redirect to profile setup
+    if (firstTimeLogin && role === 'customer') {
+      navigate('/profile?firstTime=true');
+      return;
+    }
+    
+    // Normal login flow
     if (role === 'customer') {
       navigate('/');
     } else if (role === 'vendor') {
@@ -63,10 +73,31 @@ const AppContent: React.FC<{
     navigate(path);
   };
 
+  // ProfilePageWrapper to detect firstTime query param
+  const ProfilePageWrapper: React.FC = () => {
+    const [searchParams] = useSearchParams();
+    const isFirstTime = searchParams.get('firstTime') === 'true';
+    
+    return (
+      <Layout 
+        activeRoute="/profile" 
+        onNavigate={handleNavigate} 
+        userRole={userRole} 
+        onLogout={onLogout}
+        hideHeader={isFirstTime}
+      >
+        <CustomerProfile onNavigate={handleNavigate} />
+      </Layout>
+    );
+  };
+
   return (
     <Routes>
       {/* Auth Route - không có Layout */}
-      <Route path="/auth" element={<AuthPage onNavigate={() => {}} onLogin={handleLogin} />} />
+      <Route path="/auth" element={<AuthPage onNavigate={handleNavigate} onLogin={handleLogin} />} />
+      <Route path="/confirm-email" element={<VerifyEmailPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage onNavigate={handleNavigate} />} />
+      <Route path="/reset-password" element={<ForgotPasswordPage onNavigate={handleNavigate} />} />
 
       {/* Customer Routes */}
       <Route path="/" element={<Layout activeRoute="/" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><CustomerHomePage onNavigate={handleNavigate} /></Layout>} />
@@ -75,7 +106,7 @@ const AppContent: React.FC<{
       <Route path="/cart" element={<Layout activeRoute="/cart" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><CartPage onNavigate={handleNavigate} /></Layout>} />
       <Route path="/checkout" element={isAuthenticated && userRole === 'customer' ? <Layout activeRoute="/checkout" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><CustomerCheckout onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
       <Route path="/tracking" element={isAuthenticated && userRole === 'customer' ? <Layout activeRoute="/tracking" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><CustomerTracking /></Layout> : <Navigate to="/auth" />} />
-      <Route path="/profile" element={isAuthenticated && userRole === 'customer' ? <Layout activeRoute="/profile" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><CustomerProfile onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
+      <Route path="/profile" element={isAuthenticated && userRole === 'customer' ? <ProfilePageWrapper /> : <Navigate to="/auth" />} />
 
       {/* Vendor Routes */}
       <Route path="/vendor/dashboard" element={isAuthenticated && userRole === 'vendor' ? <Layout activeRoute="/vendor/dashboard" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><VendorDashboard onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
@@ -132,7 +163,14 @@ const App: React.FC = () => {
     setIsAuthChecking(false);
   }, []);
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    console.log('🔄 App logout initiated...');
+    
+    // Import and call complete logout with API
+    const { logoutComplete } = await import('./services/auth');
+    await logoutComplete();
+    
+    // Update React state
     setUserRole('guest');
     setIsAuthenticated(false);
   };
