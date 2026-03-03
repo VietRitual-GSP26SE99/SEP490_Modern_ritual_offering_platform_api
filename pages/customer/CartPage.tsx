@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { cartService, CartApi } from '../../services/cartService';
+import { checkoutService, CheckoutSummary } from '../../services/checkoutService';
 import { getCurrentUser } from '../../services/auth';
 import toast from '../../services/toast';
 
 const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate }) => {
   const navigate = useNavigate();
   const [cart, setCart] = useState<CartApi | null>(null);
+  const [checkoutSummary, setCheckoutSummary] = useState<CheckoutSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<number | null>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
@@ -28,13 +30,26 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
     
     const fetchCart = async () => {
       try {
-        console.log(' Fetching cart...');
+        console.log('🛒 Fetching cart...');
         const cartData = await cartService.getCart();
         setCart(cartData);
-        console.log(' Cart loaded:', cartData);
+        console.log('✅ Cart loaded:', cartData);
+
+        // Fetch checkout summary for accurate pricing
+        if (cartData && cartData.cartItems && cartData.cartItems.length > 0) {
+          console.log('💰 Fetching checkout summary...');
+          const cartItemIds = cartData.cartItems.map(item => item.cartItemId);
+          const summary = await checkoutService.getSummary(cartItemIds);
+          if (summary) {
+            setCheckoutSummary(summary);
+            console.log('✅ Checkout summary loaded:', summary);
+          }
+        } else {
+          setCheckoutSummary(null);
+        }
 
       } catch (error) {
-        console.error(' Failed to fetch cart:', error);
+        console.error('❌ Failed to fetch cart:', error);
         toast.error('Không thể tải giỏ hàng');
       } finally {
         setLoading(false);
@@ -43,6 +58,23 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
 
     fetchCart();
   }, [isCheckingAuth]);
+
+  // Helper function to refresh checkout summary
+  const refreshCheckoutSummary = async (cartData: CartApi | null) => {
+    if (cartData && cartData.cartItems && cartData.cartItems.length > 0) {
+      try {
+        const cartItemIds = cartData.cartItems.map(item => item.cartItemId);
+        const summary = await checkoutService.getSummary(cartItemIds);
+        if (summary) {
+          setCheckoutSummary(summary);
+        }
+      } catch (error) {
+        console.error('❌ Failed to refresh checkout summary:', error);
+      }
+    } else {
+      setCheckoutSummary(null);
+    }
+  };
 
   const updateQuantity = async (cartItemId: number, newQuantity: number) => {
     if (newQuantity <= 0) {
@@ -58,9 +90,12 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
       
       if (success) {
         // Re-fetch cart from server to ensure sync
-        console.log(' Re-fetching cart after update...');
+        console.log('🔄 Re-fetching cart after update...');
         const updatedCart = await cartService.getCart();
         setCart(updatedCart);
+        
+        // Refresh checkout summary with new prices
+        await refreshCheckoutSummary(updatedCart);
         
         toast.success('Đã cập nhật số lượng');
         // Trigger cart update event
@@ -94,9 +129,12 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
       
       if (success) {
         // Re-fetch cart from server to ensure sync
-        console.log(' Re-fetching cart after delete...');
+        console.log('🔄 Re-fetching cart after delete...');
         const updatedCart = await cartService.getCart();
         setCart(updatedCart);
+        
+        // Refresh checkout summary with new prices
+        await refreshCheckoutSummary(updatedCart);
         
         toast.success('Đã xóa sản phẩm');
         // Trigger cart update event
@@ -107,9 +145,12 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
     } catch (error: any) {
       // If 404, item might already be deleted, re-fetch cart
       if (error.message && error.message.includes('404')) {
-        console.log(' Item not found (404), re-fetching cart...');
+        console.log('⚠️ Item not found (404), re-fetching cart...');
         const updatedCart = await cartService.getCart();
         setCart(updatedCart);
+        
+        // Refresh checkout summary with new prices
+        await refreshCheckoutSummary(updatedCart);
         
         toast.info('Sản phẩm đã được xóa');
         // Trigger cart update event
@@ -141,9 +182,12 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
       
       if (success) {
         // Re-fetch cart from server to ensure sync
-        console.log(' Re-fetching cart after clear...');
+        console.log('🔄 Re-fetching cart after clear...');
         const updatedCart = await cartService.getCart();
         setCart(updatedCart);
+        
+        // Refresh checkout summary (will clear it since cart is empty)
+        await refreshCheckoutSummary(updatedCart);
         
         toast.success('Đã xóa toàn bộ giỏ hàng');
         // Trigger cart update event
@@ -171,7 +215,12 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
   }
 
   const cartItems = cart?.cartItems || [];
-  const { subtotal, shipping, tax, total } = cartService.calculateTotal(cart);
+  
+  // Use checkout summary if available, otherwise calculate locally
+  const subtotal = checkoutSummary?.subTotal || cart?.subtotal || 0;
+  const shipping = checkoutSummary?.shippingFee || (subtotal > 0 ? 50000 : 0);
+  const tax = Math.round(subtotal * 0.1); // Tax is included in totalAmount from API
+  const total = checkoutSummary?.totalAmount || (subtotal + shipping + tax);
 
   return (
     <div className="max-w-7xl mx-auto px-6 md:px-10 py-16">
@@ -259,13 +308,23 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
                             +
                           </button>
                         </div>
-                        <button 
-                          onClick={() => removeItem(item.cartItemId)}
-                          disabled={isUpdating}
-                          className="text-red-500 font-bold text-sm hover:text-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {isUpdating ? 'Đang xử lý...' : 'Xóa'}
-                        </button>
+                        <div className="flex items-center gap-2">
+                          <button 
+                            onClick={() => onNavigate(`/checkout?cartItemId=${item.cartItemId}`)}
+                            disabled={isUpdating}
+                            className="text-primary font-bold text-sm hover:text-primary/80 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            Thanh toán
+                          </button>
+                          <span className="text-slate-300">|</span>
+                          <button 
+                            onClick={() => removeItem(item.cartItemId)}
+                            disabled={isUpdating}
+                            className="text-red-500 font-bold text-sm hover:text-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {isUpdating ? 'Đang xử lý...' : 'Xóa'}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -301,8 +360,13 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
             </div>
 
             <button 
-              onClick={() => onNavigate('/checkout')}
-              disabled={updating !== null}
+              onClick={() => {
+                // Thanh toán item đầu tiên
+                if (cartItems.length > 0) {
+                  onNavigate(`/checkout?cartItemId=${cartItems[0].cartItemId}`);
+                }
+              }}
+              disabled={updating !== null || cartItems.length === 0}
               className="w-full bg-primary text-white py-4 rounded-lg font-bold text-lg hover:bg-primary/90 transition-all mb-3 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Thanh toán
