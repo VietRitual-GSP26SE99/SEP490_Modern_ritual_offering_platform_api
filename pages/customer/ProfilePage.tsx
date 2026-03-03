@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { getProfile, UserProfile, getCurrentUser, updateProfile, UpdateProfileRequest, changePassword } from '../../services/auth';
+import toast from '../../services/toast';
 import { 
   getProvinces, 
   getDistrictsByProvince, 
@@ -216,7 +217,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
     if (isFirstTimeSetup) {
       const handlePopState = (e: PopStateEvent) => {
         e.preventDefault();
-        alert('⚠️ Bạn cần hoàn thành thông tin cá nhân trước khi tiếp tục.');
+        toast.warning('Bạn cần hoàn thành thông tin cá nhân trước khi tiếp tục.');
         window.history.pushState(null, '', window.location.href);
       };
 
@@ -316,18 +317,23 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
       
       // If first-time setup, redirect to home with success message
       if (isFirstTimeSetup) {
-        alert('🎉 Hoàn thành thiết lập tài khoản!\n\nChào mừng bạn đến với Modern Ritual. Chúc bạn có trải nghiệm tuyệt vời!');
+        toast.message({
+          title: '🎉 Hoàn thành thiết lập tài khoản!',
+          text: 'Chào mừng bạn đến với Modern Ritual. Chúc bạn có trải nghiệm tuyệt vời!',
+          icon: 'success',
+          confirmButtonText: 'Bắt đầu mua sắm'
+        });
         console.log('✅ First-time setup complete, redirecting to home...');
         navigate('/');
         return;
       }
       
-      alert('✅ Cập nhật profile thành công!');
+      toast.success('Cập nhật profile thành công!');
       console.log('✅ Profile refreshed:', refreshedProfile);
     } catch (err) {
       console.error('❌ Failed to update profile:', err);
       setError('Không thể cập nhật profile. Vui lòng thử lại.');
-      alert('❌ Cập nhật thất bại: ' + (err instanceof Error ? err.message : 'Lỗi không xác định'));
+      toast.error('Cập nhật thất bại: ' + (err instanceof Error ? err.message : 'Lỗi không xác định'));
     } finally {
       setUpdating(false);
     }
@@ -449,7 +455,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
             onClick={() => {
               // Don't allow canceling during first-time setup
               if (isFirstTimeSetup) {
-                alert('⚠️ Bạn cần hoàn thành thông tin cá nhân để tiếp tục sử dụng dịch vụ.');
+                toast.warning('Bạn cần hoàn thành thông tin cá nhân để tiếp tục sử dụng dịch vụ.');
                 return;
               }
               
