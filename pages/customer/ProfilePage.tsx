@@ -9,6 +9,7 @@ import {
   District,
   Ward
 } from '../../services/vietnamAddressApi';
+import { googleMapsService, geocodingService } from '../../services/geocodingService';
 
 interface ProfilePageProps {
   onNavigate: (path: string) => void;
@@ -84,6 +85,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
   const [changingPassword, setChangingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+
+  // Google Maps Geocoding states
+  const [geoLoading, setGeoLoading] = useState(false);
+  const [geoError, setGeoError] = useState<string | null>(null);
 
   // Load provinces when component mounts
   useEffect(() => {
@@ -265,6 +270,71 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
         ...prev,
         [name]: value
       }));
+    }
+  };
+
+  // Automatically get coordinates from OpenStreetMap Nominatim (FREE) + fallbacks
+  const handleGetCoordinates = async () => {
+    try {
+      setGeoLoading(true);
+      setGeoError(null);
+
+      // Build full address from selected components
+      const selectedProvinceName = provinces.find(p => p.code === selectedProvince)?.name;
+      const selectedDistrictName = districts.find(d => d.code === selectedDistrict)?.name;
+      const selectedWardName = wards.find(w => w.code === selectedWard)?.name;
+
+      if (!selectedProvinceName || !selectedDistrictName) {
+        setGeoError('Vui lòng chọn đầy đủ Tỉnh/Thành phố và Quận/Huyện');
+        return;
+      }
+
+      console.log('🗺️ Getting coordinates with components:', {
+        detailedAddress,
+        wardName: selectedWardName,
+        districtName: selectedDistrictName,
+        provinceName: selectedProvinceName
+      });
+
+      // Use enhanced geocoding with multiple query strategies
+      const result = await geocodingService.geocodeAddressComponents({
+        detailedAddress: detailedAddress.trim() || undefined,
+        wardName: selectedWardName,
+        districtName: selectedDistrictName,
+        provinceName: selectedProvinceName
+      });
+
+      if (result) {
+        setEditForm(prev => ({
+          ...prev,
+          latitude: result.latitude.toString(),
+          longitude: result.longitude.toString()
+        }));
+
+        console.log('✅ Coordinates updated:', {
+          latitude: result.latitude,
+          longitude: result.longitude,
+          formattedAddress: result.formattedAddress,
+          provider: result.provider
+        });
+
+        // Show success message with provider info
+        const providerNames = {
+          'nominatim': 'OpenStreetMap Nominatim',
+          'google': '📍 Google Maps',
+          'approximate': '📌 Ước lượng'
+        };
+        
+        const providerName = providerNames[result.provider] || result.provider;
+        
+        alert(` Đã lấy tọa độ thành công từ ${providerName}!\n\nVĩ độ: ${result.latitude}\nKinh độ: ${result.longitude}\n\nĐịa chỉ tìm được: ${result.formattedAddress}`);
+      }
+    } catch (error) {
+      console.error('❌ Error getting coordinates:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Có lỗi xảy ra khi lấy tọa độ';
+      setGeoError(errorMessage);
+    } finally {
+      setGeoLoading(false);
     }
   };
 
@@ -817,34 +887,99 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                 </div>
 
                 {/* Coordinates */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase text-slate-400 tracking-widest">
-                      Vĩ độ (Latitude)
-                    </label>
-                    <input
-                      type="text"
-                      name="latitude"
-                      value={editForm.latitude}
-                      onChange={handleInputChange}
-                      placeholder="VD: 10.7886"
-                      pattern="[0-9]*\.?[0-9]*"
-                      className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                    />
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <label className="text-xs font-bold uppercase text-slate-400 tracking-widest mb-2 block">
+                        Tọa độ địa lý
+                      </label>
+                      <p className="text-sm text-gray-500">
+                        Vĩ độ và kinh độ giúp xác định vị trí chính xác của địa chỉ
+                      </p>
+                      {/* <p className="text-xs text-green-600 mt-1">
+                        🗺️ Lấy tọa độ chính xác từ Thôn/Xã/Huyện/Tỉnh - HOÀN TOÀN MIỄN PHÍ
+                      </p> */}
+                      <p className="text-xs text-blue-600 mt-1">
+                         Hệ thống thử nhiều cách tìm để có độ chính xác cao nhất
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleGetCoordinates}
+                      disabled={geoLoading || !selectedProvince || !selectedDistrict}
+                      className="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200"
+                    >
+                      {geoLoading ? (
+                        <>
+                          <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                          Đang tải...
+                        </>
+                      ) : (
+                        <>
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                          </svg>
+                          Lấy tọa độ tự động
+                        </>
+                      )}
+                    </button>
                   </div>
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold uppercase text-slate-400 tracking-widest">
-                      Kinh độ (Longitude)
-                    </label>
-                    <input
-                      type="text"
-                      name="longitude"
-                      value={editForm.longitude}
-                      onChange={handleInputChange}
-                      placeholder="VD: 106.6891"
-                      pattern="[0-9]*\.?[0-9]*"
-                      className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                    />
+                  
+                  {/* Error message */}
+                  {geoError && (
+                    <div className="bg-red-50 border border-red-200 text-red-600 px-4 py-3 rounded-lg text-sm">
+                      <div className="flex items-start gap-2">
+                        <svg className="w-4 h-4 text-red-500 mt-0.5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        <div>
+                          <strong>Lỗi:</strong> {geoError}
+                          {geoError.includes('Không tìm thấy tọa độ') && (
+                            <div className="mt-2 text-xs">
+                              <p><strong>Gợi ý:</strong></p>
+                              <ul className="list-disc list-inside mt-1 space-y-1">
+                                <li>Thử nhập địa chỉ ngắn gọn hơn (chỉ tên đường + phường/xã)</li>
+                                <li>Kiểm tra chính tả tên đường, phường, xã</li>
+                                <li>Thử bỏ trống phần địa chỉ chi tiết</li>
+                                <li>Một số địa chỉ mới có thể chưa có trong OpenStreetMap</li>
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase text-slate-400 tracking-widest">
+                        Vĩ độ 
+                      </label>
+                      <input
+                        type="text"
+                        name="latitude"
+                        value={editForm.latitude}
+                        onChange={handleInputChange}
+                        placeholder="VD: 10.7886"
+                        pattern="[0-9]*\.?[0-9]*"
+                        className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="text-xs font-bold uppercase text-slate-400 tracking-widest">
+                        Kinh độ 
+                      </label>
+                      <input
+                        type="text"
+                        name="longitude"
+                        value={editForm.longitude}
+                        onChange={handleInputChange}
+                        placeholder="VD: 106.6891"
+                        pattern="[0-9]*\.?[0-9]*"
+                        className="w-full px-4 py-3 rounded-xl bg-gray-50 border border-gray-200 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                      />
+                    </div>
                   </div>
                 </div>
 
