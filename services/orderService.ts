@@ -2,26 +2,59 @@ import { getAuthToken } from './auth';
 const API_BASE_URL = '/api';
 
 export interface OrderItem {
-    id: string;
-    packageName: string;
+    itemId: string;
+    variantId?: string | number;
     variantName: string;
+    packageName: string;
     quantity: number;
     price: number;
     lineTotal: number;
+    decorationNote?: string;
 }
 
 export interface Order {
     orderId: string;
-    orderCode: string;
-    vendorName: string;
-    totalAmount: number;
-    shippingFee: number;
     orderStatus: string;
-    createdAt: string;
-    deliveryDate: string;
-    deliveryTime: string;
-    deliveryAddress: string;
+    customer: {
+        profileId: string;
+        fullName: string;
+        email: string;
+        phoneNumber: string;
+    };
+    vendor: {
+        profileId: string | null;
+        shopName: string;
+        email: string;
+        phoneNumber: string;
+        address: string;
+    };
+    delivery: {
+        deliveryDate: string;
+        deliveryTime: string;
+        deliveryAddress: string;
+        shippingDistanceKm: number;
+    };
     items: OrderItem[];
+    pricing: {
+        subTotal: number;
+        shippingFee: number;
+        totalAmount: number;
+        commissionRate: number;
+        platformFee: number;
+        vendorNetAmount: number;
+    };
+    payment: {
+        paymentMethod: string;
+        paymentStatus: string;
+        paidAt: string | null;
+        transactionId: string;
+        isPaidToVendor: boolean | null;
+        paidToVendorDate: string | null;
+    };
+    createdAt: string;
+    updatedAt: string | null;
+    cancelReason: string | null;
+    refundAmount: number;
 }
 
 class OrderService {
@@ -86,6 +119,7 @@ class OrderService {
             const response = await fetch(`${API_BASE_URL}/orders/${orderId}/cancel`, {
                 method: 'PUT',
                 headers: this.getHeaders(),
+                body: JSON.stringify({ reason: "Người dùng hủy đơn từ website" }) // Backend requires a non-empty body
             });
 
             if (!response.ok) {

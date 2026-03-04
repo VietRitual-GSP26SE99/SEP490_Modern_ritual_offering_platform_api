@@ -146,7 +146,7 @@ const MyOrdersPage: React.FC = () => {
                                     <div className="flex flex-col md:flex-row gap-4 md:items-center">
                                         <div>
                                             <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-1">Mã đơn hàng</span>
-                                            <span className="font-mono text-gray-900 font-bold">#{order.orderCode || order.orderId.substring(0, 8).toUpperCase()}</span>
+                                            <span className="font-mono text-gray-900 font-bold">#{order.orderId.substring(0, 8).toUpperCase()}</span>
                                         </div>
                                         <div className="hidden md:block w-px h-8 bg-gray-300"></div>
                                         <div>
@@ -169,7 +169,7 @@ const MyOrdersPage: React.FC = () => {
                                             </svg>
                                         </div>
                                         <div>
-                                            <h4 className="font-bold text-gray-900">{order.vendorName || "Tiệm Cúng Bái"}</h4>
+                                            <h4 className="font-bold text-gray-900">{order.vendor?.shopName || "Tiệm Cúng Bái"}</h4>
                                         </div>
                                     </div>
 
@@ -195,7 +195,7 @@ const MyOrdersPage: React.FC = () => {
                                 <div className="p-6 md:p-8 pt-0 flex flex-col sm:flex-row items-center justify-between gap-4">
                                     <div>
                                         <span className="text-sm text-gray-500 mr-2">Tổng tiền:</span>
-                                        <span className="text-2xl font-black text-primary">{order.totalAmount.toLocaleString('vi-VN')}đ</span>
+                                        <span className="text-2xl font-black text-primary">{(order.pricing?.totalAmount || 0).toLocaleString('vi-VN')}đ</span>
                                     </div>
                                     <div className="flex gap-3 w-full sm:w-auto">
                                         {order.orderStatus.toUpperCase() === 'PENDING' && (
