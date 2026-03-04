@@ -14,7 +14,6 @@ const PaymentSuccessPage: React.FC<PaymentSuccessPageProps> = ({ onNavigate }) =
   useEffect(() => {
     const fetchTransaction = async () => {
       try {
-        // Lấy transactionId từ URL params
         const params = new URLSearchParams(window.location.search);
         const transactionId = params.get('transactionId');
 
@@ -25,16 +24,15 @@ const PaymentSuccessPage: React.FC<PaymentSuccessPageProps> = ({ onNavigate }) =
           return;
         }
 
-        console.log('💳 Transaction ID from URL:', transactionId);
+        console.log(' Transaction ID from URL:', transactionId);
 
         // Gọi API GET /api/payments/{transactionId}
         const result = await checkoutService.getTransaction(transactionId);
 
         if (result) {
           setTransaction(result);
-          console.log('✅ Transaction details:', result);
+          console.log(' Transaction details:', result);
           
-          // Hiển thị toast theo trạng thái
           if (result.status === 'Success' || result.paymentStatus === 'Success') {
             toast.success('Thanh toán thành công!');
           } else if (result.status === 'Pending' || result.paymentStatus === 'Pending') {
@@ -47,7 +45,7 @@ const PaymentSuccessPage: React.FC<PaymentSuccessPageProps> = ({ onNavigate }) =
           toast.error('Không thể lấy thông tin giao dịch');
         }
       } catch (err: any) {
-        console.error('❌ Failed to fetch transaction:', err);
+        console.error(' Failed to fetch transaction:', err);
         setError('Đã xảy ra lỗi khi lấy thông tin giao dịch');
         toast.error('Đã xảy ra lỗi khi lấy thông tin giao dịch');
       } finally {
@@ -97,7 +95,6 @@ const PaymentSuccessPage: React.FC<PaymentSuccessPageProps> = ({ onNavigate }) =
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-orange-50 via-white to-red-50 px-4">
       <div className="max-w-2xl w-full bg-white rounded-3xl shadow-2xl p-8 md:p-12">
-        {/* Icon */}
         <div className={`w-24 h-24 ${isSuccess ? 'bg-green-100' : isPending ? 'bg-yellow-100' : 'bg-red-100'} rounded-full flex items-center justify-center mx-auto mb-8`}>
           {isSuccess ? (
             <svg className="w-12 h-12 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -114,7 +111,6 @@ const PaymentSuccessPage: React.FC<PaymentSuccessPageProps> = ({ onNavigate }) =
           )}
         </div>
 
-        {/* Title */}
         <h1 className="text-3xl md:text-4xl font-bold text-center mb-2" style={{ color: isSuccess ? '#10b981' : isPending ? '#f59e0b' : '#ef4444' }}>
           {isSuccess ? 'Thanh toán thành công!' : isPending ? 'Đang xử lý thanh toán' : 'Thanh toán thất bại'}
         </h1>
@@ -122,7 +118,6 @@ const PaymentSuccessPage: React.FC<PaymentSuccessPageProps> = ({ onNavigate }) =
           {isSuccess ? 'Đơn hàng của bạn đã được thanh toán thành công' : isPending ? 'Giao dịch của bạn đang được xử lý' : 'Đã xảy ra lỗi trong quá trình thanh toán'}
         </p>
 
-        {/* Transaction Details */}
         <div className="bg-gray-50 rounded-2xl p-6 mb-8 space-y-3">
           {transaction?.orderId && (
             <div className="flex justify-between">
@@ -170,7 +165,6 @@ const PaymentSuccessPage: React.FC<PaymentSuccessPageProps> = ({ onNavigate }) =
           )}
         </div>
 
-        {/* Actions */}
         <div className="flex flex-col sm:flex-row gap-4">
           {isSuccess && transaction?.orderId && (
             <button
@@ -188,7 +182,6 @@ const PaymentSuccessPage: React.FC<PaymentSuccessPageProps> = ({ onNavigate }) =
           </button>
         </div>
 
-        {/* Additional Note */}
         {isSuccess && (
           <p className="text-center text-sm text-gray-500 mt-6">
             Chúng tôi đã gửi email xác nhận đến địa chỉ của bạn

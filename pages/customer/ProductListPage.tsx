@@ -20,28 +20,26 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
     r4: false, // 4 sao
     r3: false, // 3 sao
   });
-  const [sortBy, setSortBy] = useState('popular'); // popular, price-asc, price-desc
+  const [sortBy, setSortBy] = useState('popular'); 
 
-  // Fetch products from API
   useEffect(() => {
     const fetchProducts = async () => {
       setLoading(true);
       try {
-        console.log('🚀 Starting to fetch products...');
+        console.log(' Starting to fetch products...');
         const apiPackages = await packageService.getAllPackages();
-        console.log('📦 Received packages:', apiPackages);
+        console.log(' Received packages:', apiPackages);
         
         if (apiPackages.length > 0) {
-          const mappedProducts = packageService.mapToProducts(apiPackages);
-          console.log('✨ Mapped products:', mappedProducts);
+          const mappedProducts = await packageService.mapToProductsWithVendors(apiPackages);
+          console.log(' Mapped products with vendors:', mappedProducts);
           setProducts(mappedProducts);
         } else {
-          console.warn('⚠️ No packages from API, using mock data');
-          // Fallback to mock data if API fails
+          console.warn(' No packages from API, using mock data');
           setProducts(MOCK_PRODUCTS);
         }
       } catch (error) {
-        console.error('❌ Error fetching products:', error);
+        console.error(' Error fetching products:', error);
         setProducts(MOCK_PRODUCTS);
       } finally {
         setLoading(false);
@@ -51,7 +49,6 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
     fetchProducts();
   }, []);
 
-  // Handle URL params for category filter
   useEffect(() => {
     const category = searchParams.get('category');
     if (category) {
@@ -62,7 +59,7 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
   }, [searchParams]);
 
   const filterByPrice = (price: number) => {
-    if (!Object.values(priceRanges).some(v => v)) return true; // Nếu không chọn gì thì hiện tất cả
+    if (!Object.values(priceRanges).some(v => v)) return true; 
     if (priceRanges.p1 && price < 1000000) return true;
     if (priceRanges.p2 && price >= 1000000 && price < 3000000) return true;
     if (priceRanges.p3 && price >= 3000000 && price < 5000000) return true;
@@ -71,7 +68,7 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
   };
 
   const filterByRating = (rating: number) => {
-    if (!Object.values(ratingFilters).some(v => v)) return true; // Nếu không chọn gì thì hiện tất cả
+    if (!Object.values(ratingFilters).some(v => v)) return true; 
     if (ratingFilters.r5 && rating >= 5) return true;
     if (ratingFilters.r4 && rating >= 4 && rating < 5) return true;
     if (ratingFilters.r3 && rating >= 3 && rating < 4) return true;
@@ -86,14 +83,12 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
   }).sort((a, b) => {
     if (sortBy === 'price-asc') return a.price - b.price;
     if (sortBy === 'price-desc') return b.price - a.price;
-    // popular: sort by rating desc, then reviews desc
     if (b.rating !== a.rating) return b.rating - a.rating;
     return b.reviews - a.reviews;
   });
 
   return (
     <div className="max-w-7xl mx-auto px-6 md:px-10 py-16 flex flex-col lg:flex-row gap-12">
-      {/* Sidebar Filters */}
       <aside className="w-full lg:w-72 shrink-0 space-y-10">
         <div className="bg-white p-8 rounded-3xl border border-gold/10 shadow-sm space-y-8">
             <div>
@@ -238,7 +233,6 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
         </div>
       </aside>
 
-      {/* Product Grid */}
       <section className="flex-1 space-y-8">
         {loading ? (
           <div className="flex items-center justify-center py-24">
@@ -269,10 +263,12 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
             {filteredProducts.map((p) => (
                 <div 
                     key={p.id} 
-                    onClick={() => onNavigate(`/product/${p.id}`)}
-                    className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-2xl transition-all border border-gold/10 group cursor-pointer"
+                    className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-2xl transition-all border border-gold/10 group"
                 >
-                    <div className="relative aspect-square overflow-hidden">
+                    <div 
+                        className="relative aspect-square overflow-hidden cursor-pointer"
+                        onClick={() => onNavigate(`/product/${p.id}`)}
+                    >
                         <img className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" src={p.image} alt={p.name} />
                         <div className="absolute top-4 left-4 flex flex-col gap-2">
                             {p.tag && (
@@ -282,17 +278,33 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
                             )}
                         </div>
                     </div>
-                    <div className="p-6">
+                    <div 
+                        className="p-6 cursor-pointer"
+                        onClick={() => onNavigate(`/product/${p.id}`)}
+                    >
                         <div className="flex items-center gap-1 mb-2 text-gold">
                             <span className="text-sm" style={{ color: '#FFD700' }}>★</span>
                             <span className="text-xs font-bold">{p.rating}</span>
                             <span className="text-[10px] text-slate-400 ml-1">({p.reviews} đánh giá)</span>
                         </div>
                         <h3 className="text-lg font-bold mb-2 group-hover:text-primary transition-colors leading-tight">{p.name}</h3>
+                        {p.vendorName && (
+                            <p className="text-xs text-slate-600 mb-2 flex items-center gap-1">
+                                <span className="text-slate-400">bởi</span>
+                                <span className="font-semibold text-primary">{p.vendorName}</span>
+                            </p>
+                        )}
                         <p className="text-slate-500 text-xs line-clamp-2 mb-6">{p.description}</p>
                         <div className="pt-4 border-t border-gold/10 flex items-center justify-between">
                             <p className="text-xl font-black text-primary tracking-tight">{p.price.toLocaleString()}đ</p>
-                            <button className="bg-primary text-white p-2.5 rounded-xl hover:scale-105 transition-transform">
+                            <button 
+                                className="bg-primary text-white p-2.5 rounded-xl hover:scale-105 transition-transform z-10"
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    // TODO: Add to cart functionality
+                                    console.log('Add to cart:', p.id);
+                                }}
+                            >
                                 +
                             </button>
                         </div>

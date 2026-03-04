@@ -1,4 +1,5 @@
 import { ApiPackage, ApiResponse, Product, PackageVariant } from '../types';
+import { vendorService, VendorProfile } from './vendorService';
 
 
 const API_BASE_URL = '/api'; // Use proxy instead of direct URL
@@ -125,9 +126,10 @@ class PackageService {
   /**
    * Chuyển đổi ApiPackage sang Product type (để tương thích với UI hiện tại)
    * @param apiPackage - API Package object
+   * @param vendorMap - Optional map of vendorProfileId to VendorProfile
    * @returns Product
    */
-  mapToProduct(apiPackage: ApiPackage): Product {
+  mapToProduct(apiPackage: ApiPackage, vendorMap?: Map<string, VendorProfile>): Product {
     // Find default variant or use first variant for pricing
     const defaultVariant = apiPackage.packageVariants?.[0];
     
@@ -182,6 +184,9 @@ class PackageService {
     
     console.log('📦 Final parsed variants:', parsedVariants);
     
+    // Get vendor info from map if available
+    const vendor = vendorMap?.get(apiPackage.vendorProfileId);
+    
     return {
       id: apiPackage.packageId.toString(),
       name: apiPackage.packageName,
@@ -194,6 +199,8 @@ class PackageService {
       reviews: 128,
       tag: apiPackage.isActive ? 'NEW' : undefined,
       variants: parsedVariants,
+      vendorId: apiPackage.vendorProfileId,
+      vendorName: vendor?.shopName || `Shop ${apiPackage.vendorProfileId.substring(0, 8)}`,
     };
   }
 
@@ -204,6 +211,48 @@ class PackageService {
    */
   mapToProducts(apiPackages: ApiPackage[]): Product[] {
     return apiPackages.map(pkg => this.mapToProduct(pkg));
+  }
+
+  /**
+   * Chuyển đổi nhiều ApiPackages sang Products với thông tin vendor
+   * @param apiPackages - Array of API Packages
+   * @returns Promise<Product[]>
+   */
+  async mapToProductsWithVendors(apiPackages: ApiPackage[]): Promise<Product[]> {
+    try {
+      // Lấy danh sách unique vendor IDs
+      const vendorIds = [...new Set(apiPackages.map(pkg => pkg.vendorProfileId))];
+      console.log('🏪 Fetching vendors for IDs:', vendorIds);
+      
+      // Fetch tất cả vendors với error handling cho từng vendor
+      const vendorPromises = vendorIds.map(async (id) => {
+        try {
+          return await vendorService.getVendorCached(id);
+        } catch (err) {
+          console.warn(`⚠️ Failed to fetch vendor ${id}:`, err);
+          return null;
+        }
+      });
+      const vendors = await Promise.all(vendorPromises);
+      
+      // Tạo vendor map
+      const vendorMap = new Map<string, VendorProfile>();
+      vendors.forEach((vendor, index) => {
+        if (vendor) {
+          vendorMap.set(vendorIds[index], vendor);
+          console.log(`✅ Loaded vendor: ${vendor.shopName}`);
+        }
+      });
+      
+      console.log(`✅ Vendor map created with ${vendorMap.size}/${vendorIds.length} vendors`);
+      
+      // Map packages to products với vendor info
+      return apiPackages.map(pkg => this.mapToProduct(pkg, vendorMap));
+    } catch (error) {
+      console.error('❌ Error mapping products with vendors:', error);
+      // Fallback: map without vendor info (will show vendorProfileId)
+      return apiPackages.map(pkg => this.mapToProduct(pkg));
+    }
   }
 
   /**

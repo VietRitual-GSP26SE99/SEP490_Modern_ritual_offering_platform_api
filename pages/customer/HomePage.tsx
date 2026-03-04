@@ -18,7 +18,7 @@ const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
       try {
         const apiPackages = await packageService.getAllPackages();
         if (apiPackages.length > 0) {
-          const mappedProducts = packageService.mapToProducts(apiPackages);
+          const mappedProducts = await packageService.mapToProductsWithVendors(apiPackages);
           // Get first 3 products for homepage
           setProducts(mappedProducts.slice(0, 3));
         } else {
@@ -118,6 +118,12 @@ const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
                     </div>
                     <div className="p-8">
                         <h3 className="text-xl font-black mb-2 group-hover:text-primary transition-colors leading-tight">{product.name}</h3>
+                        {product.vendorName && (
+                            <p className="text-xs text-slate-600 mb-2 flex items-center gap-1">
+                                <span className="text-slate-400">bởi</span>
+                                <span className="font-semibold text-primary">{product.vendorName}</span>
+                            </p>
+                        )}
                         <p className="text-gray-500 text-sm mb-6 line-clamp-2">{product.description}</p>
                         <div className="flex items-center justify-between">
                             <span className="text-primary text-2xl font-black tracking-tight">{product.price.toLocaleString()}đ</span>

@@ -4,6 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { MOCK_PRODUCTS } from '../../constants';
 import ImageModal from '../../components/ImageModal';
 import { packageService } from '../../services/packageService';
+import { vendorService, VendorProfile } from '../../services/vendorService';
 import { Product } from '../../types';
 import toast from '../../services/toast';
 import { cartService } from '../../services/cartService';
@@ -13,6 +14,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [product, setProduct] = useState<Product | null>(null);
+  const [vendor, setVendor] = useState<VendorProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedTier, setSelectedTier] = useState('Special');
   const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
@@ -32,26 +34,33 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
       
       setLoading(true);
       try {
-        console.log('🚀 Fetching product detail for ID:', id);
+        console.log(' Fetching product detail for ID:', id);
         const apiPackage = await packageService.getPackageById(id);
-        console.log('📦 Received package:', apiPackage);
+        console.log(' Received package:', apiPackage);
         
         if (apiPackage) {
-          const mappedProduct = packageService.mapToProduct(apiPackage);
-          console.log('✨ Mapped product:', mappedProduct);
-          console.log('🎯 Variants:', mappedProduct.variants);
+          // Fetch vendor info
+          const vendorInfo = await vendorService.getVendorCached(apiPackage.vendorProfileId);
+          const vendorMap = new Map();
+          if (vendorInfo) {
+            vendorMap.set(apiPackage.vendorProfileId, vendorInfo);
+            setVendor(vendorInfo);
+          }
+          
+          const mappedProduct = packageService.mapToProduct(apiPackage, vendorMap);
+          console.log(' Mapped product:', mappedProduct);
+          console.log(' Variants:', mappedProduct.variants);
           if (mappedProduct.variants && mappedProduct.variants[0]) {
-            console.log('📝 First variant items:', mappedProduct.variants[0].items);
+            console.log(' First variant items:', mappedProduct.variants[0].items);
           }
           setProduct(mappedProduct);
         } else {
-          console.warn('⚠️ No package from API, using mock data');
-          // Fallback to mock data
+          console.warn(' No package from API, using mock data');
           const mockProduct = MOCK_PRODUCTS.find(p => p.id === id);
           setProduct(mockProduct || null);
         }
       } catch (error) {
-        console.error('❌ Error fetching product:', error);
+        console.error(' Error fetching product:', error);
         const mockProduct = MOCK_PRODUCTS.find(p => p.id === id);
         setProduct(mockProduct || null);
       } finally {
@@ -251,6 +260,12 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                     <span className="px-2.5 py-1 bg-gold/10 text-gold text-[10px] font-black uppercase tracking-widest rounded-md">Truyền thống</span>
                 </div>
                 <h1 className="text-4xl font-display font-black leading-tight text-primary">{product.name}</h1>
+                {product.vendorName && (
+                    <p className="text-sm text-slate-600 flex items-center gap-2">
+                        <span className="text-slate-400">Được đăng bởi</span>
+                        <span className="font-bold text-primary">{product.vendorName}</span>
+                    </p>
+                )}
                 <div className="flex items-baseline gap-4">
                     <p className="text-4xl font-black text-primary tracking-tight">{product.price.toLocaleString()}đ</p>
                     {product.originalPrice && (
@@ -354,12 +369,88 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
         </div>
       </div>
 
-      {/* Reviews Section */}
+      {/* Vendor Info Box - Similar to Shopee */}
+      {vendor && (
+        <div className="mt-8">
+          <div className="bg-white rounded-3xl p-8 border border-gold/10 shadow-sm">
+            <div className="flex flex-col md:flex-row gap-6">
+              {/* Vendor Avatar & Name */}
+              <div className="flex items-center gap-4 md:w-1/3 pb-6 md:pb-0 md:border-r border-gold/10">
+                <div className="relative">
+                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary to-orange-400 flex items-center justify-center text-white text-2xl font-black shadow-lg">
+                    {vendor.shopName.charAt(0).toUpperCase()}
+                  </div>
+                  {(vendor.rating && vendor.rating >= 4.5) && (
+                    <div className="absolute -bottom-1 -right-1 bg-primary text-white text-[10px] font-black px-2 py-0.5 rounded-full border-2 border-white">
+                      Yêu thích
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg text-slate-900">{vendor.shopName}</h3>
+                  <p className="text-xs text-green-600 mt-1">● Online 3 Phút Trước</p>
+                  <div className="flex gap-2 mt-3">
+                    <button className="px-4 py-1.5 border-2 border-primary text-primary text-xs font-bold rounded-lg hover:bg-primary hover:text-white transition">
+                      💬 Chat Ngay
+                    </button>
+                    <button 
+                      onClick={() => vendor.vendorProfileId && onNavigate(`/vendor/${vendor.vendorProfileId}`)}
+                      className="px-4 py-1.5 border-2 border-slate-300 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 transition"
+                    >
+                      🏪 Xem Shop
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Vendor Stats */}
+              <div className="md:w-2/3 grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 md:pl-6">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-500 text-xs">Đánh Giá</span>
+                  </div>
+                  <p className="text-primary font-bold">{vendor.rating ? `${vendor.rating}/5` : '4.8/5'}</p>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-500 text-xs">Tỉ Lệ Phản Hồi</span>
+                  </div>
+                  <p className="text-primary font-bold">{vendor.responseRate ? `${vendor.responseRate}%` : '96%'}</p>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-500 text-xs">Tham Gia</span>
+                  </div>
+                  <p className="font-bold text-slate-700">{vendor.joinedDate || '5 năm trước'}</p>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-500 text-xs">Sản Phẩm</span>
+                  </div>
+                  <p className="font-bold text-slate-700">{vendor.productCount || '127'}</p>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-500 text-xs">Thời Gian Phản Hồi</span>
+                  </div>
+                  <p className="font-bold text-slate-700">{vendor.responseTime || 'trong vài giờ'}</p>
+                </div>
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-500 text-xs">Người Theo Dõi</span>
+                  </div>
+                  <p className="font-bold text-slate-700">{vendor.followerCount ? `${(vendor.followerCount / 1000).toFixed(1)}k` : '2.1k'}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mt-16 space-y-8">
         <h2 className="text-3xl font-black text-primary">Đánh giá sản phẩm</h2>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Rating Summary */}
           <div className="bg-white rounded-3xl p-8 border border-gold/10 shadow-sm">
             <div className="text-center mb-6">
               <div className="text-5xl font-black text-primary mb-2">{product.rating}</div>

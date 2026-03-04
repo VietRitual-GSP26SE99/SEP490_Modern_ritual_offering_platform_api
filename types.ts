@@ -16,6 +16,8 @@ export interface Product {
   reviews: number;
   tag?: string;
   variants?: ProductVariant[]; // UI variants
+  vendorId?: string;
+  vendorName?: string;
 }
 
 // API Types
