@@ -13,13 +13,11 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [processing, setProcessing] = useState(false);
 
-  // Form states
   const [deliveryDate, setDeliveryDate] = useState('');
   const [deliveryTimeSlot, setDeliveryTimeSlot] = useState('07:00:00');
   const [paymentMethod, setPaymentMethod] = useState('Vnpay');
   const [decorationNotes, setDecorationNotes] = useState<{ [key: number]: string }>({});
 
-  // Time slot mapping for display
   const timeSlots = [
     { value: '07:00:00', label: '7:00 - 9:00 (Tý-Sửu)' },
     { value: '09:00:00', label: '9:00 - 11:00 (Dần-Mão)' },
@@ -28,18 +26,16 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
     { value: '17:00:00', label: '17:00 - 19:00 (Dậu-Tuất)' }
   ];
 
-  // Check authentication
   useEffect(() => {
     const user = getCurrentUser();
     if (!user) {
-      console.log('🔒 User not authenticated, redirecting to login');
+      console.log(' User not authenticated, redirecting to login');
       navigate('/auth?redirect=/checkout');
       return;
     }
     setIsCheckingAuth(false);
   }, [navigate]);
 
-  // Fetch checkout summary
   useEffect(() => {
     if (isCheckingAuth) return;
 
@@ -77,7 +73,6 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
   }, [isCheckingAuth, searchParams, navigate]);
 
   const handleCheckout = async () => {
-    // Validation
     if (!deliveryDate) {
       toast.error('Vui lòng chọn ngày giao hàng');
       return;
@@ -88,14 +83,14 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
       return;
     }
 
-    console.log('📋 Form state:', { deliveryDate, deliveryTimeSlot, paymentMethod });
-    console.log('📦 Summary items:', summary.items);
+    console.log(' Form state:', { deliveryDate, deliveryTimeSlot, paymentMethod });
+    console.log(' Summary items:', summary.items);
 
     setProcessing(true);
     try {
       const checkoutRequest = {
         deliveryDate,
-        deliveryTime: deliveryTimeSlot, // TimeOnly format: "07:00:00"
+        deliveryTime: deliveryTimeSlot, 
         paymentMethod,
         items: summary.items.map(item => ({
           cartItemId: item.cartItemId,
@@ -103,34 +98,68 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
         }))
       };
       
-      console.log('🛒 Checkout request data:', JSON.stringify(checkoutRequest, null, 2));
+      console.log(' Checkout request data:', JSON.stringify(checkoutRequest, null, 2));
       
       const result = await checkoutService.processCheckout(checkoutRequest);
 
-      console.log('🎯 Checkout result:', result);
+      console.log(' Checkout result:', result);
 
       if (result) {
-        toast.success('Đặt hàng thành công!');
+        console.log(' Payment URL:', result.paymentUrl);
+        console.log(' Order ID:', result.orderId);
         
-        console.log('💳 Payment URL:', result.paymentUrl);
-        console.log('📦 Order ID:', result.orderId);
-        
-        // If there's a payment URL, redirect to it
+        try {
+          const returnUrl = await checkoutService.getPaymentReturnUrl();
+          console.log(' Payment return URL:', returnUrl);
+        } catch (returnUrlError) {
+          console.warn(' Could not fetch payment return URL:', returnUrlError);
+        }
+
         if (result.paymentUrl) {
-          console.log('🔗 Redirecting to payment URL...');
+          // Hiện toast trước khi redirect đến trang thanh toán
+          toast.success('Đơn hàng đã được tạo! Đang chuyển đến trang thanh toán...');
+          console.log(' Redirecting to payment URL...');
+          
+          // Delay nhỏ để user nhìn thấy toast
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          
+          if (paymentMethod === 'Vnpay') {
+            try {
+              const vnpayResult = await checkoutService.initiateVnpayPayment();
+              console.log(' VNPay initiation result:', vnpayResult);
+              
+              if (vnpayResult?.paymentUrl) {
+                window.location.href = vnpayResult.paymentUrl;
+                return;
+              }
+            } catch (vnpayError) {
+              console.warn(' VNPay initiation failed, using checkout payment URL:', vnpayError);
+            }
+          }
+          
           window.location.href = result.paymentUrl;
         } else {
-          console.log('⚠️ No payment URL, navigating to tracking...');
-          // Otherwise navigate to tracking page
+          console.log(' No payment URL, processing transaction...');
+          
+          if (result.orderId) {
+            try {
+              const transactionResult = await checkoutService.processTransaction(result.orderId.toString());
+              console.log(' Transaction result:', transactionResult);
+            } catch (transactionError) {
+              console.warn(' Transaction processing failed:', transactionError);
+            }
+          }
+          
+          // Toast thành công khi hoàn tất không cần thanh toán
+          toast.success('Đặt hàng thành công!');
           navigate(`/tracking?orderId=${result.orderId}`);
         }
       } else {
         toast.error('Không thể xử lý đơn hàng. Vui lòng kiểm tra thông tin giao hàng và thử lại.');
       }
     } catch (error: any) {
-      console.error('❌ Checkout failed:', error);
+      console.error(' Checkout failed:', error);
       
-      // More helpful error message
       if (error.message?.includes('500')) {
         toast.error('Lỗi hệ thống. Vui lòng đảm bảo đã cập nhật đầy đủ thông tin tài khoản (Địa chỉ, SĐT) và thử lại sau.');
       } else {

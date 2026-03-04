@@ -10,6 +10,7 @@ import CustomerHomePage from './pages/customer/HomePage';
 import CustomerProductList from './pages/customer/ProductListPage';
 import CustomerProductDetail from './pages/customer/ProductDetailPage';
 import CustomerCheckout from './pages/customer/CheckoutPage';
+import PaymentSuccessPage from './pages/customer/PaymentSuccessPage';
 import CustomerTracking from './pages/customer/TrackingPage';
 import CustomerProfile from './pages/customer/ProfilePage';
 import CartPage from './pages/customer/CartPage';
@@ -105,6 +106,7 @@ const AppContent: React.FC<{
       <Route path="/product/:id" element={<Layout activeRoute="/product/:id" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><CustomerProductDetail onNavigate={handleNavigate} /></Layout>} />
       <Route path="/cart" element={<Layout activeRoute="/cart" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><CartPage onNavigate={handleNavigate} /></Layout>} />
       <Route path="/checkout" element={isAuthenticated && userRole === 'customer' ? <Layout activeRoute="/checkout" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><CustomerCheckout onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
+      <Route path="/payment-success" element={isAuthenticated && userRole === 'customer' ? <PaymentSuccessPage onNavigate={handleNavigate} /> : <Navigate to="/auth" />} />
       <Route path="/tracking" element={isAuthenticated && userRole === 'customer' ? <Layout activeRoute="/tracking" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><CustomerTracking /></Layout> : <Navigate to="/auth" />} />
       <Route path="/profile" element={isAuthenticated && userRole === 'customer' ? <ProfilePageWrapper /> : <Navigate to="/auth" />} />
 
