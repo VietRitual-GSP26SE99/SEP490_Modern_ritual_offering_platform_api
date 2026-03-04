@@ -1,5 +1,4 @@
-const API_BASE_URL = 'https://vietritual.click/api';
-
+export const API_BASE_URL = 'https://vietritual.click/api';
 // API Response Types
 export interface PackageVariant {
   variantId: string;

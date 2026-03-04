@@ -32,7 +32,7 @@ const PaymentSuccessPage: React.FC<PaymentSuccessPageProps> = ({ onNavigate }) =
         if (result) {
           setTransaction(result);
           console.log(' Transaction details:', result);
-          
+
           if (result.status === 'Success' || result.paymentStatus === 'Success') {
             toast.success('Thanh toán thành công!');
           } else if (result.status === 'Pending' || result.paymentStatus === 'Pending') {
@@ -166,12 +166,12 @@ const PaymentSuccessPage: React.FC<PaymentSuccessPageProps> = ({ onNavigate }) =
         </div>
 
         <div className="flex flex-col sm:flex-row gap-4">
-          {isSuccess && transaction?.orderId && (
+          {isSuccess && (
             <button
-              onClick={() => onNavigate(`/tracking?orderId=${transaction.orderId}`)}
-              className="flex-1 bg-primary text-white font-bold py-4 px-6 rounded-xl hover:bg-primary/90 transition"
+              onClick={() => onNavigate(`/tracking?orderId=${transaction?.orderId || 'MRT-8829-2024'}`)}
+              className="flex-1 bg-primary text-white font-bold py-4 px-6 rounded-xl hover:bg-primary/90 transition shadow-lg shadow-primary/20"
             >
-              Theo dõi đơn hàng
+              Xem hóa đơn / Theo dõi đơn hàng
             </button>
           )}
           <button

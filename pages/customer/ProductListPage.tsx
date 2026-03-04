@@ -3,6 +3,9 @@ import { MOCK_PRODUCTS } from '../../constants';
 import { AppRoute, Occasion, Product } from '../../types';
 import { useSearchParams } from 'react-router-dom';
 import { packageService } from '../../services/packageService';
+import { cartService } from '../../services/cartService';
+import { getCurrentUser } from '../../services/auth';
+import toast from '../../services/toast';
 
 const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void }> = ({ onNavigate }) => {
   const [searchParams] = useSearchParams();
@@ -20,7 +23,7 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
     r4: false, // 4 sao
     r3: false, // 3 sao
   });
-  const [sortBy, setSortBy] = useState('popular'); 
+  const [sortBy, setSortBy] = useState('popular');
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -29,7 +32,7 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
         console.log(' Starting to fetch products...');
         const apiPackages = await packageService.getAllPackages();
         console.log(' Received packages:', apiPackages);
-        
+
         if (apiPackages.length > 0) {
           const mappedProducts = await packageService.mapToProductsWithVendors(apiPackages);
           console.log(' Mapped products with vendors:', mappedProducts);
@@ -59,7 +62,7 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
   }, [searchParams]);
 
   const filterByPrice = (price: number) => {
-    if (!Object.values(priceRanges).some(v => v)) return true; 
+    if (!Object.values(priceRanges).some(v => v)) return true;
     if (priceRanges.p1 && price < 1000000) return true;
     if (priceRanges.p2 && price >= 1000000 && price < 3000000) return true;
     if (priceRanges.p3 && price >= 3000000 && price < 5000000) return true;
@@ -68,7 +71,7 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
   };
 
   const filterByRating = (rating: number) => {
-    if (!Object.values(ratingFilters).some(v => v)) return true; 
+    if (!Object.values(ratingFilters).some(v => v)) return true;
     if (ratingFilters.r5 && rating >= 5) return true;
     if (ratingFilters.r4 && rating >= 4 && rating < 5) return true;
     if (ratingFilters.r3 && rating >= 3 && rating < 4) return true;
@@ -87,149 +90,185 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
     return b.reviews - a.reviews;
   });
 
+  const handleQuickAddToCart = async (product: Product, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    const user = getCurrentUser();
+    if (!user) {
+      toast.warning('Vui lòng đăng nhập để thêm vào giỏ hàng');
+      onNavigate('/auth');
+      return;
+    }
+
+    if (!product.variants || product.variants.length === 0) {
+      toast.warning('Sản phẩm này chưa có chi tiết gói lễ. Vui lòng xem chi tiết.');
+      onNavigate(`/product/${product.id}`);
+      return;
+    }
+
+    // Default to the first variant
+    const variantId = product.variants[0].variantId;
+
+    try {
+      const success = await cartService.addToCart({
+        variantId: variantId,
+        quantity: 1
+      });
+
+      if (success) {
+        toast.success('Đã thêm vào giỏ hàng!');
+        window.dispatchEvent(new Event('cartUpdated'));
+      } else {
+        toast.error('Không thể thêm vào giỏ hàng. Vui lòng thử lại.');
+      }
+    } catch (error) {
+      console.error('Error quick add to cart:', error);
+      toast.error('Đã xảy ra lỗi. Vui lòng thử lại.');
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-6 md:px-10 py-16 flex flex-col lg:flex-row gap-12">
       <aside className="w-full lg:w-72 shrink-0 space-y-10">
         <div className="bg-white p-8 rounded-3xl border border-gold/10 shadow-sm space-y-8">
-            <div>
-                <h3 className="text-lg font-bold text-primary mb-6">
-                     Bộ lọc
-                </h3>
-                <div className="space-y-2">
-                    {[
-                      { value: 'All', label: 'Tất cả dịp lễ' },
-                      { value: 'Full Moon', label: 'Cúng Rằm' },
-                      { value: 'Grand Opening', label: 'Khai Trương' },
-                      { value: 'House Warming', label: 'Tân Gia' },
-                      { value: 'Ancestral', label: 'Cúng Giỗ' },
-                      { value: 'Year End', label: 'Cúng Tết' }
-                    ].map((cat) => (
-                        <button
-                          key={cat.value}
-                          onClick={() => {
-                            setActiveFilter(cat.value as any);
-                          }}
-                          className={`w-full text-left px-4 py-3 rounded-xl text-sm font-semibold transition-all ${
-                            activeFilter === cat.value ? 'border-2 border-primary bg-primary/5 text-primary' : 'text-slate-600 hover:bg-gold/10'
-                          }`}
-                        >
-                            {cat.label}
-                        </button>
-                    ))}
-                </div>
+          <div>
+            <h3 className="text-lg font-bold text-primary mb-6">
+              Bộ lọc
+            </h3>
+            <div className="space-y-2">
+              {[
+                { value: 'All', label: 'Tất cả dịp lễ' },
+                { value: 'Full Moon', label: 'Cúng Rằm' },
+                { value: 'Grand Opening', label: 'Khai Trương' },
+                { value: 'House Warming', label: 'Tân Gia' },
+                { value: 'Ancestral', label: 'Cúng Giỗ' },
+                { value: 'Year End', label: 'Cúng Tết' }
+              ].map((cat) => (
+                <button
+                  key={cat.value}
+                  onClick={() => {
+                    setActiveFilter(cat.value as any);
+                  }}
+                  className={`w-full text-left px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeFilter === cat.value ? 'border-2 border-primary bg-primary/5 text-primary' : 'text-slate-600 hover:bg-gold/10'
+                    }`}
+                >
+                  {cat.label}
+                </button>
+              ))}
             </div>
-            
-            <div className="pt-8 border-t border-gold/10">
-                <h4 className="text-sm font-bold text-slate-900 mb-4">Khoảng giá</h4>
-                <div className="space-y-4">
-                    <div className="flex items-center gap-3">
-                        <input 
-                          type="checkbox" 
-                          className="rounded text-primary focus:ring-primary" 
-                          id="p1"
-                          checked={priceRanges.p1}
-                          onChange={() => setPriceRanges({...priceRanges, p1: !priceRanges.p1})}
-                        />
-                        <label htmlFor="p1" className="text-sm text-slate-600">Dưới 1.000.000đ</label>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <input 
-                          type="checkbox" 
-                          className="rounded text-primary focus:ring-primary" 
-                          id="p2"
-                          checked={priceRanges.p2}
-                          onChange={() => setPriceRanges({...priceRanges, p2: !priceRanges.p2})}
-                        />
-                        <label htmlFor="p2" className="text-sm text-slate-600">1.000.000đ - 3.000.000đ</label>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <input 
-                          type="checkbox" 
-                          className="rounded text-primary focus:ring-primary" 
-                          id="p3"
-                          checked={priceRanges.p3}
-                          onChange={() => setPriceRanges({...priceRanges, p3: !priceRanges.p3})}
-                        />
-                        <label htmlFor="p3" className="text-sm text-slate-600">3.000.000đ - 5.000.000đ</label>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <input 
-                          type="checkbox" 
-                          className="rounded text-primary focus:ring-primary" 
-                          id="p4"
-                          checked={priceRanges.p4}
-                          onChange={() => setPriceRanges({...priceRanges, p4: !priceRanges.p4})}
-                        />
-                        <label htmlFor="p4" className="text-sm text-slate-600">Trên 5.000.000đ</label>
-                    </div>
-                </div>
-            </div>
+          </div>
 
-            <div className="pt-8 border-t border-gold/10">
-                <h4 className="text-sm font-bold text-slate-900 mb-4">Đánh giá</h4>
-                <div className="space-y-2">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                        <input 
-                          type="checkbox" 
-                          className="rounded text-gold"
-                          checked={ratingFilters.r5}
-                          onChange={() => setRatingFilters({...ratingFilters, r5: !ratingFilters.r5})}
-                        />
-                        <div className="flex">
-                            {[...Array(5)].map((_, i) => (
-                                <span key={i} className="text-xs" style={{ color: '#FFD700' }}>★</span>
-                            ))}
-                        </div>
-                        <span className="text-xs text-slate-500">(5 sao)</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                        <input 
-                          type="checkbox" 
-                          className="rounded text-gold"
-                          checked={ratingFilters.r4}
-                          onChange={() => setRatingFilters({...ratingFilters, r4: !ratingFilters.r4})}
-                        />
-                        <div className="flex">
-                            {[...Array(4)].map((_, i) => (
-                                <span key={i} className="text-xs" style={{ color: '#FFD700' }}>★</span>
-                            ))}
-                        </div>
-                        <span className="text-xs text-slate-500">(4 sao)</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                        <input 
-                          type="checkbox" 
-                          className="rounded text-gold"
-                          checked={ratingFilters.r3}
-                          onChange={() => setRatingFilters({...ratingFilters, r3: !ratingFilters.r3})}
-                        />
-                        <div className="flex">
-                            {[...Array(3)].map((_, i) => (
-                                <span key={i} className="text-xs" style={{ color: '#FFD700' }}>★</span>
-                            ))}
-                        </div>
-                        <span className="text-xs text-slate-500">(3 sao)</span>
-                    </label>
-                </div>
+          <div className="pt-8 border-t border-gold/10">
+            <h4 className="text-sm font-bold text-slate-900 mb-4">Khoảng giá</h4>
+            <div className="space-y-4">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  className="rounded text-primary focus:ring-primary"
+                  id="p1"
+                  checked={priceRanges.p1}
+                  onChange={() => setPriceRanges({ ...priceRanges, p1: !priceRanges.p1 })}
+                />
+                <label htmlFor="p1" className="text-sm text-slate-600">Dưới 1.000.000đ</label>
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  className="rounded text-primary focus:ring-primary"
+                  id="p2"
+                  checked={priceRanges.p2}
+                  onChange={() => setPriceRanges({ ...priceRanges, p2: !priceRanges.p2 })}
+                />
+                <label htmlFor="p2" className="text-sm text-slate-600">1.000.000đ - 3.000.000đ</label>
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  className="rounded text-primary focus:ring-primary"
+                  id="p3"
+                  checked={priceRanges.p3}
+                  onChange={() => setPriceRanges({ ...priceRanges, p3: !priceRanges.p3 })}
+                />
+                <label htmlFor="p3" className="text-sm text-slate-600">3.000.000đ - 5.000.000đ</label>
+              </div>
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  className="rounded text-primary focus:ring-primary"
+                  id="p4"
+                  checked={priceRanges.p4}
+                  onChange={() => setPriceRanges({ ...priceRanges, p4: !priceRanges.p4 })}
+                />
+                <label htmlFor="p4" className="text-sm text-slate-600">Trên 5.000.000đ</label>
+              </div>
             </div>
+          </div>
 
-            <div className="pt-8 border-t border-gold/10">
-                <h4 className="text-sm font-bold text-slate-900 mb-4">Tình trạng</h4>
-                <div className="space-y-2">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" defaultChecked className="rounded text-primary" />
-                        <span className="text-sm text-slate-600">Còn hàng</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" className="rounded text-primary" />
-                        <span className="text-sm text-slate-600">Sắp có hàng</span>
-                    </label>
+          <div className="pt-8 border-t border-gold/10">
+            <h4 className="text-sm font-bold text-slate-900 mb-4">Đánh giá</h4>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="rounded text-gold"
+                  checked={ratingFilters.r5}
+                  onChange={() => setRatingFilters({ ...ratingFilters, r5: !ratingFilters.r5 })}
+                />
+                <div className="flex">
+                  {[...Array(5)].map((_, i) => (
+                    <span key={i} className="text-xs" style={{ color: '#FFD700' }}>★</span>
+                  ))}
                 </div>
+                <span className="text-xs text-slate-500">(5 sao)</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="rounded text-gold"
+                  checked={ratingFilters.r4}
+                  onChange={() => setRatingFilters({ ...ratingFilters, r4: !ratingFilters.r4 })}
+                />
+                <div className="flex">
+                  {[...Array(4)].map((_, i) => (
+                    <span key={i} className="text-xs" style={{ color: '#FFD700' }}>★</span>
+                  ))}
+                </div>
+                <span className="text-xs text-slate-500">(4 sao)</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  className="rounded text-gold"
+                  checked={ratingFilters.r3}
+                  onChange={() => setRatingFilters({ ...ratingFilters, r3: !ratingFilters.r3 })}
+                />
+                <div className="flex">
+                  {[...Array(3)].map((_, i) => (
+                    <span key={i} className="text-xs" style={{ color: '#FFD700' }}>★</span>
+                  ))}
+                </div>
+                <span className="text-xs text-slate-500">(3 sao)</span>
+              </label>
             </div>
+          </div>
 
-            <button className="w-full border-2 border-primary text-primary py-2.5 rounded-lg font-bold text-sm uppercase tracking-wider hover:bg-primary/5 transition-all">
-                Xóa bộ lọc
-            </button>
+          <div className="pt-8 border-t border-gold/10">
+            <h4 className="text-sm font-bold text-slate-900 mb-4">Tình trạng</h4>
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" defaultChecked className="rounded text-primary" />
+                <span className="text-sm text-slate-600">Còn hàng</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" className="rounded text-primary" />
+                <span className="text-sm text-slate-600">Sắp có hàng</span>
+              </label>
+            </div>
+          </div>
+
+          <button className="w-full border-2 border-primary text-primary py-2.5 rounded-lg font-bold text-sm uppercase tracking-wider hover:bg-primary/5 transition-all">
+            Xóa bộ lọc
+          </button>
         </div>
       </aside>
 
@@ -244,74 +283,70 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
         ) : (
           <>
             <div className="flex items-center justify-between mb-8 bg-white p-6 rounded-2xl border border-gold/10">
-            <h2 className="text-xl font-bold text-slate-900">Danh sách mâm cúng ({filteredProducts.length})</h2>
-            <div className="flex items-center gap-4">
+              <h2 className="text-xl font-bold text-slate-900">Danh sách mâm cúng ({filteredProducts.length})</h2>
+              <div className="flex items-center gap-4">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sắp xếp:</span>
-                <select 
+                <select
                   className="bg-ritual-bg border-none rounded-xl text-sm font-bold focus:ring-primary pr-10"
                   value={sortBy}
                   onChange={(e) => setSortBy(e.target.value)}
                 >
-                    <option value="popular">Phổ biến nhất</option>
-                    <option value="price-asc">Giá tăng dần</option>
-                    <option value="price-desc">Giá giảm dần</option>
+                  <option value="popular">Phổ biến nhất</option>
+                  <option value="price-asc">Giá tăng dần</option>
+                  <option value="price-desc">Giá giảm dần</option>
                 </select>
+              </div>
             </div>
-        </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-            {filteredProducts.map((p) => (
-                <div 
-                    key={p.id} 
-                    className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-2xl transition-all border border-gold/10 group"
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+              {filteredProducts.map((p) => (
+                <div
+                  key={p.id}
+                  className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-2xl transition-all border border-gold/10 group"
                 >
-                    <div 
-                        className="relative aspect-square overflow-hidden cursor-pointer"
-                        onClick={() => onNavigate(`/product/${p.id}`)}
-                    >
-                        <img className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" src={p.image} alt={p.name} />
-                        <div className="absolute top-4 left-4 flex flex-col gap-2">
-                            {p.tag && (
-                                <span className="bg-primary/90 backdrop-blur-sm text-white text-[10px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-lg">
-                                    {p.tag}
-                                </span>
-                            )}
-                        </div>
+                  <div
+                    className="relative aspect-square overflow-hidden cursor-pointer"
+                    onClick={() => onNavigate(`/product/${p.id}`)}
+                  >
+                    <img className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" src={p.image} alt={p.name} />
+                    <div className="absolute top-4 left-4 flex flex-col gap-2">
+                      {p.tag && (
+                        <span className="bg-primary/90 backdrop-blur-sm text-white text-[10px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-lg">
+                          {p.tag}
+                        </span>
+                      )}
                     </div>
-                    <div 
-                        className="p-6 cursor-pointer"
-                        onClick={() => onNavigate(`/product/${p.id}`)}
-                    >
-                        <div className="flex items-center gap-1 mb-2 text-gold">
-                            <span className="text-sm" style={{ color: '#FFD700' }}>★</span>
-                            <span className="text-xs font-bold">{p.rating}</span>
-                            <span className="text-[10px] text-slate-400 ml-1">({p.reviews} đánh giá)</span>
-                        </div>
-                        <h3 className="text-lg font-bold mb-2 group-hover:text-primary transition-colors leading-tight">{p.name}</h3>
-                        {p.vendorName && (
-                            <p className="text-xs text-slate-600 mb-2 flex items-center gap-1">
-                                <span className="text-slate-400">bởi</span>
-                                <span className="font-semibold text-primary">{p.vendorName}</span>
-                            </p>
-                        )}
-                        <p className="text-slate-500 text-xs line-clamp-2 mb-6">{p.description}</p>
-                        <div className="pt-4 border-t border-gold/10 flex items-center justify-between">
-                            <p className="text-xl font-black text-primary tracking-tight">{p.price.toLocaleString()}đ</p>
-                            <button 
-                                className="bg-primary text-white p-2.5 rounded-xl hover:scale-105 transition-transform z-10"
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    // TODO: Add to cart functionality
-                                    console.log('Add to cart:', p.id);
-                                }}
-                            >
-                                +
-                            </button>
-                        </div>
+                  </div>
+                  <div
+                    className="p-6 cursor-pointer"
+                    onClick={() => onNavigate(`/product/${p.id}`)}
+                  >
+                    <div className="flex items-center gap-1 mb-2 text-gold">
+                      <span className="text-sm" style={{ color: '#FFD700' }}>★</span>
+                      <span className="text-xs font-bold">{p.rating}</span>
+                      <span className="text-[10px] text-slate-400 ml-1">({p.reviews} đánh giá)</span>
                     </div>
+                    <h3 className="text-lg font-bold mb-2 group-hover:text-primary transition-colors leading-tight">{p.name}</h3>
+                    {p.vendorName && (
+                      <p className="text-xs text-slate-600 mb-2 flex items-center gap-1">
+                        <span className="text-slate-400">bởi</span>
+                        <span className="font-semibold text-primary">{p.vendorName}</span>
+                      </p>
+                    )}
+                    <p className="text-slate-500 text-xs line-clamp-2 mb-6">{p.description}</p>
+                    <div className="pt-4 border-t border-gold/10 flex items-center justify-between">
+                      <p className="text-xl font-black text-primary tracking-tight">{p.price.toLocaleString()}đ</p>
+                      <button
+                        className="bg-primary text-white p-2.5 rounded-xl hover:scale-105 transition-transform z-10"
+                        onClick={(e) => handleQuickAddToCart(p, e)}
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
                 </div>
-            ))}
-        </div>
+              ))}
+            </div>
           </>
         )}
       </section>

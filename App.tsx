@@ -14,6 +14,8 @@ import PaymentSuccessPage from './pages/customer/PaymentSuccessPage';
 import CustomerTracking from './pages/customer/TrackingPage';
 import CustomerProfile from './pages/customer/ProfilePage';
 import CartPage from './pages/customer/CartPage';
+import MyOrdersPage from './pages/customer/MyOrdersPage';
+import OrderDetailsPage from './pages/customer/OrderDetailsPage';
 
 // Vendor Pages
 import VendorDashboard from './pages/vendor/VendorDashboard';
@@ -51,13 +53,13 @@ const AppContent: React.FC<{
 
   const handleLogin = (role: UserRole, firstTimeLogin?: boolean) => {
     onRoleChange(role);
-    
+
     // If first-time login for customer, redirect to profile setup
     if (firstTimeLogin && role === 'customer') {
       navigate('/profile?firstTime=true');
       return;
     }
-    
+
     // Normal login flow
     if (role === 'customer') {
       navigate('/');
@@ -78,12 +80,12 @@ const AppContent: React.FC<{
   const ProfilePageWrapper: React.FC = () => {
     const [searchParams] = useSearchParams();
     const isFirstTime = searchParams.get('firstTime') === 'true';
-    
+
     return (
-      <Layout 
-        activeRoute="/profile" 
-        onNavigate={handleNavigate} 
-        userRole={userRole} 
+      <Layout
+        activeRoute="/profile"
+        onNavigate={handleNavigate}
+        userRole={userRole}
         onLogout={onLogout}
         hideHeader={isFirstTime}
       >
@@ -109,6 +111,8 @@ const AppContent: React.FC<{
       <Route path="/payment-success" element={isAuthenticated && userRole === 'customer' ? <PaymentSuccessPage onNavigate={handleNavigate} /> : <Navigate to="/auth" />} />
       <Route path="/tracking" element={isAuthenticated && userRole === 'customer' ? <Layout activeRoute="/tracking" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><CustomerTracking /></Layout> : <Navigate to="/auth" />} />
       <Route path="/profile" element={isAuthenticated && userRole === 'customer' ? <ProfilePageWrapper /> : <Navigate to="/auth" />} />
+      <Route path="/profile/orders" element={isAuthenticated && userRole === 'customer' ? <Layout activeRoute="/profile/orders" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><MyOrdersPage /></Layout> : <Navigate to="/auth" />} />
+      <Route path="/profile/orders/:id" element={isAuthenticated && userRole === 'customer' ? <Layout activeRoute="/profile/orders/:id" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><OrderDetailsPage /></Layout> : <Navigate to="/auth" />} />
 
       {/* Vendor Routes */}
       <Route path="/vendor/dashboard" element={isAuthenticated && userRole === 'vendor' ? <Layout activeRoute="/vendor/dashboard" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><VendorDashboard onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
@@ -141,14 +145,14 @@ const App: React.FC = () => {
   // Restore authentication state from localStorage on mount
   useEffect(() => {
     console.log('🔄 Checking authentication state on app mount...');
-    
+
     // Check if user is authenticated
     const authenticated = checkAuth();
-    
+
     if (authenticated) {
       // Get user data from localStorage
       const currentUser = getCurrentUser();
-      
+
       if (currentUser && currentUser.role) {
         console.log('✅ User found in localStorage:', currentUser);
         setUserRole(currentUser.role as UserRole);
@@ -160,18 +164,18 @@ const App: React.FC = () => {
     } else {
       console.log('ℹ️ No authentication token found');
     }
-    
+
     // Mark auth check as complete
     setIsAuthChecking(false);
   }, []);
 
   const handleLogout = async () => {
     console.log('🔄 App logout initiated...');
-    
+
     // Import and call complete logout with API
     const { logoutComplete } = await import('./services/auth');
     await logoutComplete();
-    
+
     // Update React state
     setUserRole('guest');
     setIsAuthenticated(false);
@@ -196,9 +200,9 @@ const App: React.FC = () => {
 
   return (
     <BrowserRouter>
-      <AppContent 
-        userRole={userRole} 
-        isAuthenticated={isAuthenticated} 
+      <AppContent
+        userRole={userRole}
+        isAuthenticated={isAuthenticated}
         onLogout={handleLogout}
         onRoleChange={handleRoleChange}
       />

@@ -26,18 +26,19 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
   const [reviewText, setReviewText] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [addingToCart, setAddingToCart] = useState(false);
+  const [buyingNow, setBuyingNow] = useState(false);
 
   // Fetch product from API
   useEffect(() => {
     const fetchProduct = async () => {
       if (!id) return;
-      
+
       setLoading(true);
       try {
         console.log(' Fetching product detail for ID:', id);
         const apiPackage = await packageService.getPackageById(id);
         console.log(' Received package:', apiPackage);
-        
+
         if (apiPackage) {
           // Fetch vendor info
           const vendorInfo = await vendorService.getVendorCached(apiPackage.vendorProfileId);
@@ -46,7 +47,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
             vendorMap.set(apiPackage.vendorProfileId, vendorInfo);
             setVendor(vendorInfo);
           }
-          
+
           const mappedProduct = packageService.mapToProduct(apiPackage, vendorMap);
           console.log(' Mapped product:', mappedProduct);
           console.log(' Variants:', mappedProduct.variants);
@@ -189,6 +190,56 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
     }
   };
 
+  const handleBuyNow = async () => {
+    // Check authentication
+    const user = getCurrentUser();
+    if (!user) {
+      toast.warning('Vui lòng đăng nhập để mua hàng');
+      navigate(`/auth?redirect=/product/${id}`);
+      return;
+    }
+
+    // Get selected variant
+    const selectedVariant = product?.variants?.[selectedVariantIndex];
+    if (!selectedVariant || !selectedVariant.variantId) {
+      toast.error('Vui lòng chọn gói lễ');
+      return;
+    }
+
+    setBuyingNow(true);
+    try {
+      const success = await cartService.addToCart({
+        variantId: selectedVariant.variantId,
+        quantity
+      });
+
+      if (success) {
+        // Trigger cart update event so header updates
+        window.dispatchEvent(new Event('cartUpdated'));
+
+        // Fetch cart to get the cartItemId
+        const cart = await cartService.getCart();
+        if (cart && cart.cartItems) {
+          const addedItem = cart.cartItems.find(item => item.variantId === selectedVariant.variantId);
+          if (addedItem) {
+            onNavigate(`/checkout?cartItemId=${addedItem.cartItemId}`);
+            return;
+          }
+        }
+
+        // Fallback if item cart id not found
+        onNavigate('/cart');
+      } else {
+        toast.error('Không thể mua hàng. Vui lòng thử lại.');
+      }
+    } catch (error) {
+      console.error('❌ Error in buy now:', error);
+      toast.error('Đã xảy ra lỗi. Vui lòng thử lại.');
+    } finally {
+      setBuyingNow(false);
+    }
+  };
+
   // If product not found, show error
   if (loading) {
     return (
@@ -206,7 +257,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
       <div className="max-w-7xl mx-auto px-6 md:px-10 py-16 text-center">
         <h1 className="text-4xl font-black text-primary mb-6">Sản phẩm không tìm thấy</h1>
         <p className="text-slate-500 mb-8">Sản phẩm bạn tìm kiếm không tồn tại hoặc đã bị xóa</p>
-        <button 
+        <button
           onClick={() => onNavigate('/shop')}
           className="border-2 border-primary text-primary px-8 py-3 rounded-lg font-bold hover:bg-primary/5 transition-all"
         >
@@ -228,144 +279,151 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
         <div className="lg:col-span-7 space-y-6">
-            <div 
-              className="relative aspect-[4/3] rounded-3xl overflow-hidden shadow-2xl bg-white border border-gold/10 cursor-pointer hover:shadow-xl transition-all"
-              onClick={() => handleImageClick(currentMainImage)}
-            >
-                <img className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" src={productImages[currentMainImage]} alt={product.name} />
-                <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
-                </div>
+          <div
+            className="relative aspect-[4/3] rounded-3xl overflow-hidden shadow-2xl bg-white border border-gold/10 cursor-pointer hover:shadow-xl transition-all"
+            onClick={() => handleImageClick(currentMainImage)}
+          >
+            <img className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" src={productImages[currentMainImage]} alt={product.name} />
+            <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
             </div>
-            <div className="grid grid-cols-5 gap-4">
-                {thumbnailImages.map((imgUrl, i) => (
-                    <div 
-                      key={i} 
-                      className={`aspect-square rounded-2xl overflow-hidden border-2 cursor-pointer transition-all hover:shadow-lg ${
-                        currentMainImage === i + 1 ? 'border-gold' : 'border-transparent hover:border-gold'
-                      }`}
-                      onClick={() => handleThumbnailClick(i + 1)}
-                    >
-                         <img className="w-full h-full object-cover hover:scale-110 transition-transform" src={imgUrl} alt={`Ảnh ${i + 1}`} />
-                    </div>
-                ))}
-            </div>
+          </div>
+          <div className="grid grid-cols-5 gap-4">
+            {thumbnailImages.map((imgUrl, i) => (
+              <div
+                key={i}
+                className={`aspect-square rounded-2xl overflow-hidden border-2 cursor-pointer transition-all hover:shadow-lg ${currentMainImage === i + 1 ? 'border-gold' : 'border-transparent hover:border-gold'
+                  }`}
+                onClick={() => handleThumbnailClick(i + 1)}
+              >
+                <img className="w-full h-full object-cover hover:scale-110 transition-transform" src={imgUrl} alt={`Ảnh ${i + 1}`} />
+              </div>
+            ))}
+          </div>
         </div>
 
         <div className="lg:col-span-5 space-y-8">
-            <div className="space-y-4">
-                <div className="flex gap-2">
-                    {product.tag && (
-                      <span className="px-2.5 py-1 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-md">{product.tag}</span>
-                    )}
-                    <span className="px-2.5 py-1 bg-gold/10 text-gold text-[10px] font-black uppercase tracking-widest rounded-md">Truyền thống</span>
-                </div>
-                <h1 className="text-4xl font-display font-black leading-tight text-primary">{product.name}</h1>
-                {product.vendorName && (
-                    <p className="text-sm text-slate-600 flex items-center gap-2">
-                        <span className="text-slate-400">Được đăng bởi</span>
-                        <span className="font-bold text-primary">{product.vendorName}</span>
-                    </p>
+          <div className="space-y-4">
+            <div className="flex gap-2">
+              {product.tag && (
+                <span className="px-2.5 py-1 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-md">{product.tag}</span>
+              )}
+              <span className="px-2.5 py-1 bg-gold/10 text-gold text-[10px] font-black uppercase tracking-widest rounded-md">Truyền thống</span>
+            </div>
+            <h1 className="text-4xl font-display font-black leading-tight text-primary">{product.name}</h1>
+            {product.vendorName && (
+              <p className="text-sm text-slate-600 flex items-center gap-2">
+                <span className="text-slate-400">Được đăng bởi</span>
+                <span className="font-bold text-primary">{product.vendorName}</span>
+              </p>
+            )}
+            <div className="flex items-baseline gap-4">
+              <p className="text-4xl font-black text-primary tracking-tight">{product.price.toLocaleString()}đ</p>
+              {product.originalPrice && (
+                <p className="text-lg text-slate-400 line-through">{product.originalPrice.toLocaleString()}đ</p>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <span style={{ color: '#FFD700' }}>★</span>
+              <span className="text-sm font-bold text-slate-600">{product.rating} ({product.reviews} đánh giá)</span>
+            </div>
+          </div>
+
+          <div className="p-6 bg-white rounded-3xl border border-gold/10 shadow-sm space-y-6">
+            <div>
+              <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-4">Cấp độ gói lễ (Tier)</label>
+              <div className="grid grid-cols-3 gap-3">
+                {product.variants && product.variants.length > 0 ? (
+                  product.variants.map((variant, index) => (
+                    <button
+                      key={variant.variantId}
+                      onClick={() => setSelectedVariantIndex(index)}
+                      className={`p-4 rounded-2xl border-2 text-center transition-all ${selectedVariantIndex === index ? 'border-primary bg-primary/5' : 'border-slate-100 hover:border-gold'}`}
+                    >
+                      <p className="text-xs font-bold leading-none mb-1">{variant.tier}</p>
+                      <p className="text-[10px] text-slate-400 italic">{variant.price.toLocaleString()}đ</p>
+                    </button>
+                  ))
+                ) : (
+                  ['Standard', 'Special', 'Premium'].map((t) => (
+                    <button
+                      key={t}
+                      onClick={() => setSelectedTier(t)}
+                      className={`p-4 rounded-2xl border-2 text-center transition-all ${selectedTier === t ? 'border-primary bg-primary/5' : 'border-slate-100 hover:border-gold'}`}
+                    >
+                      <p className="text-xs font-bold leading-none mb-1">{t === 'Standard' ? 'Tiêu chuẩn' : t === 'Special' ? 'Đặc biệt' : 'Thượng hạng'}</p>
+                      <p className="text-[10px] text-slate-400 italic">{product.price.toLocaleString()}đ</p>
+                    </button>
+                  ))
                 )}
-                <div className="flex items-baseline gap-4">
-                    <p className="text-4xl font-black text-primary tracking-tight">{product.price.toLocaleString()}đ</p>
-                    {product.originalPrice && (
-                      <p className="text-lg text-slate-400 line-through">{product.originalPrice.toLocaleString()}đ</p>
-                    )}
-                </div>
-                <div className="flex items-center gap-2">
-                  <span style={{ color: '#FFD700' }}>★</span>
-                  <span className="text-sm font-bold text-slate-600">{product.rating} ({product.reviews} đánh giá)</span>
-                </div>
+              </div>
             </div>
 
-            <div className="p-6 bg-white rounded-3xl border border-gold/10 shadow-sm space-y-6">
-                <div>
-                    <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-4">Cấp độ gói lễ (Tier)</label>
-                    <div className="grid grid-cols-3 gap-3">
-                        {product.variants && product.variants.length > 0 ? (
-                          product.variants.map((variant, index) => (
-                            <button 
-                              key={variant.variantId}
-                              onClick={() => setSelectedVariantIndex(index)}
-                              className={`p-4 rounded-2xl border-2 text-center transition-all ${selectedVariantIndex === index ? 'border-primary bg-primary/5' : 'border-slate-100 hover:border-gold'}`}
-                            >
-                                <p className="text-xs font-bold leading-none mb-1">{variant.tier}</p>
-                                <p className="text-[10px] text-slate-400 italic">{variant.price.toLocaleString()}đ</p>
-                            </button>
-                          ))
-                        ) : (
-                          ['Standard', 'Special', 'Premium'].map((t) => (
-                            <button 
-                              key={t}
-                              onClick={() => setSelectedTier(t)}
-                              className={`p-4 rounded-2xl border-2 text-center transition-all ${selectedTier === t ? 'border-primary bg-primary/5' : 'border-slate-100 hover:border-gold'}`}
-                            >
-                                <p className="text-xs font-bold leading-none mb-1">{t === 'Standard' ? 'Tiêu chuẩn' : t === 'Special' ? 'Đặc biệt' : 'Thượng hạng'}</p>
-                                <p className="text-[10px] text-slate-400 italic">{product.price.toLocaleString()}đ</p>
-                            </button>
-                          ))
-                        )}
+            <div className="pt-6 border-t border-gold/10">
+              <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-4">Lễ vật bao gồm</label>
+              <div className="grid grid-cols-2 gap-y-3">
+                {product.variants && product.variants[selectedVariantIndex]?.items && product.variants[selectedVariantIndex].items.length > 0 ? (
+                  product.variants[selectedVariantIndex].items.map((item, idx) => (
+                    <div key={idx} className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                      <span className="text-gold">✓</span>
+                      {item}
                     </div>
-                </div>
-
-                <div className="pt-6 border-t border-gold/10">
-                    <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-4">Lễ vật bao gồm</label>
-                    <div className="grid grid-cols-2 gap-y-3">
-                        {product.variants && product.variants[selectedVariantIndex]?.items && product.variants[selectedVariantIndex].items.length > 0 ? (
-                          product.variants[selectedVariantIndex].items.map((item, idx) => (
-                            <div key={idx} className="flex items-center gap-2 text-xs font-medium text-slate-600">
-                                <span className="text-gold">✓</span>
-                                {item}
-                            </div>
-                          ))
-                        ) : (
-                          <div className="col-span-2 text-xs text-slate-400 italic">
-                            Đang cập nhật danh sách lễ vật...
-                          </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Quantity Selector */}
-                <div className="pt-6 border-t border-gold/10">
-                    <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-4">Số lượng</label>
-                    <div className="flex items-center gap-3">
-                        <button 
-                          onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                          className="w-12 h-12 rounded-xl border-2 border-slate-200 text-primary font-bold hover:bg-primary hover:text-white hover:border-primary transition-all"
-                        >
-                          −
-                        </button>
-                        <input 
-                          type="number" 
-                          min="1" 
-                          value={quantity} 
-                          onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                          className="w-20 h-12 text-center text-lg font-bold border-2 border-slate-200 rounded-xl focus:border-primary focus:outline-none"
-                        />
-                        <button 
-                          onClick={() => setQuantity(quantity + 1)}
-                          className="w-12 h-12 rounded-xl border-2 border-slate-200 text-primary font-bold hover:bg-primary hover:text-white hover:border-primary transition-all"
-                        >
-                          +
-                        </button>
-                    </div>
-                </div>
-
-                <button 
-                  onClick={handleAddToCart}
-                  disabled={addingToCart}
-                  className="w-full border-3 border-primary text-primary py-4 rounded-lg font-bold uppercase tracking-widest hover:bg-primary hover:text-white transition-all mb-3 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {addingToCart ? ' Đang thêm...' : ' Thêm vào giỏ'}
-                </button>
-                <button 
-                  onClick={() => onNavigate('/checkout')}
-                  className="w-full bg-primary text-white py-4 rounded-lg font-bold uppercase tracking-widest hover:bg-primary/90 transition-all"
-                >
-                    Mua ngay
-                </button>
+                  ))
+                ) : (
+                  <div className="col-span-2 text-xs text-slate-400 italic">
+                    Đang cập nhật danh sách lễ vật...
+                  </div>
+                )}
+              </div>
             </div>
+
+            {/* Quantity Selector */}
+            <div className="pt-6 border-t border-gold/10">
+              <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-4">Số lượng</label>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                  className="w-12 h-12 rounded-xl border-2 border-slate-200 text-primary font-bold hover:bg-primary hover:text-white hover:border-primary transition-all"
+                >
+                  −
+                </button>
+                <input
+                  type="number"
+                  min="1"
+                  value={quantity}
+                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-20 h-12 text-center text-lg font-bold border-2 border-slate-200 rounded-xl focus:border-primary focus:outline-none"
+                />
+                <button
+                  onClick={() => setQuantity(quantity + 1)}
+                  className="w-12 h-12 rounded-xl border-2 border-slate-200 text-primary font-bold hover:bg-primary hover:text-white hover:border-primary transition-all"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={handleAddToCart}
+              disabled={addingToCart || buyingNow}
+              className="w-full border-3 border-primary text-primary py-4 rounded-lg font-bold uppercase tracking-widest hover:bg-primary hover:text-white transition-all mb-3 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {addingToCart ? ' Đang thêm...' : ' Thêm vào giỏ'}
+            </button>
+            <button
+              onClick={handleBuyNow}
+              disabled={addingToCart || buyingNow}
+              className="w-full bg-primary text-white py-4 rounded-lg font-bold uppercase tracking-widest hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {buyingNow ? (
+                <>
+                  <span className="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-white"></span>
+                  ĐANG XỬ LÝ...
+                </>
+              ) : (
+                'Mua ngay'
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -393,7 +451,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                     <button className="px-4 py-1.5 border-2 border-primary text-primary text-xs font-bold rounded-lg hover:bg-primary hover:text-white transition">
                       💬 Chat Ngay
                     </button>
-                    <button 
+                    <button
                       onClick={() => vendor.vendorProfileId && onNavigate(`/vendor/${vendor.vendorProfileId}`)}
                       className="px-4 py-1.5 border-2 border-slate-300 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 transition"
                     >
@@ -467,8 +525,8 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                 <div key={item.stars} className="flex items-center gap-3">
                   <span className="text-xs font-bold text-slate-600 w-8">{item.stars}★</span>
                   <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full transition-all" 
+                    <div
+                      className="h-full transition-all"
                       style={{ width: `${item.percentage}%`, backgroundColor: '#FFD700' }}
                     />
                   </div>
@@ -550,7 +608,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
       </div>
 
       {/* Image Modal */}
-      <ImageModal 
+      <ImageModal
         isOpen={showImageModal}
         imageSrc={productImages[selectedImageIndex] || ''}
         altText={product.name}
