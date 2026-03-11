@@ -195,7 +195,15 @@ const MyOrdersPage: React.FC = () => {
                                 <div className="p-6 md:p-8 pt-0 flex flex-col sm:flex-row items-center justify-between gap-4">
                                     <div>
                                         <span className="text-sm text-gray-500 mr-2">Tổng tiền:</span>
-                                        <span className="text-2xl font-black text-primary">{(order.pricing?.totalAmount || 0).toLocaleString('vi-VN')}đ</span>
+                                        <span className="text-2xl font-black text-primary">
+                                            {(() => {
+                                                // List API returns flat structure, detail API returns nested
+                                                const total = (order as any).totalAmount 
+                                                    || order.pricing?.totalAmount 
+                                                    || 0;
+                                                return total.toLocaleString('vi-VN');
+                                            })()}đ
+                                        </span>
                                     </div>
                                     <div className="flex gap-3 w-full sm:w-auto">
                                         {order.orderStatus.toUpperCase() === 'PENDING' && (

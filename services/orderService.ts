@@ -10,6 +10,10 @@ export interface OrderItem {
     price: number;
     lineTotal: number;
     decorationNote?: string;
+    // Fields from API response
+    totalAmount?: number;
+    subTotal?: number;
+    shippingFee?: number;
 }
 
 export interface Order {
