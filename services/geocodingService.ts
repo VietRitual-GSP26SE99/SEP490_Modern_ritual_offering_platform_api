@@ -63,111 +63,98 @@ class GeocodingService {
   }
 
   /**
+   * Chuẩn hóa chuỗi: bỏ dấu, chữ thường, loại prefix hành chính
+   */
+  private normalizeVi(s: string): string {
+    return s
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\b(quan|huyen|tinh|thanh pho|phuong|xa|thi tran|thi xa)\b/g, '')
+      .replace(/\s+/g, ' ')
+      .trim();
+  }
+
+  /**
    * PRIMARY: Geocoding sử dụng OpenStreetMap Nominatim (MIỄN PHÍ)
    * @param address - Địa chỉ đầy đủ
+   * @param mustContain - Nếu có, kết quả phải chứa district VÀ province
    * @returns Tọa độ từ Nominatim
    */
-  private async geocodeWithNominatim(address: string): Promise<GeocodingResult | null> {
+  private async geocodeWithNominatim(
+    address: string,
+    mustContain?: { district?: string; province?: string }
+  ): Promise<GeocodingResult | null> {
     try {
       const encodedAddress = encodeURIComponent(address);
-      // Nominatim API - HOÀN TOÀN MIỄN PHÍ
-      // Thêm nhiều tham số để tăng độ chính xác
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodedAddress}&format=json&limit=5&countrycodes=vn&addressdetails=1&extratags=1&namedetails=1&polygon_geojson=0`;
-      
-      console.log('🗺️  Calling Nominatim (OpenStreetMap) API:', address);
-      
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodedAddress}&format=json&limit=10&countrycodes=vn&addressdetails=1`;
+
+      console.log('🗺️  Calling Nominatim:', address);
+
       const response = await fetch(url, {
-        headers: {
-          'User-Agent': 'Modern-Ritual-Offering-Platform/1.0'
-        }
+        headers: { 'User-Agent': 'Modern-Ritual-Offering-Platform/1.0' }
       });
-      
-      if (!response.ok) {
-        throw new Error(`Nominatim API error: ${response.status}`);
-      }
-      
+
+      if (!response.ok) throw new Error(`Nominatim API error: ${response.status}`);
+
       const data: NominatimResponse[] = await response.json();
-      
-      console.log('📍 Nominatim response:', data);
-      
-      if (data && data.length > 0) {
-        // STEP 1: Tìm kết quả khớp chính xác với từ khóa nhập vào
-        let bestResult = data[0];
-        
-        // Lấy từ khóa quan trọng từ query (bỏ "Vietnam", dấu phẩy, từ quá ngắn)
-        const originalQuery = decodeURIComponent(address.toLowerCase())
-          .replace(/,?\s*vietnam\s*$/i, '') // Bỏ "Vietnam" cuối chuỗi
-          .replace(/[,\(\)]/g, ' '); // Thay dấu phẩy, ngoặc bằng space
-        
-        const queryKeywords = originalQuery.split(/\s+/)
-          .filter(word => word.length > 2) // Bỏ từ quá ngắn
-          .filter(word => !['tỉnh', 'huyện', 'xã', 'phường', 'thôn'].includes(word)); // Bỏ từ chung chung
-        
-        console.log('🔍 Analyzing query keywords:', queryKeywords);
-        
-        let bestMatchScore = 0;
-        
-        for (const result of data) {
-          const displayName = result.display_name.toLowerCase();
-          
-          // Đếm số từ khóa khớp chính xác (exact match)
-          const exactMatches = queryKeywords.filter(keyword => 
-            displayName.includes(keyword)
-          ).length;
-          
-          // Tính điểm khớp: exact matches + importance bonus
-          const matchScore = exactMatches + (result.importance * 0.1);
-          
-          console.log(`📊 Result analysis:`, {
-            address: result.display_name.substring(0, 80),
-            exactMatches: exactMatches,
-            importance: result.importance,
-            matchScore: matchScore
-          });
-          
-          // Ưu tiên kết quả có điểm khớp cao nhất
-          if (matchScore > bestMatchScore) {
-            bestMatchScore = matchScore;
-            bestResult = result;
-          }
-        }
-        
-        // STEP 2: Validate kết quả có phù hợp với input không
-        const selectedAddress = bestResult.display_name.toLowerCase();
-        const matchedKeywords = queryKeywords.filter(keyword => 
-          selectedAddress.includes(keyword)
-        );
-        
-        const matchRatio = queryKeywords.length > 0 ? matchedKeywords.length / queryKeywords.length : 0;
-        
-        // Cảnh báo nếu quá ít từ khóa khớp
-        if (matchRatio < 0.4 && queryKeywords.length > 1) {
-          console.warn(`⚠️ Low match ratio (${Math.round(matchRatio * 100)}%):`, {
-            input: originalQuery,
-            result: bestResult.display_name,
-            expectedKeywords: queryKeywords,
-            matchedKeywords: matchedKeywords
-          });
-        }
-        
-        console.log('🎯 Final selected result:', {
-          display_name: bestResult.display_name,
-          class: bestResult.class,
-          type: bestResult.type,
-          importance: bestResult.importance,
-          matchRatio: `${Math.round(matchRatio * 100)}%`,
-          matchedKeywords: matchedKeywords
+      console.log('📍 Nominatim raw results:', data.map(r => r.display_name));
+
+      if (!data || data.length === 0) return null;
+
+      // --- Bước 1: lọc theo quận/tỉnh bắt buộc ---
+      let candidates = data;
+      if (mustContain?.district || mustContain?.province) {
+        const normDistrict = mustContain.district ? this.normalizeVi(mustContain.district) : null;
+        const normProvince = mustContain.province ? this.normalizeVi(mustContain.province) : null;
+
+        const filtered = data.filter(r => {
+          const normDisplay = this.normalizeVi(r.display_name);
+          const districtOk = !normDistrict || normDisplay.includes(normDistrict);
+          const provinceOk = !normProvince || normDisplay.includes(normProvince);
+          return districtOk && provinceOk;
         });
-        
-        return {
-          latitude: parseFloat(bestResult.lat),
-          longitude: parseFloat(bestResult.lon),
-          formattedAddress: bestResult.display_name,
-          provider: 'nominatim'
-        };
+
+        console.log(`🔎 After district/province filter: ${filtered.length}/${data.length} results pass`);
+
+        if (filtered.length === 0) {
+          // Không có kết quả nào đúng quận/tỉnh → trả null để thử query tiếp theo
+          console.warn('⚠️ No results match required district/province, skipping this query');
+          return null;
+        }
+        candidates = filtered;
       }
-      
-      return null;
+
+      // --- Bước 2: chọn kết quả khớp nhiều từ khóa nhất ---
+      const originalQuery = decodeURIComponent(address.toLowerCase())
+        .replace(/,?\s*vietnam\s*$/i, '')
+        .replace(/[,()/]/g, ' ');
+
+      const queryKeywords = this.normalizeVi(originalQuery)
+        .split(/\s+/)
+        .filter(w => w.length > 2);
+
+      let bestResult = candidates[0];
+      let bestScore = -1;
+
+      for (const result of candidates) {
+        const normDisplay = this.normalizeVi(result.display_name);
+        const matchCount = queryKeywords.filter(kw => normDisplay.includes(kw)).length;
+        const score = matchCount + result.importance * 0.05;
+        if (score > bestScore) {
+          bestScore = score;
+          bestResult = result;
+        }
+      }
+
+      console.log('🎯 Selected result:', bestResult.display_name);
+
+      return {
+        latitude: parseFloat(bestResult.lat),
+        longitude: parseFloat(bestResult.lon),
+        formattedAddress: bestResult.display_name,
+        provider: 'nominatim'
+      };
     } catch (error) {
       console.error('❌ Nominatim error:', error);
       throw error;
@@ -271,71 +258,134 @@ class GeocodingService {
     districtName?: string;
     provinceName?: string;
   }): Promise<GeocodingResult | null> {
-    const searchQueries = this.generateSearchQueries(components);
-    
-    // Thử từng query cho đến khi tìm được kết quả
-    for (let i = 0; i < searchQueries.length; i++) {
-      const query = searchQueries[i];
-      console.log(`🔍 Trying query ${i + 1}/${searchQueries.length}:`, query);
-      
+    const { detailedAddress, wardName, districtName, provinceName } = components;
+
+    // Phát hiện địa chỉ chi tiết có tên đường thực sự hay chỉ là số nhà đơn lẻ
+    const hasRealStreet = detailedAddress
+      ? /[a-zA-ZÀ-ỹ]{3,}/.test(detailedAddress) // có ít nhất 1 từ chữ ~3 ký tự
+      : false;
+
+    // --- Ưu tiên Google Maps nếu có API key ---
+    if (this.isGoogleApiKeyConfigured()) {
+      const fullAddr = [detailedAddress, wardName, districtName, provinceName]
+        .filter(Boolean).join(', ') + ', Vietnam';
+      const googleResult = await this.geocodeWithGoogle(fullAddr);
+      if (googleResult) {
+        console.log('✅ Google Maps success!');
+        return googleResult;
+      }
+    }
+
+    // --- Nominatim: thử structured search trước ---
+    // 1. Nominatim structured query (chính xác nhất)
+    const structuredResult = await this.nominatimStructured({
+      street: hasRealStreet ? detailedAddress : undefined,
+      suburb: wardName,
+      city: districtName,
+      state: provinceName,
+    });
+    if (structuredResult) {
+      console.log('✅ Nominatim structured success!');
+      return structuredResult;
+    }
+
+    await new Promise(r => setTimeout(r, 400));
+
+    // 2. Free-text: phường + quận + tỉnh (bỏ số nhà nếu không có tên đường)
+    const queries: Array<{ q: string; district?: string; province?: string }> = [];
+
+    if (hasRealStreet && wardName && districtName && provinceName) {
+      queries.push({ q: `${detailedAddress}, ${wardName}, ${districtName}, ${provinceName}, Vietnam`, district: districtName, province: provinceName });
+    }
+    if (wardName && districtName && provinceName) {
+      queries.push({ q: `${wardName}, ${districtName}, ${provinceName}, Vietnam`, district: districtName, province: provinceName });
+    }
+    if (hasRealStreet && districtName && provinceName) {
+      queries.push({ q: `${detailedAddress}, ${districtName}, ${provinceName}, Vietnam`, district: districtName, province: provinceName });
+    }
+    if (districtName && provinceName) {
+      queries.push({ q: `${districtName}, ${provinceName}, Vietnam`, province: provinceName });
+    }
+    if (provinceName) {
+      queries.push({ q: `${provinceName}, Vietnam` });
+    }
+
+    for (const { q, district, province } of queries) {
       try {
-        // Thử Nominatim trước
-        const nominatimResult = await this.geocodeWithNominatim(query);
-        if (nominatimResult) {
-          console.log(`✅ Success with query ${i + 1} (Nominatim)!`);
-          return {
-            ...nominatimResult,
-            formattedAddress: nominatimResult.formattedAddress
-          };
-        }
-        
-        // Fallback Google Maps nếu được cấu hình
-        if (this.isGoogleApiKeyConfigured()) {
-          const googleResult = await this.geocodeWithGoogle(query);
-          if (googleResult) {
-            console.log(`✅ Success with query ${i + 1} (Google Maps)!`);
-            return googleResult;
-          }
-        }
-        
-        // Delay nhỏ giữa các requests để tránh rate limit
-        if (i < searchQueries.length - 1) {
-          await new Promise(resolve => setTimeout(resolve, 300));
-        }
-      } catch (error) {
-        console.warn(`⚠️ Query ${i + 1} failed:`, error);
-        // Tiếp tục với query tiếp theo
-      }
+        console.log('🔍 Trying Nominatim free-text:', q);
+        const result = await this.geocodeWithNominatim(
+          q,
+          district || province
+            ? { district, province }
+            : undefined
+        );
+        if (result) return result;
+        await new Promise(r => setTimeout(r, 350));
+      } catch { /* continue */ }
     }
-    
-    // Cuối cùng thử approximate coordinates
-    if (components.provinceName) {
-      console.log('🔄 All queries failed, using approximate coordinates...');
-      const approximateResult = this.getApproximateCoordinates(components.provinceName);
-      if (approximateResult) {
-        return approximateResult;
-      }
+
+    // 3. Approximate cuối cùng
+    if (provinceName) {
+      const approx = this.getApproximateCoordinates(provinceName, districtName);
+      if (approx) return approx;
     }
-    
-    throw new Error('Không tìm thấy tọa độ cho địa chỉ này từ tất cả các phương pháp');
+
+    throw new Error('Không tìm thấy tọa độ cho địa chỉ này');
+  }
+
+  /** Nominatim structured search — chính xác hơn free-text */
+  private async nominatimStructured(params: {
+    street?: string;
+    suburb?: string;  // ward
+    city?: string;    // district
+    state?: string;   // province
+  }): Promise<GeocodingResult | null> {
+    if (!params.city && !params.state) return null;
+    const qs = new URLSearchParams({ format: 'json', limit: '5', countrycodes: 'vn', addressdetails: '1' });
+    if (params.street) qs.set('street', params.street);
+    if (params.suburb)  qs.set('suburb', params.suburb);
+    if (params.city)    qs.set('city', params.city);
+    if (params.state)   qs.set('state', params.state);
+    qs.set('country', 'Vietnam');
+
+    const url = `https://nominatim.openstreetmap.org/search?${qs.toString()}`;
+    console.log('🗺️ Nominatim structured:', url);
+
+    try {
+      const res = await fetch(url, { headers: { 'User-Agent': 'Modern-Ritual-Offering-Platform/1.0' } });
+      if (!res.ok) return null;
+      const data: NominatimResponse[] = await res.json();
+      console.log('📍 Structured results:', data.map(r => r.display_name));
+
+      if (!data.length) return null;
+
+      // Validate phải đúng quận + tỉnh
+      const normCity  = params.city  ? this.normalizeVi(params.city)  : null;
+      const normState = params.state ? this.normalizeVi(params.state) : null;
+      const valid = data.filter(r => {
+        const n = this.normalizeVi(r.display_name);
+        return (!normCity || n.includes(normCity)) && (!normState || n.includes(normState));
+      });
+
+      const best = valid.length ? valid[0] : (normState ? data.find(r => this.normalizeVi(r.display_name).includes(normState!)) : null);
+      if (!best) return null;
+
+      return { latitude: parseFloat(best.lat), longitude: parseFloat(best.lon), formattedAddress: best.display_name, provider: 'nominatim' };
+    } catch {
+      return null;
+    }
   }
 
   /**
-   * Shortcut method -只用 Nominatim (khuyến nghị)
+   * Shortcut method — only Nominatim
    */
   async geocodeWithNominatimOnly(address: string): Promise<GeocodingResult | null> {
-    if (!address || address.trim() === '') {
-      throw new Error('Địa chỉ không được để trống');
-    }
-
+    if (!address || address.trim() === '') throw new Error('Địa chỉ không được để trống');
     return await this.geocodeWithNominatim(address);
   }
 
   /**
-   * Tạo nhiều query variations để tăng khả năng tìm thấy kết quả
-   * Ưu tiên giữ nguyên từ khóa quan trọng (số tòa, tên đường cụ thể)
-   * @param components - Các thành phần địa chỉ
-   * @returns Array của các query string khác nhau
+   * Tạo nhiều query variations (kept for geocodeAddress compat)
    */
   private generateSearchQueries(components: {
     detailedAddress?: string;

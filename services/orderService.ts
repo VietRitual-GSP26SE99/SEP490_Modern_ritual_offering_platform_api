@@ -57,6 +57,39 @@ export interface Order {
     refundAmount: number;
 }
 
+export interface VendorOrderItem {
+    itemId: string;
+    variantId: number | string;
+    variantName: string;
+    packageName: string;
+    quantity: number;
+    price: number;
+    lineTotal: number;
+    decorationNote?: string;
+}
+
+export interface VendorOrder {
+    orderId: string;
+    orderStatus: string;
+    customerProfileId: string;
+    customerName: string;
+    vendorProfileId: string;
+    vendorName: string;
+    deliveryDate: string;
+    deliveryTime: string;
+    deliveryAddress: string;
+    items: VendorOrderItem[];
+    subTotal: number;
+    shippingDistanceKm: number;
+    shippingFee: number;
+    totalAmount: number;
+    commissionRate: number;
+    platformFee: number;
+    vendorNetAmount: number;
+    paymentMethod: string;
+    createdAt: string;
+}
+
 class OrderService {
     private getHeaders(): HeadersInit {
         const token = getAuthToken();
@@ -113,13 +146,58 @@ class OrderService {
         }
     }
 
+    // Get all orders for the current vendor
+    async getVendorOrders(): Promise<VendorOrder[]> {
+        try {
+            const response = await fetch(`${API_BASE_URL}/orders/vendor`, {
+                method: 'GET',
+                headers: this.getHeaders(),
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (data.isSuccess && data.result) {
+                return data.result;
+            }
+            return [];
+        } catch (error) {
+            console.error("Failed to fetch Vendor Orders:", error);
+            throw error;
+        }
+    }
+
+    // Update order status (vendor)
+    async updateOrderStatus(orderId: string, newStatus: string, reason?: string): Promise<boolean> {
+        try {
+            const response = await fetch(`${API_BASE_URL}/orders/${orderId}/status`, {
+                method: 'PUT',
+                headers: this.getHeaders(),
+                body: JSON.stringify({ newStatus, reason: reason || '' }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.errorMessages?.[0] || `HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            return data.isSuccess || data.statusCode === 'OK';
+        } catch (error) {
+            console.error('Failed to update order status:', error);
+            throw error;
+        }
+    }
+
     // Cancel an order
-    async cancelOrder(orderId: string): Promise<boolean> {
+    async cancelOrder(orderId: string, reason?: string): Promise<boolean> {
         try {
             const response = await fetch(`${API_BASE_URL}/orders/${orderId}/cancel`, {
                 method: 'PUT',
                 headers: this.getHeaders(),
-                body: JSON.stringify({ reason: "Người dùng hủy đơn từ website" }) // Backend requires a non-empty body
+                body: JSON.stringify({ reason: reason || 'Vendor hủy đơn' }),
             });
 
             if (!response.ok) {
