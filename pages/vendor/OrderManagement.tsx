@@ -6,15 +6,15 @@ interface OrderManagementProps {
 }
 
 const TABS = [
-  { id: 'all',       label: 'Tất cả' },
-  { id: 'Pending',   label: 'Chờ duyệt' },
-  { id: 'Confirmed', label: 'Đã duyệt' },
-  { id: 'Preparing', label: 'Đang chuẩn bị' },
-  { id: 'Shipping',  label: 'Đang giao' },
-  { id: 'Delivered', label: 'Đã giao' },
-  { id: 'Cancelled',     label: 'Đã hủy' },
-  { id: 'Refunded',     label: 'Đã hoàn' },
+  { id: 'all',          label: 'Tất cả' },
+  { id: 'Pending',      label: 'Chờ duyệt' },
+  { id: 'Confirmed',    label: 'Đã duyệt' },
+  { id: 'Preparing',    label: 'Đang chuẩn bị' },
   { id: 'Paid',         label: 'Đã thanh toán' },
+  { id: 'Delivering',   label: 'Đang giao' },
+  { id: 'Completed',    label: 'Hoàn thành' },
+  { id: 'Cancelled',    label: 'Đã hủy' },
+  { id: 'Refunded',     label: 'Đã hoàn' },
   { id: 'PaymentFailed', label: 'Thanh toán lỗi' },
 ];
 
@@ -29,32 +29,29 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate }) => {
   const [statusUpdateError, setStatusUpdateError] = useState<string | null>(null);
   const [newStatus, setNewStatus] = useState('');
   const [statusReason, setStatusReason] = useState('');
-  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
-  const [cancelReason, setCancelReason] = useState('');
-  const [cancelling, setCancelling] = useState(false);
-  const [cancelError, setCancelError] = useState<string | null>(null);
+  const [statusSuccessMsg, setStatusSuccessMsg] = useState<string | null>(null);
 
-  // All selectable target statuses with Vietnamese labels
-  const ALL_STATUS_OPTIONS = [
-    { value: 'Pending',   label: 'Chờ duyệt' },
-    { value: 'Paid',      label: 'Đã thanh toán' },
-    { value: 'Confirmed', label: 'Đã duyệt' },
-    { value: 'Preparing', label: 'Đang chuẩn bị' },
-    { value: 'Completed', label: 'Hoàn thành' },
-    { value: 'Delivered', label: 'Đã giao' },
-    { value: 'Cancelled', label: 'Đã hủy' },
-    { value: 'Refunded',  label: 'Đã hoàn' },
-  ];
-
-  // All statuses available, excluding the current one
-  const NEXT_STATUSES: Record<string, { value: string; label: string }[]> = Object.fromEntries(
-    ALL_STATUS_OPTIONS.map(s => [s.value, ALL_STATUS_OPTIONS.filter(o => o.value !== s.value)])
-  );
+  // Strict status transition flow
+  const NEXT_STATUSES: Record<string, { value: string; label: string }[]> = {
+    Pending:       [{ value: 'Confirmed',  label: 'Xác nhận đơn' },   { value: 'Cancelled', label: 'Hủy đơn' }],
+    Confirmed:     [{ value: 'Preparing',  label: 'Bắt đầu chuẩn bị' }, { value: 'Cancelled', label: 'Hủy đơn' }],
+    Preparing:     [{ value: 'Paid',       label: 'Chờ thanh toán' },  { value: 'Cancelled', label: 'Hủy đơn' }],
+    Paid:          [{ value: 'Delivering', label: 'Bắt đầu giao hàng' }, { value: 'Cancelled', label: 'Hủy đơn' }],
+    Delivering:    [{ value: 'Completed',  label: 'Hoàn thành đơn hàng' }],
+    Completed:     [],
+    Cancelled:     [{ value: 'Refunded',   label: 'Hoàn tiền' }],
+    Refunded:      [],
+    PaymentFailed: [{ value: 'Cancelled',  label: 'Hủy đơn' }],
+    // Legacy statuses from old API
+    Shipping:      [{ value: 'Delivering', label: 'Chuyển sang đang giao' }, { value: 'Cancelled', label: 'Hủy đơn' }],
+    Delivered:     [{ value: 'Completed',  label: 'Hoàn thành đơn hàng' }],
+  };
 
   const handleUpdateStatus = async () => {
     if (!selectedOrderDetail || !newStatus) return;
     setStatusUpdating(true);
     setStatusUpdateError(null);
+    setStatusSuccessMsg(null);
     try {
       await orderService.updateOrderStatus(selectedOrderDetail.orderId, newStatus, statusReason);
       const [detail, list] = await Promise.all([
@@ -65,6 +62,11 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate }) => {
       setOrders(list);
       setNewStatus('');
       setStatusReason('');
+      if (newStatus === 'Completed') {
+        setStatusSuccessMsg('Đơn hàng đã hoàn thành! Hệ thống đang quyết toán doanh thu — tiền sẽ được cộng vào ví của bạn sau ít phút.');
+      } else {
+        setStatusSuccessMsg('Cập nhật trạng thái thành công!');
+      }
     } catch (err: any) {
       setStatusUpdateError(err.message || 'Cập nhật thất bại. Vui lòng thử lại.');
     } finally {
@@ -72,32 +74,8 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate }) => {
     }
   };
 
-  const handleCancelOrder = async () => {
-    if (!selectedOrderDetail) return;
-    setCancelling(true);
-    setCancelError(null);
-    try {
-      await orderService.cancelOrder(selectedOrderDetail.orderId, cancelReason || 'Vendor hủy đơn');
-      const [detail, list] = await Promise.all([
-        orderService.getOrderDetails(selectedOrderDetail.orderId),
-        orderService.getVendorOrders(),
-      ]);
-      setSelectedOrderDetail(detail);
-      setOrders(list);
-      setCancelConfirmOpen(false);
-      setCancelReason('');
-    } catch (err: any) {
-      setCancelError(err.message || 'Hủy đơn thất bại. Vui lòng thử lại.');
-    } finally {
-      setCancelling(false);
-    }
-  };
-
   const openDetail = async (orderId: string) => {
     setSelectedOrderDetail(null);
-    setCancelConfirmOpen(false);
-    setCancelReason('');
-    setCancelError(null);
     setDetailLoading(true);
     try {
       const detail = await orderService.getOrderDetails(orderId);
@@ -127,15 +105,18 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate }) => {
   }, []);
 
   const STATUS_CONFIG: Record<string, { badge: string; label: string }> = {
-    Pending:   { badge: 'bg-yellow-100 text-yellow-700',  label: 'Chờ duyệt' },
-    Confirmed: { badge: 'bg-blue-100 text-blue-700',     label: 'Đã duyệt' },
-    Preparing: { badge: 'bg-violet-100 text-violet-700', label: 'Đang chuẩn bị' },
-    Shipping:  { badge: 'bg-orange-100 text-orange-700', label: 'Đang giao' },
-    Delivered: { badge: 'bg-green-100 text-green-700',   label: 'Đã giao' },
-    Cancelled: { badge: 'bg-red-100 text-red-600',       label: 'Đã hủy' },
-    Refunded:     { badge: 'bg-teal-100 text-teal-700',     label: 'Đã hoàn' },
+    Pending:       { badge: 'bg-yellow-100 text-yellow-700',   label: 'Chờ duyệt' },
+    Confirmed:     { badge: 'bg-blue-100 text-blue-700',       label: 'Đã duyệt' },
+    Preparing:     { badge: 'bg-violet-100 text-violet-700',   label: 'Đang chuẩn bị' },
     Paid:          { badge: 'bg-emerald-100 text-emerald-700', label: 'Đã thanh toán' },
+    Delivering:    { badge: 'bg-orange-100 text-orange-700',   label: 'Đang giao' },
+    Completed:     { badge: 'bg-green-100 text-green-700',     label: 'Hoàn thành' },
+    Cancelled:     { badge: 'bg-red-100 text-red-600',         label: 'Đã hủy' },
+    Refunded:      { badge: 'bg-teal-100 text-teal-700',       label: 'Đã hoàn' },
     PaymentFailed: { badge: 'bg-rose-100 text-rose-700',       label: 'Thanh toán lỗi' },
+    // Legacy
+    Shipping:      { badge: 'bg-orange-100 text-orange-700',   label: 'Đang giao (cũ)' },
+    Delivered:     { badge: 'bg-green-100 text-green-700',     label: 'Đã giao (cũ)' },
   };
 
   const getStatusCfg = (status: string) =>
@@ -368,50 +349,6 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate }) => {
               </div>
             </div>
 
-            {/* Cancel Order section */}
-            {selectedOrderDetail.orderStatus !== 'Cancelled' && selectedOrderDetail.orderStatus !== 'Refunded' && (
-              <div className="mx-6 mt-4">
-                {!cancelConfirmOpen ? (
-                  <button
-                    onClick={() => setCancelConfirmOpen(true)}
-                    className="w-full py-2.5 px-5 rounded-xl border-2 border-red-200 text-red-500 font-bold text-sm hover:bg-red-50 transition"
-                  >
-                    Hủy đơn hàng
-                  </button>
-                ) : (
-                  <div className="bg-red-50 border border-red-200 rounded-[1.5rem] p-5">
-                    <p className="text-sm font-bold text-red-600 mb-3">Xác nhận hủy đơn </p>
-                    <input
-                      type="text"
-                      placeholder="Lý do hủy đơn (tùy chọn)"
-                      value={cancelReason}
-                      onChange={(e) => setCancelReason(e.target.value)}
-                      className="w-full border border-red-200 rounded-xl px-4 py-2.5 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-red-300 focus:border-red-300 transition mb-3"
-                    />
-                    {cancelError && (
-                      <p className="text-xs text-red-500 font-medium mb-3">{cancelError}</p>
-                    )}
-                    <div className="flex gap-2">
-                      <button
-                        onClick={handleCancelOrder}
-                        disabled={cancelling}
-                        className="flex-1 bg-red-500 text-white font-bold py-2.5 px-5 rounded-xl hover:bg-red-600 transition disabled:opacity-50 text-sm"
-                      >
-                        {cancelling ? 'Đang hủy...' : 'Xác nhận hủy'}
-                      </button>
-                      <button
-                        onClick={() => { setCancelConfirmOpen(false); setCancelReason(''); setCancelError(null); }}
-                        disabled={cancelling}
-                        className="flex-1 bg-white text-gray-600 font-bold py-2.5 px-5 rounded-xl border border-gray-200 hover:bg-gray-50 transition disabled:opacity-50 text-sm"
-                      >
-                        Hủy bỏ
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-
             {/* Update status section – always visible */}
             <div className="mx-6 mt-4 bg-white rounded-[1.5rem] border border-gray-200 shadow-sm p-6">
               <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-4">Cập nhật trạng thái</h3>
@@ -422,7 +359,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate }) => {
                   className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
                 >
                   <option value="">-- Chọn trạng thái mới --</option>
-                  {(NEXT_STATUSES[selectedOrderDetail.orderStatus] ?? ALL_STATUS_OPTIONS).map((s) => (
+                  {(NEXT_STATUSES[selectedOrderDetail.orderStatus] ?? []).map((s) => (
                     <option key={s.value} value={s.value}>{s.label}</option>
                   ))}
                 </select>
@@ -443,6 +380,11 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate }) => {
               </div>
               {statusUpdateError && (
                 <p className="mt-2 text-xs text-red-500 font-medium">{statusUpdateError}</p>
+              )}
+              {statusSuccessMsg && (
+                <div className="mt-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700 font-medium">
+                  {statusSuccessMsg}
+                </div>
               )}
             </div>
 

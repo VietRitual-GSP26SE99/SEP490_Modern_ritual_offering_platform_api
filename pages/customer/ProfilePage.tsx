@@ -368,13 +368,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
               }));
               editForm.latitude = geoResult.latitude;
               editForm.longitude = geoResult.longitude;
-              alert(`✅ Lấy tọa độ tự động thành công!\n\nVĩ độ: ${geoResult.latitude}\nKinh độ: ${geoResult.longitude}\nĐịa chỉ tìm được: ${geoResult.formattedAddress}`);
-            } else {
-              alert('⚠️ Không tìm được tọa độ từ địa chỉ này. Sẽ lưu với tọa độ cũ.');
             }
           }
-        } catch (geoErr) {
-          alert(`⚠️ Lỗi khi lấy tọa độ: ${geoErr instanceof Error ? geoErr.message : 'Không xác định'}. Sẽ lưu với tọa độ cũ.`);
+        } catch {
+          // silently ignore geo errors — save continues with existing coordinates
         }
       }
 
@@ -417,7 +414,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
       // If first-time setup, redirect to home with success message
       if (isFirstTimeSetup) {
         toast.message({
-          title: '🎉 Hoàn thành thiết lập tài khoản!',
+          title: 'Hoàn thành thiết lập tài khoản!',
           text: 'Chào mừng bạn đến với Modern Ritual. Chúc bạn có trải nghiệm tuyệt vời!',
           icon: 'success',
           confirmButtonText: 'Bắt đầu mua sắm'
@@ -612,7 +609,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
         {error && !loading && (
           <div className="bg-red-50 border-2 border-red-200 rounded-2xl p-6 mb-8">
             <div className="flex items-center gap-3">
-              <span className="text-2xl">⚠️</span>
               <div>
                 <h3 className="font-bold text-red-800 mb-1">Có lỗi xảy ra</h3>
                 <p className="text-red-600">{error}</p>
@@ -726,9 +722,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                         onChange={handleAvatarChange}
                         className="hidden"
                       />
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                        <path d="M13.586 3.586a2 2 0 112.828 2.828l-.793.793-2.828-2.828.793-.793zM11.379 5.793L3 14.172V17h2.828l8.38-8.379-2.83-2.828z" />
-                      </svg>
+
                     </label>
                   </div>
                   <p className="text-xs text-slate-500">Click vào icon để thay đổi ảnh đại diện</p>
