@@ -10,6 +10,7 @@ export interface CheckoutItem {
   packageName: string;
   quantity: number;
   price: number;
+  totalPrice?: number;
   lineTotal: number;
   vendorProfileId: string;
   vendorName: string;
@@ -33,6 +34,7 @@ export interface CheckoutSummary {
   subTotal: number;
   shippingFee: number;
   totalAmount: number;
+  totalDiscount?: number;
   vendorOrders: VendorOrder[];
   deliveryAddress?: string;
 }
@@ -49,7 +51,7 @@ export interface ProcessCheckoutItem {
 export interface ProcessCheckoutRequest {
   deliveryDate: string;
   deliveryTime: string;
-  paymentMethod: string;
+  paymentMethod?: string;
   items: ProcessCheckoutItem[];
 }
 
@@ -92,8 +94,43 @@ class CheckoutService {
       const data: ApiResponse<CheckoutSummary> = await response.json();
       console.log(' Checkout summary:', data);
       
+      let result: any = null;
       if (data.isSuccess && data.result) {
-        return data.result;
+        result = data.result;
+      } else if ((data as any).vendors || (data as any).items) {
+        result = data;
+      }
+
+      if (result) {
+        if (!result.items) {
+          let allItems: any[] = [];
+          const vendorsList = result.vendors || result.vendorOrders || [];
+          if (Array.isArray(vendorsList)) {
+            vendorsList.forEach((v: any) => {
+              const nestedItems = v.items || v.cartItems || v.packageItems || v.products || v.packages || [];
+              if (Array.isArray(nestedItems)) {
+                // Thêm thông tin vendor vào item để hiển thị
+                const itemsWithVendor = nestedItems.map(item => ({
+                  ...item,
+                  vendorName: item.vendorName || v.shopName || v.vendorName || 'Shop',
+                  vendorProfileId: item.vendorProfileId || v.vendorId || v.id,
+                  price: item.price || item.unitPrice,
+                  totalPrice: item.lineTotal || (item.unitPrice * item.quantity)
+                }));
+                allItems = [...allItems, ...itemsWithVendor];
+              }
+            });
+          }
+          result.items = allItems;
+        }
+        
+        result.vendorOrders = result.vendorOrders || result.vendors || [];
+        result.totalItems = result.totalItems || result.items.length;
+        result.shippingFee = result.shippingFee !== undefined ? result.shippingFee : (result.totalShippingFee || 0);
+        result.totalDiscount = result.totalDiscount !== undefined ? result.totalDiscount : (result.discountAmount || 0);
+        result.totalAmount = result.totalAmount !== undefined ? result.totalAmount : (result.finalAmount || result.subTotal + result.shippingFee - (result.totalDiscount || 0));
+        
+        return result as CheckoutSummary;
       } else {
         console.error(' API Error:', data.errorMessages);
         return null;
@@ -110,24 +147,37 @@ class CheckoutService {
    */
   async processCheckout(request: ProcessCheckoutRequest): Promise<ProcessCheckoutResponse | null> {
     try {
-      console.log(' Processing checkout:', request);
-      console.log(' Request body:', JSON.stringify(request, null, 2));
+      const formattedTime = request.deliveryTime.length > 5 
+        ? request.deliveryTime.substring(0, 5) 
+        : request.deliveryTime;
+
+      const formattedRequest = {
+        ...request,
+        deliveryTime: formattedTime + ":00"
+      };
+
+      console.log(' Processing checkout:', formattedRequest);
+      console.log(' Request body:', JSON.stringify(formattedRequest, null, 2));
       
       const response = await fetch(`${API_BASE_URL}/checkout/process`, {
         method: 'POST',
         headers: this.getHeaders(),
-        body: JSON.stringify(request),
+        body: JSON.stringify(formattedRequest),
       });
 
       if (!response.ok) {
         const errorText = await response.text();
         console.error('❌ Response error:', response.status, errorText);
+        let errorMessage = `HTTP error! status: ${response.status}`;
         try {
           const errorData = JSON.parse(errorText);
           console.error('❌ Error details:', errorData);
+          if (errorData.errorMessages && errorData.errorMessages.length > 0) {
+            errorMessage = errorData.errorMessages[0];
+          }
         } catch (e) {
         }
-        throw new Error(`HTTP error! status: ${response.status}`);
+        throw new Error(errorMessage);
       }
 
       const data: ApiResponse<ProcessCheckoutResponse> = await response.json();
@@ -137,11 +187,14 @@ class CheckoutService {
         return data.result;
       } else {
         console.error(' API Error:', data.errorMessages);
-        return null;
+        if (data.errorMessages && data.errorMessages.length > 0) {
+          throw new Error(data.errorMessages[0]);
+        }
+        throw new Error('Thanh toán thất bại');
       }
     } catch (error) {
       console.error(' Failed to process checkout:', error);
-      return null;
+      throw error;
     }
   }
 
@@ -172,34 +225,47 @@ class CheckoutService {
   }
 
   /**
-   * Khởi tạo thanh toán VNPay
-   * POST /api/payments/vnpay-ipn
+   * Khởi tạo thanh toán PayOS
+   * POST /api/payos/create-topup-link
    */
-  async initiateVnpayPayment(): Promise<{ paymentUrl?: string } | null> {
+  async initiatePayOSPayment(amount: number): Promise<{ paymentUrl?: string; checkoutUrl?: string } | null> {
     try {
-      console.log(' Initiating VNPay payment');
-      const response = await fetch(`${API_BASE_URL}/payments/vnpay-ipn`, {
+      console.log(' Initiating PayOS payment');
+      
+      // PayOS bounds the amount between 10,000 and 100,000,000
+      let safeAmount = amount;
+      if (safeAmount < 10000) safeAmount = 10000;
+      if (safeAmount > 100000000) safeAmount = 100000000;
+
+      const requestBody = {
+        amount: safeAmount,
+        type: "customer"
+      };
+      const response = await fetch(`${API_BASE_URL}/payos/create-topup-link`, {
         method: 'POST',
         headers: this.getHeaders(),
+        body: JSON.stringify(requestBody)
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(' VNPay initiation error:', response.status, errorText);
+        console.error(' PayOS initiation error:', response.status, errorText);
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data: ApiResponse<{ paymentUrl?: string }> = await response.json();
-      console.log(' VNPay payment initiated:', data);
+      const data: ApiResponse<{ paymentUrl?: string; checkoutUrl?: string }> = await response.json();
+      console.log(' PayOS payment initiated:', data);
       
       if (data.isSuccess && data.result) {
         return data.result;
+      } else if ((data as any).checkoutUrl || (data as any).paymentUrl) {
+        return data as any;
       } else {
         console.error(' API Error:', data.errorMessages);
         return null;
       }
     } catch (error) {
-      console.error(' Failed to initiate VNPay payment:', error);
+      console.error(' Failed to initiate PayOS payment:', error);
       return null;
     }
   }

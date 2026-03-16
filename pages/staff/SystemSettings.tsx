@@ -74,9 +74,9 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onNavigate, onLogout })
     {
       id: 'PAY-003',
       category: 'payment',
-      name: 'Thanh toán VNPay',
+      name: 'Thanh toán PayOS',
       value: true,
-      description: 'Tích hợp cổng thanh toán VNPay',
+      description: 'Tích hợp cổng thanh toán PayOS',
       editable: true
     },
     {

@@ -15,7 +15,7 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
 
   const [deliveryDate, setDeliveryDate] = useState('');
   const [deliveryTimeSlot, setDeliveryTimeSlot] = useState('07:00:00');
-  const [paymentMethod, setPaymentMethod] = useState('Vnpay');
+  const [paymentMethod, setPaymentMethod] = useState('PayOS');
   const [decorationNotes, setDecorationNotes] = useState<{ [key: number]: string }>({});
   const [phoneNumber, setPhoneNumber] = useState('');
   const [fullName, setFullName] = useState('');
@@ -118,7 +118,6 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
       const checkoutRequest = {
         deliveryDate,
         deliveryTime: deliveryTimeSlot,
-        paymentMethod,
         items: summary.items.map(item => ({
           cartItemId: item.cartItemId,
           decorationNote: decorationNotes[item.cartItemId] || ''
@@ -150,17 +149,19 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
           // Delay nhỏ để user nhìn thấy toast
           await new Promise(resolve => setTimeout(resolve, 1500));
 
-          if (paymentMethod === 'Vnpay') {
+          if (paymentMethod === 'PayOS') {
             try {
-              const vnpayResult = await checkoutService.initiateVnpayPayment();
-              console.log(' VNPay initiation result:', vnpayResult);
+              const payosResult = await checkoutService.initiatePayOSPayment(summary.totalAmount);
+              console.log(' PayOS initiation result:', payosResult);
 
-              if (vnpayResult?.paymentUrl) {
-                window.location.href = vnpayResult.paymentUrl;
+              const redirectUrl = payosResult?.paymentUrl || payosResult?.checkoutUrl;
+
+              if (redirectUrl) {
+                window.location.href = redirectUrl;
                 return;
               }
-            } catch (vnpayError) {
-              console.warn(' VNPay initiation failed, using checkout payment URL:', vnpayError);
+            } catch (payosError) {
+              console.warn(' PayOS initiation failed, using checkout payment URL:', payosError);
             }
           }
 
@@ -187,10 +188,28 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
     } catch (error: any) {
       console.error(' Checkout failed:', error);
 
+      if (error.message?.includes('Số dư') && paymentMethod === 'PayOS') {
+        toast.info('Số dư ví không đủ. Đang tạo phiên nạp qua PayOS...');
+        try {
+          const payosResult = await checkoutService.initiatePayOSPayment(summary.totalAmount);
+          const redirectUrl = payosResult?.paymentUrl || payosResult?.checkoutUrl;
+
+          if (redirectUrl) {
+            window.location.href = redirectUrl;
+            return;
+          }
+        } catch (payosError) {
+          console.error(' PayOS initiation failed:', payosError);
+          toast.error('Lỗi khi tạo liên kết PayOS. Vui lòng thử lại sau.');
+        }
+        setProcessing(false);
+        return;
+      }
+
       if (error.message?.includes('500')) {
         toast.error('Lỗi hệ thống. Vui lòng đảm bảo đã cập nhật đầy đủ thông tin tài khoản (Địa chỉ, SĐT) và thử lại sau.');
       } else {
-        toast.error('Đã xảy ra lỗi khi thanh toán. Vui lòng thử lại.');
+        toast.error(error.message || 'Đã xảy ra lỗi khi thanh toán. Vui lòng thử lại.');
       }
     } finally {
       setProcessing(false);
@@ -318,7 +337,7 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
           </h2>
           <div className="space-y-4">
             {[
-              { id: 'Vnpay', label: 'VNPay', desc: 'Chuyển khoản, Thẻ, QR - An toàn & Nhanh chóng' },
+              { id: 'PayOS', label: 'PayOS', desc: 'Chuyển khoản, Thẻ, QR - An toàn & Nhanh chóng' },
               { id: 'wallet', label: 'Ví điện tử', desc: 'Momo, ZaloPay - Tiện lợi & Đơn giản' }
             ].map((m, i) => (
               <label key={m.id} className={`flex items-center p-6 border-2 rounded-3xl cursor-pointer transition-all ${paymentMethod === m.id ? 'border-primary bg-gray-50' : 'border-gray-200 hover:border-primary'}`}>
@@ -359,7 +378,7 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
                     {item.vendorName}
                   </p>
                   <p className="text-sm font-bold text-primary mt-1">
-                    {item.lineTotal.toLocaleString()}đ
+                    {(item.lineTotal || (item.price * item.quantity) || 0).toLocaleString()}đ
                   </p>
                 </div>
               </div>
@@ -369,14 +388,22 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
           <div className="space-y-3 pt-6 border-t border-gray-200">
             <div className="flex justify-between text-sm text-slate-500">
               <span>Tạm tính ({summary.totalItems} sản phẩm)</span>
-              <span className="font-bold">{summary.subTotal.toLocaleString()}đ</span>
+              <span className="font-bold">{(summary.subTotal || 0).toLocaleString()}đ</span>
             </div>
             <div className="flex justify-between text-sm text-slate-500">
               <span>Phí vận chuyển</span>
               <span className={`font-bold ${summary.shippingFee === 0 ? 'text-green-600' : ''}`}>
-                {summary.shippingFee === 0 ? 'Miễn phí' : `${summary.shippingFee.toLocaleString()}đ`}
+                {!summary.shippingFee || summary.shippingFee === 0 ? 'Miễn phí' : `${summary.shippingFee.toLocaleString()}đ`}
               </span>
             </div>
+            {(summary.totalDiscount || 0) > 0 && (
+              <div className="flex justify-between text-sm text-slate-500">
+                <span>Giảm giá</span>
+                <span className="font-bold text-green-600">
+                  -{(summary.totalDiscount || 0).toLocaleString()}đ
+                </span>
+              </div>
+            )}
             {summary.deliveryAddress && (
               <div className="pt-3 border-t border-gray-100">
                 <p className="text-xs text-slate-400 mb-1">Địa chỉ giao hàng:</p>
@@ -389,7 +416,7 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
                 <p className="text-[10px] text-slate-300 italic">(Đã bao gồm VAT)</p>
               </div>
               <p className="text-3xl font-black text-primary tracking-tight">
-                {summary.totalAmount.toLocaleString()}đ
+                {(summary.totalAmount || (summary.subTotal || 0) + (summary.shippingFee || 0) - (summary.totalDiscount || 0)).toLocaleString()}đ
               </p>
             </div>
           </div>

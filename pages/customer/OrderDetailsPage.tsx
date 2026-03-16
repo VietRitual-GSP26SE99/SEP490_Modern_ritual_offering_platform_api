@@ -159,7 +159,7 @@ const OrderDetailsPage: React.FC = () => {
                                 Người cung cấp
                             </h3>
                             <div>
-                                <p className="font-bold text-xl text-primary">{order.vendor?.shopName || "Cúng Bái Tâm Linh"}</p>
+                                <p className="font-bold text-xl text-primary">{order.vendor?.shopName || (order as any).shopName || "Cúng Bái Tâm Linh"}</p>
                                 <p className="text-sm text-gray-500 mt-2">Dịch vụ mâm cúng trọn gói và trang trí tận nhà.</p>
                             </div>
                         </div>
@@ -186,7 +186,7 @@ const OrderDetailsPage: React.FC = () => {
                                             <p className="text-xs text-gray-500 mt-1">Gói: <span className="text-gray-700 font-medium">{item.variantName}</span></p>
                                         </div>
                                         <div className="pt-1 text-right">
-                                            <p className="font-bold text-primary">{(item.price * item.quantity).toLocaleString('vi-VN')}đ</p>
+                                            <p className="font-bold text-primary">{(item.lineTotal || (item.price || (item as any).unitPrice || 0) * item.quantity).toLocaleString('vi-VN')}đ</p>
                                         </div>
                                     </div>
                                 ))}
@@ -205,17 +205,23 @@ const OrderDetailsPage: React.FC = () => {
                             <div className="space-y-3 text-sm mb-4">
                                 <div className="flex justify-between">
                                     <span className="text-gray-500">Tạm tính ({order.items?.length || 0} món)</span>
-                                    <span className="font-medium">{((order.pricing?.totalAmount || 0) - (order.pricing?.shippingFee || 0)).toLocaleString('vi-VN')}đ</span>
+                                    <span className="font-medium">{(order.pricing?.subTotal || (order.pricing as any)?.subTotal || (order as any).subTotal || 0).toLocaleString('vi-VN')}đ</span>
                                 </div>
                                 <div className="flex justify-between">
                                     <span className="text-gray-500">Phí giao hàng</span>
-                                    <span className="font-medium">{(order.pricing?.shippingFee || 0).toLocaleString('vi-VN')}đ</span>
+                                    <span className="font-medium">{(order.pricing?.shippingFee || (order.pricing as any)?.totalShippingFee || (order as any).shippingFee || (order as any).totalShippingFee || 0).toLocaleString('vi-VN')}đ</span>
                                 </div>
+                                {((order.pricing as any)?.discountAmount || (order.pricing as any)?.totalDiscount || (order as any).totalDiscount || (order as any).discountAmount || 0) > 0 && (
+                                    <div className="flex justify-between">
+                                        <span className="text-gray-500">Giảm giá</span>
+                                        <span className="font-medium text-green-600">- {((order.pricing as any)?.discountAmount || (order.pricing as any)?.totalDiscount || (order as any).totalDiscount || (order as any).discountAmount || 0).toLocaleString('vi-VN')}đ</span>
+                                    </div>
+                                )}
                             </div>
 
                             <div className="pt-4 border-t border-dashed border-gray-200 flex justify-between items-end">
                                 <span className="text-sm font-bold text-gray-700">Tổng cộng</span>
-                                <span className="text-2xl font-black text-primary">{(order.pricing?.totalAmount || 0).toLocaleString('vi-VN')}đ</span>
+                                <span className="text-2xl font-black text-primary">{((order.pricing as any)?.finalAmount || order.pricing?.totalAmount || (order as any).totalAmount || (order as any).finalAmount || 0).toLocaleString('vi-VN')}đ</span>
                             </div>
                         </div>
 
@@ -227,22 +233,22 @@ const OrderDetailsPage: React.FC = () => {
                                 <div>
                                     <p className="text-xs text-gray-500 mb-1">Thời gian phục vụ</p>
                                     <p className="font-bold text-gray-800">
-                                        {order.delivery?.deliveryDate ? new Date(order.delivery?.deliveryDate).toLocaleDateString('vi-VN') : 'Chưa cập nhật'}
-                                        {order.delivery?.deliveryTime ? ` lúc ${order.delivery?.deliveryTime}` : ''}
+                                        {(order.delivery?.deliveryDate || (order as any).deliveryDate) ? new Date(order.delivery?.deliveryDate || (order as any).deliveryDate).toLocaleDateString('vi-VN') : 'Chưa cập nhật'}
+                                        {(order.delivery?.deliveryTime || (order as any).deliveryTime) ? ` lúc ${(order.delivery?.deliveryTime || (order as any).deliveryTime)}` : ''}
                                     </p>
                                 </div>
 
                                 <div>
                                     <p className="text-xs text-gray-500 mb-1">Người nhận</p>
                                     <p className="font-medium text-sm text-gray-800">
-                                        <span className="font-bold">{order.customer?.fullName || 'Chưa cập nhật'}</span>
-                                        {order.customer?.phoneNumber && <span className="text-gray-500 ml-1">- {order.customer.phoneNumber}</span>}
+                                        <span className="font-bold">{order.customer?.fullName || (order.customer as any)?.customerName || (order as any).customerName || 'Chưa cập nhật'}</span>
+                                        {(order.customer?.phoneNumber || (order.customer as any)?.customerPhone || (order as any).customerPhone) && <span className="text-gray-500 ml-1">- {(order.customer?.phoneNumber || (order.customer as any)?.customerPhone || (order as any).customerPhone)}</span>}
                                     </p>
                                 </div>
 
                                 <div>
                                     <p className="text-xs text-gray-500 mb-1">Địa chỉ giao mâm</p>
-                                    <p className="font-medium text-sm text-gray-800 leading-relaxed">{order.delivery?.deliveryAddress}</p>
+                                    <p className="font-medium text-sm text-gray-800 leading-relaxed">{order.delivery?.deliveryAddress || (order as any).deliveryAddress}</p>
                                 </div>
                             </div>
                         </div>

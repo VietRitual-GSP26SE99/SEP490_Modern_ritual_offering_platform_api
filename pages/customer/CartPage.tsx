@@ -218,9 +218,9 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
   
   // Use checkout summary if available, otherwise calculate locally
   const subtotal = checkoutSummary?.subTotal || cart?.subtotal || 0;
-  const shipping = checkoutSummary?.shippingFee || (subtotal > 0 ? 50000 : 0);
-  const tax = Math.round(subtotal * 0.1); // Tax is included in totalAmount from API
-  const total = checkoutSummary?.totalAmount || (subtotal + shipping + tax);
+  const shipping = checkoutSummary?.shippingFee !== undefined ? checkoutSummary.shippingFee : (subtotal > 0 ? 50000 : 0);
+  const discount = checkoutSummary?.totalDiscount || 0;
+  const total = checkoutSummary?.totalAmount || (subtotal + shipping - discount);
 
   return (
     <div className="max-w-7xl mx-auto px-6 md:px-10 py-16">
@@ -348,10 +348,12 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
                 <span>Phí vận chuyển</span>
                 <span className="font-semibold">{shipping.toLocaleString()}đ</span>
               </div>
-              <div className="flex justify-between text-slate-600">
-                <span>Thuế (10%)</span>
-                <span className="font-semibold">{tax.toLocaleString()}đ</span>
-              </div>
+              {discount > 0 && (
+                <div className="flex justify-between text-slate-600">
+                  <span>Giảm giá</span>
+                  <span className="font-semibold text-green-600">-{discount.toLocaleString()}đ</span>
+                </div>
+              )}
             </div>
 
             <div className="my-6 pt-6 flex justify-between text-2xl font-black text-primary">

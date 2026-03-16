@@ -151,7 +151,7 @@ const MyOrdersPage: React.FC = () => {
                                         <div className="hidden md:block w-px h-8 bg-gray-300"></div>
                                         <div>
                                             <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-1">Ngày đặt</span>
-                                            <span className="text-gray-900 font-medium">{new Date(order.createdAt).toLocaleDateString('vi-VN')}</span>
+                                            <span className="text-gray-900 font-medium">{order.createdAt ? new Date(order.createdAt).toLocaleDateString('vi-VN') : new Date((order as any).deliveryDate || Date.now()).toLocaleDateString('vi-VN')}</span>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3">
@@ -169,7 +169,7 @@ const MyOrdersPage: React.FC = () => {
                                             </svg>
                                         </div>
                                         <div>
-                                            <h4 className="font-bold text-gray-900">{order.vendor?.shopName || "Tiệm Cúng Bái"}</h4>
+                                            <h4 className="font-bold text-gray-900">{order.vendor?.shopName || (order as any).shopName || "Tiệm Cúng Bái"}</h4>
                                         </div>
                                     </div>
 
@@ -184,7 +184,7 @@ const MyOrdersPage: React.FC = () => {
                                                         <p className="text-sm font-medium mt-1">x{item.quantity}</p>
                                                     </div>
                                                     <div className="text-right">
-                                                        <p className="font-bold text-primary">{(item.price * item.quantity).toLocaleString('vi-VN')}đ</p>
+                                                        <p className="font-bold text-primary">{((item.price || (item as any).unitPrice || 0) * item.quantity).toLocaleString('vi-VN')}đ</p>
                                                     </div>
                                                 </div>
                                             </div>
@@ -198,7 +198,8 @@ const MyOrdersPage: React.FC = () => {
                                         <span className="text-2xl font-black text-primary">
                                             {(() => {
                                                 // List API returns flat structure, detail API returns nested
-                                                const total = (order as any).totalAmount 
+                                                const total = (order as any).finalAmount
+                                                    || (order as any).totalAmount 
                                                     || order.pricing?.totalAmount 
                                                     || 0;
                                                 return total.toLocaleString('vi-VN');

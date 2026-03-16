@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { cartService, CartApi } from '../services/cartService';
+import { checkoutService, CheckoutSummary } from '../services/checkoutService';
 
 interface CartDropdownProps {
   isOpen: boolean;
@@ -10,6 +11,7 @@ interface CartDropdownProps {
 
 const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose, onNavigateToCart, onNavigateToShop }) => {
   const [cart, setCart] = useState<CartApi | null>(null);
+  const [checkoutSummary, setCheckoutSummary] = useState<CheckoutSummary | null>(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -36,6 +38,14 @@ const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose, onNavigate
     try {
       const cartData = await cartService.getCart();
       setCart(cartData);
+      
+      if (cartData && cartData.cartItems && cartData.cartItems.length > 0) {
+        const cartItemIds = cartData.cartItems.map(item => item.cartItemId);
+        const summary = await checkoutService.getSummary(cartItemIds);
+        setCheckoutSummary(summary);
+      } else {
+        setCheckoutSummary(null);
+      }
     } catch (error) {
       console.error('Failed to fetch cart:', error);
     } finally {
@@ -81,7 +91,12 @@ const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose, onNavigate
         <>
           {/* Cart Items */}
           <div className="max-h-[400px] overflow-y-auto">
-            {displayItems.map((item) => (
+            {displayItems.map((item) => {
+              // Find matching item in checkout summary for correct pricing
+              const summaryItem = checkoutSummary?.items?.find(i => i.cartItemId === item.cartItemId);
+              const displayPrice = summaryItem?.totalPrice || (item.price * (item.quantity || 1)) || 0;
+              
+              return (
               <div 
                 key={item.cartItemId}
                 className="px-4 py-3 border-b border-gray-50 hover:bg-slate-50 transition-colors cursor-pointer"
@@ -126,13 +141,13 @@ const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose, onNavigate
                         x{item.quantity}
                       </span>
                       <span className="text-sm font-bold text-primary">
-                        {item.price.toLocaleString()}đ
+                        {displayPrice.toLocaleString()}đ
                       </span>
                     </div>
                   </div>
                 </div>
               </div>
-            ))}
+            )})}
 
             {remainingCount > 0 && (
               <div className="px-4 py-2 text-center text-xs text-slate-500 border-b border-gray-50">
@@ -146,7 +161,7 @@ const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose, onNavigate
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs text-slate-600">Tổng tiền:</span>
               <span className="text-lg font-black text-primary">
-                {(cart?.subtotal || 0).toLocaleString()}đ
+                {(Object.keys(cartItems).length > 0 ? (checkoutSummary?.subTotal || cart?.subtotal || 0) : 0).toLocaleString()}đ
               </span>
             </div>
             <button 
