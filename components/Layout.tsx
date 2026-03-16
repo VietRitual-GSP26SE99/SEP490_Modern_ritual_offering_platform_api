@@ -29,6 +29,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
   const [isCartDropdownOpen, setIsCartDropdownOpen] = useState<boolean>(false);
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState<boolean>(false);
   const [isWalletDropdownOpen, setIsWalletDropdownOpen] = useState<boolean>(false);
+  const [walletInfo, setWalletInfo] = useState<any>(null);
   const [walletLoading, setWalletLoading] = useState<boolean>(false);
   const [topupLoading, setTopupLoading] = useState<boolean>(false);
   const [userName, setUserName] = useState<string>('');
@@ -240,39 +241,27 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
     return null;
   };
 
-  const handleWalletClick = async () => {
+  const fetchWalletBalance = async () => {
     try {
       setWalletLoading(true);
       const walletType = resolveWalletType();
       const wallet = await getMyWallet(walletType);
-
-      const rawBalance = typeof wallet.balance === 'number' ? wallet.balance : 0;
-      const heldBalance = typeof wallet.heldBalance === 'number' ? wallet.heldBalance : 0;
-      const debt = typeof wallet.debt === 'number' ? wallet.debt : 0;
-      const apiWalletType = normalizeWalletType(wallet.type);
-      const showHeldBalance = walletType === 'Vendor';
-      const showDebt = walletType !== 'Customer';
-
-      if (apiWalletType && apiWalletType !== walletType) {
-        toast.warning(`API đang trả về ví ${apiWalletType} trong khi màn hình hiện tại là ${walletType}.`);
-      }
-
-      await toast.message({
-        title: 'Thông tin ví',
-        html: `<div style="text-align:left;line-height:1.8">
-          <div><b>Số dư:</b> ${formatCurrency(rawBalance)} VND</div>
-          ${showHeldBalance ? `<div><b>Số dư giữ:</b> ${formatCurrency(heldBalance)} VND</div>` : ''}
-          ${showDebt ? `<div><b>Công nợ:</b> ${formatCurrency(debt)} VND</div>` : ''}
-        </div>`,
-        icon: 'info',
-        confirmButtonText: 'Đóng',
-      });
+      setWalletInfo(wallet);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Không thể lấy thông tin ví.';
-      toast.error(message);
+      console.error('❌ Failed to fetch wallet:', error);
     } finally {
       setWalletLoading(false);
     }
+  };
+
+  useEffect(() => {
+    if (isWalletDropdownOpen && !walletInfo) {
+      fetchWalletBalance();
+    }
+  }, [isWalletDropdownOpen, walletInfo]);
+
+  const handleWalletClick = async () => {
+    await fetchWalletBalance();
   };
 
   const extractTopupUrl = (data: Record<string, unknown>): string | null => {
@@ -461,27 +450,90 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
 
                   {isWalletDropdownOpen && (
                     <div
-                      className="absolute top-full right-0 mt-0 w-44 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden"
+                      className="absolute top-full right-0 mt-3 w-72 bg-white rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] border-x border-b border-gray-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300"
                       onMouseEnter={() => {
                         if (walletDropdownTimeout.current) {
                           clearTimeout(walletDropdownTimeout.current);
                         }
                       }}
                     >
-                      {resolveWalletType() === 'Customer' && (
-                        <button
-                          onClick={async () => {
-                            await handleTopupClick();
-                          }}
-                          disabled={topupLoading || walletLoading}
-                          className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed"
-                        >
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M11 17h2v-5h3l-4-5-4 5h3v5zm-7 2v2h16v-2H4z" />
-                          </svg>
-                          {topupLoading ? 'Đang tạo link...' : 'Nạp tiền'}
-                        </button>
-                      )}
+                      {/* Gradient Header Decor */}
+                      <div className="h-1.5 bg-gradient-to-r from-primary via-amber-400 to-primary rounded-t-2xl"></div>
+
+                      <div className="p-5">
+                        <div className="flex justify-between items-center mb-4">
+                          <div className="flex items-center gap-2">
+                            <div className="size-2 rounded-full bg-green-500"></div>
+                            <span className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Số dư khả dụng</span>
+                          </div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); fetchWalletBalance(); }}
+                            className={`p-1.5 rounded-lg hover:bg-slate-100 text-slate-400 hover:text-primary transition-all duration-500 ${walletLoading ? 'animate-spin text-primary' : ''}`}
+                            title="Làm mới"
+                          >
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                            </svg>
+                          </button>
+                        </div>
+
+                        <div className="mb-6">
+                          {walletLoading && !walletInfo ? (
+                            <div className="h-10 w-full bg-slate-100 animate-pulse rounded-xl"></div>
+                          ) : (
+                            <div className="flex items-baseline gap-1.5">
+                              <span className="text-3xl font-black text-primary tracking-tight">
+                                {formatCurrency(walletInfo?.balance || 0)}
+                              </span>
+                              <span className="text-xs font-bold text-slate-400 mb-1">VND</span>
+                            </div>
+                          )}
+
+                          {/* Extra info for Vendor/Admin */}
+                          {(resolveWalletType() === 'Vendor' && walletInfo?.heldBalance > 0) || (resolveWalletType() !== 'Customer' && walletInfo?.debt > 0) ? (
+                            <div className="mt-4 space-y-2 pt-4 border-t border-dashed border-slate-100">
+                              {resolveWalletType() === 'Vendor' && walletInfo?.heldBalance > 0 && (
+                                <div className="flex justify-between items-center text-xs">
+                                  <span className="text-slate-500">Đang giữ:</span>
+                                  <span className="font-bold text-amber-600">+{formatCurrency(walletInfo.heldBalance)}đ</span>
+                                </div>
+                              )}
+                              {resolveWalletType() !== 'Customer' && walletInfo?.debt > 0 && (
+                                <div className="flex justify-between items-center text-xs">
+                                  <span className="text-slate-500">Công nợ:</span>
+                                  <span className="font-bold text-red-500">-{formatCurrency(walletInfo.debt)}đ</span>
+                                </div>
+                              )}
+                            </div>
+                          ) : null}
+                        </div>
+
+                        {resolveWalletType() === 'Customer' && (
+                          <button
+                            onClick={async () => {
+                              await handleTopupClick();
+                            }}
+                            disabled={topupLoading || walletLoading}
+                            className="w-full bg-primary hover:bg-primary/95 text-white p-3 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-3 group active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none"
+                          >
+                            <div className="size-7 rounded-lg bg-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+                              </svg>
+                            </div>
+                            <span className="font-bold text-sm tracking-wide">Nạp thêm tiền</span>
+                          </button>
+                        )}
+                      </div>
+
+                      {/* Decorative bottom bar */}
+                      <div className="bg-slate-50 px-5 py-3 flex items-center justify-between">
+                        <div className="flex gap-1.5">
+                          <div className="size-1 rounded-full bg-slate-300"></div>
+                          <div className="size-1 rounded-full bg-slate-300"></div>
+                          <div className="size-1 rounded-full bg-slate-300"></div>
+                        </div>
+                      </div>
                     </div>
                   )}
                 </div>
