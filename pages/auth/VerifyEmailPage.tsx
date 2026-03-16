@@ -60,8 +60,8 @@ const VerifyEmailPage: React.FC = () => {
       const email = searchParams.get('email');
       const tokenRaw = searchParams.get('token');
 
-      console.log('📧 Email from URL:', email);
-      console.log('🔑 Token from URL (raw):', tokenRaw?.substring(0, 50) + '...');
+      console.log('Email from URL:', email);
+      console.log('Token from URL (raw):', tokenRaw?.substring(0, 50) + '...');
 
       if (!email || !tokenRaw) {
         // No URL params, show manual form

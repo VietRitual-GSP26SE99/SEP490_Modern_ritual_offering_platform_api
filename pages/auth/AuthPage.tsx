@@ -8,6 +8,8 @@ interface AuthPageProps {
   onLogin?: (role: UserRole, firstTimeLogin?: boolean) => void;
 }
 
+const PROFILE_SETUP_REQUIRED_KEY = 'modern-ritual-profile-setup-required';
+
 const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -118,24 +120,58 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
           console.log('🔍 Checking if profile is complete...');
           const { getProfile } = await import('../../services/auth');
           const profile = await getProfile();
-          
-          // Check if required fields are filled
-          const isProfileIncomplete = !profile.fullName || 
-                                      !profile.phoneNumber || 
-                                      !profile.dateOfBirth || 
-                                      !profile.addressText;
+
+          const hasFullName = !!profile.fullName?.trim();
+          const hasPhoneNumber = !!profile.phoneNumber?.trim();
+          const hasDateOfBirth = !!profile.dateOfBirth;
+
+          let hasAddress = !!profile.addressText?.trim();
+
+          // Address can be stored in /api/addresses instead of profile.addressText.
+          if (!hasAddress) {
+            try {
+              const token = localStorage.getItem('smart-child-token');
+              if (token) {
+                const addressResponse = await fetch('/api/addresses', {
+                  method: 'GET',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    Accept: 'application/json',
+                    Authorization: `Bearer ${token}`,
+                  },
+                });
+
+                if (addressResponse.ok) {
+                  const addressData = await addressResponse.json().catch(() => null);
+                  const addressList = Array.isArray(addressData)
+                    ? addressData
+                    : (addressData?.isSuccess && Array.isArray(addressData.result) ? addressData.result : []);
+
+                  hasAddress = addressList.some((addr: any) =>
+                    !!(addr?.addressText || addr?.fullAddress || '').trim()
+                  );
+                }
+              }
+            } catch (addressError) {
+              console.warn('⚠️ Could not check address list:', addressError);
+            }
+          }
+
+          const isProfileIncomplete = !(hasFullName && hasPhoneNumber && hasDateOfBirth && hasAddress);
           
           console.log('📋 Profile status:', {
             fullName: profile.fullName,
             phoneNumber: profile.phoneNumber,
             dateOfBirth: profile.dateOfBirth,
             addressText: profile.addressText,
+            hasAddress,
             isIncomplete: isProfileIncomplete
           });
 
           if (isProfileIncomplete) {
             // First-time login - redirect to profile page
             console.log('⚠️ Profile incomplete - redirecting to profile setup');
+            localStorage.setItem(PROFILE_SETUP_REQUIRED_KEY, 'true');
             toast.message({
               title: 'Chào mừng bạn đến với Modern Ritual!',
               text: 'Để tiếp tục, vui lòng hoàn thành thông tin cá nhân của bạn.',
@@ -148,6 +184,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
             }
             return;
           }
+
+          localStorage.setItem(PROFILE_SETUP_REQUIRED_KEY, 'false');
         } catch (profileError) {
           console.error('⚠️ Could not check profile completeness:', profileError);
           // Continue with normal login flow if profile check fails
