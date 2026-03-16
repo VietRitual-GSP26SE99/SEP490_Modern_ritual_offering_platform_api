@@ -101,7 +101,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
           id: response.userId,
           name: response.name,
           email: response.email,
-          role: response.role
+          role: response.role,
+          roles: response.roles
         };
 
         // Lưu token và user info vào localStorage
@@ -115,11 +116,14 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
           user: userData
         });
 
-        // Check if profile is complete (for first-time login)
-        try {
-          console.log('🔍 Checking if profile is complete...');
-          const { getProfile } = await import('../../services/auth');
-          const profile = await getProfile();
+        const normalizedRole = String(response.role || '').toLowerCase();
+
+        // First-time profile setup only applies to customers.
+        if (normalizedRole === 'customer') {
+          try {
+            console.log('🔍 Checking if customer profile is complete...');
+            const { getProfile } = await import('../../services/auth');
+            const profile = await getProfile();
 
           const hasFullName = !!profile.fullName?.trim();
           const hasPhoneNumber = !!profile.phoneNumber?.trim();
@@ -157,38 +161,41 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
             }
           }
 
-          const isProfileIncomplete = !(hasFullName && hasPhoneNumber && hasDateOfBirth && hasAddress);
-          
-          console.log('📋 Profile status:', {
-            fullName: profile.fullName,
-            phoneNumber: profile.phoneNumber,
-            dateOfBirth: profile.dateOfBirth,
-            addressText: profile.addressText,
-            hasAddress,
-            isIncomplete: isProfileIncomplete
-          });
+            const isProfileIncomplete = !(hasFullName && hasPhoneNumber && hasDateOfBirth && hasAddress);
 
-          if (isProfileIncomplete) {
-            // First-time login - redirect to profile page
-            console.log('⚠️ Profile incomplete - redirecting to profile setup');
-            localStorage.setItem(PROFILE_SETUP_REQUIRED_KEY, 'true');
-            toast.message({
-              title: 'Chào mừng bạn đến với Modern Ritual!',
-              text: 'Để tiếp tục, vui lòng hoàn thành thông tin cá nhân của bạn.',
-              icon: 'info',
-              confirmButtonText: 'Hoàn thành hồ sơ'
+            console.log('📋 Profile status:', {
+              fullName: profile.fullName,
+              phoneNumber: profile.phoneNumber,
+              dateOfBirth: profile.dateOfBirth,
+              addressText: profile.addressText,
+              hasAddress,
+              isIncomplete: isProfileIncomplete
             });
-            
-            if (onLogin) {
-              onLogin(response.role as UserRole, true); // Pass true for first-time login
-            }
-            return;
-          }
 
+            if (isProfileIncomplete) {
+              // First-time login - redirect to profile page
+              console.log('⚠️ Customer profile incomplete - redirecting to profile setup');
+              localStorage.setItem(PROFILE_SETUP_REQUIRED_KEY, 'true');
+              toast.message({
+                title: 'Chào mừng bạn đến với Modern Ritual!',
+                text: 'Để tiếp tục, vui lòng hoàn thành thông tin cá nhân của bạn.',
+                icon: 'info',
+                confirmButtonText: 'Hoàn thành hồ sơ'
+              });
+
+              if (onLogin) {
+                onLogin(response.role as UserRole, true); // Pass true for first-time login
+              }
+              return;
+            }
+
+            localStorage.setItem(PROFILE_SETUP_REQUIRED_KEY, 'false');
+          } catch (profileError) {
+            console.error('⚠️ Could not check profile completeness:', profileError);
+            // Continue with normal login flow if profile check fails
+          }
+        } else {
           localStorage.setItem(PROFILE_SETUP_REQUIRED_KEY, 'false');
-        } catch (profileError) {
-          console.error('⚠️ Could not check profile completeness:', profileError);
-          // Continue with normal login flow if profile check fails
         }
 
         // Thông báo thành công
@@ -633,22 +640,22 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
               </form>
 
               {/* Social Login */}
-              <div className="relative my-6">
+              {/* <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-gray-200"></div>
                 </div>
                 <div className="relative flex justify-center text-sm">
                   <span className="px-2 bg-white text-gray-500">hoặc</span>
                 </div>
-              </div>
+              </div> */}
 
-              <button
+              {/* <button
                 type="button"
                 className="w-full flex items-center justify-center gap-2 border-2 border-gray-300 text-gray-900 font-semibold py-3 rounded-xl hover:border-gray-900 hover:bg-gray-50 transition-all duration-300 shadow-sm hover:shadow-md group"
               >
                 <span className="group-hover:scale-110 transition-transform duration-300"></span>
                 <span>Đăng nhập với Google</span>
-              </button>
+              </button> */}
 
               {/* Trust Indicators */}
               <div className="mt-6 flex items-center justify-center gap-4 text-xs text-gray-500">

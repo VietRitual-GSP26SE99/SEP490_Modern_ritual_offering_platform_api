@@ -24,6 +24,47 @@ interface LoginApiResponse {
   refreshToken: string;
 }
 
+function normalizeRoleClaim(roleClaim: unknown): string {
+  if (typeof roleClaim === 'string') {
+    return roleClaim.toLowerCase();
+  }
+
+  if (Array.isArray(roleClaim)) {
+    const firstStringRole = roleClaim.find((item): item is string => typeof item === 'string');
+    return (firstStringRole || 'customer').toLowerCase();
+  }
+
+  if (roleClaim && typeof roleClaim === 'object' && 'value' in roleClaim) {
+    const value = (roleClaim as { value?: unknown }).value;
+    if (typeof value === 'string') {
+      return value.toLowerCase();
+    }
+  }
+
+  return 'customer';
+}
+
+function extractNormalizedRoles(roleClaim: unknown): string[] {
+  if (typeof roleClaim === 'string') {
+    return [roleClaim.toLowerCase()];
+  }
+
+  if (Array.isArray(roleClaim)) {
+    return roleClaim
+      .filter((item): item is string => typeof item === 'string')
+      .map((item) => item.toLowerCase());
+  }
+
+  if (roleClaim && typeof roleClaim === 'object' && 'value' in roleClaim) {
+    const value = (roleClaim as { value?: unknown }).value;
+    if (typeof value === 'string') {
+      return [value.toLowerCase()];
+    }
+  }
+
+  return [];
+}
+
 // Response we return to the app (with decoded JWT data)
 export interface LoginResponse {
   token: string;
@@ -31,6 +72,7 @@ export interface LoginResponse {
   userId: string;
   email: string;
   role: string;
+  roles: string[];
   name?: string;
 }
 
@@ -103,11 +145,14 @@ export async function login(credentials: LoginRequest): Promise<LoginResponse> {
       console.log(' Decoded JWT:', decodedToken);
 
       // Get role from JWT and normalize to lowercase
-      const role = (
-        decodedToken.role ||
-        decodedToken['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ||
-        'customer'
-      ).toLowerCase();
+      const rawRole =
+        decodedToken.role ??
+        decodedToken['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ??
+        decodedToken.roles;
+
+      const role = normalizeRoleClaim(rawRole);
+      const roles = extractNormalizedRoles(rawRole);
+      const normalizedRoles = roles.length > 0 ? Array.from(new Set(roles)) : [role];
 
       const loginResponse: LoginResponse = {
         token: data.result.token,
@@ -115,6 +160,7 @@ export async function login(credentials: LoginRequest): Promise<LoginResponse> {
         userId: decodedToken.sub || decodedToken.userId || '',
         email: decodedToken.email || credentials.usernameOrEmail,
         role: role,
+        roles: normalizedRoles,
         name: decodedToken.name || decodedToken.given_name || decodedToken.email || credentials.usernameOrEmail,
       };
 
@@ -410,6 +456,7 @@ export interface CurrentUser {
   name: string;
   email: string;
   role: string;
+  roles?: string[];
 }
 
 // ==================== PROFILE ====================
