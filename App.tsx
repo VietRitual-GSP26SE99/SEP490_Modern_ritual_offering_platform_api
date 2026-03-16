@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, useNavigate, Navigate, useSearchParams } from 'react-router-dom';
 import Layout from './components/Layout';
-import { getCurrentUser, isAuthenticated as checkAuth } from './services/auth';
+import { getCurrentUser, getProfile, isAuthenticated as checkAuth } from './services/auth';
 
 
 // Customer Pages
@@ -42,6 +42,8 @@ import AuthPage from './pages/auth/AuthPage';
 import VerifyEmailPage from './pages/auth/VerifyEmailPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
 
+const PROFILE_SETUP_REQUIRED_KEY = 'modern-ritual-profile-setup-required';
+
 // Route Wrapper Component
 const AppContent: React.FC<{
   userRole: UserRole;
@@ -50,9 +52,19 @@ const AppContent: React.FC<{
   onRoleChange: (role: UserRole) => void;
 }> = ({ userRole, isAuthenticated, onLogout, onRoleChange }) => {
   const navigate = useNavigate();
+  const isProfileSetupRequired =
+    isAuthenticated &&
+    userRole === 'customer' &&
+    localStorage.getItem(PROFILE_SETUP_REQUIRED_KEY) === 'true';
 
   const handleLogin = (role: UserRole, firstTimeLogin?: boolean) => {
     onRoleChange(role);
+
+    if (role === 'customer') {
+      localStorage.setItem(PROFILE_SETUP_REQUIRED_KEY, firstTimeLogin ? 'true' : 'false');
+    } else {
+      localStorage.setItem(PROFILE_SETUP_REQUIRED_KEY, 'false');
+    }
 
     // If first-time login for customer, redirect to profile setup
     if (firstTimeLogin && role === 'customer') {
@@ -73,13 +85,18 @@ const AppContent: React.FC<{
   };
 
   const handleNavigate = (path: string) => {
+    if (isProfileSetupRequired && path !== '/profile') {
+      navigate('/profile?firstTime=true');
+      return;
+    }
+
     navigate(path);
   };
 
   // ProfilePageWrapper to detect firstTime query param
   const ProfilePageWrapper: React.FC = () => {
     const [searchParams] = useSearchParams();
-    const isFirstTime = searchParams.get('firstTime') === 'true';
+    const isFirstTime = isProfileSetupRequired || searchParams.get('firstTime') === 'true';
 
     return (
       <Layout
@@ -103,16 +120,16 @@ const AppContent: React.FC<{
       <Route path="/reset-password" element={<ForgotPasswordPage onNavigate={handleNavigate} />} />
 
       {/* Customer Routes */}
-      <Route path="/" element={<Layout activeRoute="/" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><CustomerHomePage onNavigate={handleNavigate} /></Layout>} />
-      <Route path="/shop" element={<Layout activeRoute="/shop" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><CustomerProductList onNavigate={handleNavigate} /></Layout>} />
-      <Route path="/product/:id" element={<Layout activeRoute="/product/:id" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><CustomerProductDetail onNavigate={handleNavigate} /></Layout>} />
-      <Route path="/cart" element={<Layout activeRoute="/cart" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><CartPage onNavigate={handleNavigate} /></Layout>} />
-      <Route path="/checkout" element={isAuthenticated && userRole === 'customer' ? <Layout activeRoute="/checkout" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><CustomerCheckout onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
-      <Route path="/payment-success" element={isAuthenticated && userRole === 'customer' ? <PaymentSuccessPage onNavigate={handleNavigate} /> : <Navigate to="/auth" />} />
-      <Route path="/tracking" element={isAuthenticated && userRole === 'customer' ? <Layout activeRoute="/tracking" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><CustomerTracking /></Layout> : <Navigate to="/auth" />} />
+      <Route path="/" element={isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><CustomerHomePage onNavigate={handleNavigate} /></Layout>} />
+      <Route path="/shop" element={isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/shop" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><CustomerProductList onNavigate={handleNavigate} /></Layout>} />
+      <Route path="/product/:id" element={isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/product/:id" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><CustomerProductDetail onNavigate={handleNavigate} /></Layout>} />
+      <Route path="/cart" element={isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/cart" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><CartPage onNavigate={handleNavigate} /></Layout>} />
+      <Route path="/checkout" element={isAuthenticated && userRole === 'customer' ? (isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/checkout" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><CustomerCheckout onNavigate={handleNavigate} /></Layout>) : <Navigate to="/auth" />} />
+      <Route path="/payment-success" element={isAuthenticated && userRole === 'customer' ? (isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <PaymentSuccessPage onNavigate={handleNavigate} />) : <Navigate to="/auth" />} />
+      <Route path="/tracking" element={isAuthenticated && userRole === 'customer' ? (isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/tracking" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><CustomerTracking /></Layout>) : <Navigate to="/auth" />} />
       <Route path="/profile" element={isAuthenticated && userRole === 'customer' ? <ProfilePageWrapper /> : <Navigate to="/auth" />} />
-      <Route path="/profile/orders" element={isAuthenticated && userRole === 'customer' ? <Layout activeRoute="/profile/orders" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><MyOrdersPage /></Layout> : <Navigate to="/auth" />} />
-      <Route path="/profile/orders/:id" element={isAuthenticated && userRole === 'customer' ? <Layout activeRoute="/profile/orders/:id" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><OrderDetailsPage /></Layout> : <Navigate to="/auth" />} />
+      <Route path="/profile/orders" element={isAuthenticated && userRole === 'customer' ? (isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/profile/orders" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><MyOrdersPage /></Layout>) : <Navigate to="/auth" />} />
+      <Route path="/profile/orders/:id" element={isAuthenticated && userRole === 'customer' ? (isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/profile/orders/:id" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><OrderDetailsPage /></Layout>) : <Navigate to="/auth" />} />
 
       {/* Vendor Routes */}
       <Route path="/vendor/dashboard" element={isAuthenticated && userRole === 'vendor' ? <Layout activeRoute="/vendor/dashboard" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><VendorDashboard onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
@@ -146,27 +163,72 @@ const App: React.FC = () => {
   useEffect(() => {
     console.log('🔄 Checking authentication state on app mount...');
 
-    // Check if user is authenticated
-    const authenticated = checkAuth();
+    const restoreAuth = async () => {
+      // Check if user is authenticated
+      const authenticated = checkAuth();
 
-    if (authenticated) {
-      // Get user data from localStorage
-      const currentUser = getCurrentUser();
+      if (authenticated) {
+        // Get user data from localStorage
+        const currentUser = getCurrentUser();
 
-      if (currentUser && currentUser.role) {
-        console.log('✅ User found in localStorage:', currentUser);
-        setUserRole(currentUser.role as UserRole);
-        setIsAuthenticated(true);
-        console.log('✅ Authentication state restored');
+        if (currentUser && currentUser.role) {
+          console.log('✅ User found in localStorage:', currentUser);
+          setUserRole(currentUser.role as UserRole);
+          setIsAuthenticated(true);
+
+          if (currentUser.role === 'customer') {
+            try {
+              const profile = await getProfile();
+              const hasFullName = !!profile.fullName?.trim();
+              const hasPhoneNumber = !!profile.phoneNumber?.trim();
+              const hasDateOfBirth = !!profile.dateOfBirth;
+
+              let hasAddress = !!profile.addressText?.trim();
+              if (!hasAddress) {
+                const token = localStorage.getItem('smart-child-token');
+                if (token) {
+                  const addressResponse = await fetch('/api/addresses', {
+                    method: 'GET',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      Accept: 'application/json',
+                      Authorization: `Bearer ${token}`,
+                    },
+                  });
+
+                  if (addressResponse.ok) {
+                    const addressData = await addressResponse.json().catch(() => null);
+                    const addressList = Array.isArray(addressData)
+                      ? addressData
+                      : (addressData?.isSuccess && Array.isArray(addressData.result) ? addressData.result : []);
+                    hasAddress = addressList.some((addr: any) => !!(addr?.addressText || addr?.fullAddress || '').trim());
+                  }
+                }
+              }
+
+              const isIncomplete = !(hasFullName && hasPhoneNumber && hasDateOfBirth && hasAddress);
+              localStorage.setItem(PROFILE_SETUP_REQUIRED_KEY, isIncomplete ? 'true' : 'false');
+            } catch (profileError) {
+              console.warn('⚠️ Failed to verify profile completeness on restore:', profileError);
+            }
+          } else {
+            localStorage.setItem(PROFILE_SETUP_REQUIRED_KEY, 'false');
+          }
+
+          console.log('✅ Authentication state restored');
+        } else {
+          console.log('⚠️ Token found but no user data');
+        }
       } else {
-        console.log('⚠️ Token found but no user data');
+        console.log('ℹ️ No authentication token found');
+        localStorage.setItem(PROFILE_SETUP_REQUIRED_KEY, 'false');
       }
-    } else {
-      console.log('ℹ️ No authentication token found');
-    }
 
-    // Mark auth check as complete
-    setIsAuthChecking(false);
+      // Mark auth check as complete
+      setIsAuthChecking(false);
+    };
+
+    void restoreAuth();
   }, []);
 
   const handleLogout = async () => {

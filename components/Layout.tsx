@@ -1,9 +1,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { UserRole, AppRoute, getPath } from '../types';
-import { logoutAndRedirect, getCurrentUser } from '../services/auth';
+import { getCurrentUser } from '../services/auth';
 import { cartService } from '../services/cartService';
 import CartDropdown from './CartDropdown';
+import toast from '../services/toast';
 
 interface NavItem {
   path?: string;
@@ -25,7 +26,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
   const [cartCount, setCartCount] = useState<number>(0);
   const [isCartDropdownOpen, setIsCartDropdownOpen] = useState<boolean>(false);
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState<boolean>(false);
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState<boolean>(false);
   const [userName, setUserName] = useState<string>('');
   const cartDropdownTimeout = useRef<NodeJS.Timeout | null>(null);
   const accountDropdownTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -117,6 +117,27 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
       ];
     }
     return [];
+  };
+
+  const handleLogoutClick = async () => {
+    const result = await toast.confirm({
+      title: 'Đăng xuất?',
+      text: 'Bạn có chắc muốn đăng xuất khỏi tài khoản không?',
+      icon: 'warning',
+      confirmButtonText: 'Đăng xuất',
+      cancelButtonText: 'Hủy'
+    });
+
+    if (!result.isConfirmed) return;
+
+    try {
+      if (onLogout) {
+        await onLogout();
+      }
+    } catch (error) {
+      console.error('❌ Logout failed:', error);
+      toast.error('Không thể đăng xuất. Vui lòng thử lại.');
+    }
   };
 
   return (
@@ -257,9 +278,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                       )}
                       {onLogout && (
                         <button
-                          onClick={() => {
+                          onClick={async () => {
                             setIsAccountDropdownOpen(false);
-                            setShowLogoutConfirm(true);
+                            await handleLogoutClick();
                           }}
                           className="w-full px-4 py-3 text-left text-sm text-red-600 hover:bg-red-50 transition-colors flex items-center gap-3 border-t border-gray-100"
                         >
@@ -402,34 +423,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
             </div>
           </div>
         </footer>
-      )}
-
-      {/* Logout Confirmation Dialog */}
-      {showLogoutConfirm && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-[9999] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-xs p-6 flex flex-col items-center gap-4">
-
-            <h3 className="text-lg font-bold text-gray-800">Đăng xuất?</h3>
-            <p className="text-sm text-gray-500 text-center">Bạn có chắc muốn đăng xuất khỏi tài khoản không?</p>
-            <div className="flex gap-3 w-full mt-1">
-              <button
-                onClick={() => setShowLogoutConfirm(false)}
-                className="flex-1 px-4 py-2.5 rounded-lg border-2 border-gray-200 text-gray-600 font-bold text-sm hover:bg-gray-50 transition-colors"
-              >
-                Hủy
-              </button>
-              <button
-                onClick={() => {
-                  setShowLogoutConfirm(false);
-                  logoutAndRedirect();
-                }}
-                className="flex-1 px-4 py-2.5 rounded-lg bg-red-600 text-white font-bold text-sm hover:bg-red-700 transition-colors"
-              >
-                Đăng xuất
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );
