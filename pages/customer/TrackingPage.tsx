@@ -9,6 +9,26 @@ const TrackingPage: React.FC = () => {
     const orderIdParam = searchParams.get('orderId') || 'MRT-8829-2024';
     const [loading, setLoading] = useState(true);
 
+    const getStatusText = (status: string) => {
+        if (!status) return 'Đang xử lý';
+        switch (status.toUpperCase()) {
+            case 'PENDING': return 'Chờ thanh toán';
+            case 'CONFIRMED': return 'Đã xác nhận';
+            case 'PAID': return 'Đã thanh toán';
+            case 'PREPARING':
+            case 'PROCESSING': return 'Đang chuẩn bị';
+            case 'SHIPPING':
+            case 'DELIVERING': return 'Đang giao hàng';
+            case 'DELIVERED': return 'Đã giao hàng';
+            case 'COMPLETED': return 'Đã hoàn thành';
+            case 'CANCELLED': return 'Đã hủy';
+            case 'REFUNDED': return 'Đã hoàn tiền';
+            case 'PAYMENTFAILED': return 'Thanh toán lỗi';
+            case 'SUCCESS': return 'Thanh toán bảo mật';
+            default: return status;
+        }
+    };
+
     const [orderInfo, setOrderInfo] = useState({
         orderId: orderIdParam,
         date: new Date().toLocaleString('vi-VN'),
@@ -74,7 +94,7 @@ const TrackingPage: React.FC = () => {
                         setOrderInfo({
                             orderId: firstOrder.orderId || transaction.transactionId,
                             date: transaction.paidAt ? new Date(transaction.paidAt).toLocaleString('vi-VN') : new Date().toLocaleString('vi-VN'),
-                            status: transaction.paymentStatus === 'Success' ? 'Đã thanh toán / Đang chuẩn bị' : (firstOrder.orderStatus || 'Đang xử lý'),
+                            status: transaction.paymentStatus === 'Success' ? `Đã thanh toán / ${getStatusText(firstOrder.orderStatus)}` : getStatusText(firstOrder.orderStatus),
                             customerName: cName,
                             phone: cPhone,
                             address: firstOrder.deliveryAddress || 'Chưa cập nhật',
@@ -94,7 +114,7 @@ const TrackingPage: React.FC = () => {
                             ...prev,
                             orderId: transaction.transactionId || orderIdParam,
                             date: transaction.paidAt ? new Date(transaction.paidAt).toLocaleString('vi-VN') : new Date().toLocaleString('vi-VN'),
-                            status: transaction.paymentStatus === 'Success' ? 'Đã thanh toán' : 'Đang xử lý',
+                            status: getStatusText(transaction.paymentStatus),
                             customerName: cName,
                             phone: cPhone,
                             total: transaction.amount || transaction.totalAmount || prev.total

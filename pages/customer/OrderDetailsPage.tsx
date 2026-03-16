@@ -57,11 +57,17 @@ const OrderDetailsPage: React.FC = () => {
     const getStatusText = (status: string) => {
         switch (status.toUpperCase()) {
             case 'PENDING': return 'Chờ thanh toán';
+            case 'CONFIRMED': return 'Đã xác nhận';
             case 'PAID': return 'Đã thanh toán';
+            case 'PREPARING':
             case 'PROCESSING': return 'Đang chuẩn bị';
+            case 'SHIPPING':
             case 'DELIVERING': return 'Đang giao hàng';
+            case 'DELIVERED': return 'Đã giao hàng';
             case 'COMPLETED': return 'Đã hoàn thành';
             case 'CANCELLED': return 'Đã hủy';
+            case 'REFUNDED': return 'Đã hoàn tiền';
+            case 'PAYMENTFAILED': return 'Thanh toán lỗi';
             default: return status;
         }
     };
@@ -69,11 +75,17 @@ const OrderDetailsPage: React.FC = () => {
     const getStatusStyle = (status: string) => {
         switch (status.toUpperCase()) {
             case 'PENDING': return 'bg-yellow-100 text-yellow-700 border-yellow-200';
+            case 'CONFIRMED': return 'bg-sky-100 text-sky-700 border-sky-200';
             case 'PAID': return 'bg-blue-100 text-blue-700 border-blue-200';
+            case 'PREPARING':
             case 'PROCESSING': return 'bg-purple-100 text-purple-700 border-purple-200';
+            case 'SHIPPING':
             case 'DELIVERING': return 'bg-indigo-100 text-indigo-700 border-indigo-200';
+            case 'DELIVERED':
             case 'COMPLETED': return 'bg-green-100 text-green-700 border-green-200';
             case 'CANCELLED': return 'bg-red-100 text-red-700 border-red-200';
+            case 'REFUNDED': return 'bg-slate-200 text-slate-700 border-slate-200';
+            case 'PAYMENTFAILED': return 'bg-rose-100 text-rose-700 border-rose-200';
             default: return 'bg-gray-100 text-gray-700 border-gray-200';
         }
     };
