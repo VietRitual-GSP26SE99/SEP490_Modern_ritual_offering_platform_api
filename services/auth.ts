@@ -481,6 +481,26 @@ export interface UserProfile {
   updatedAt: string;
 }
 
+export interface VendorCurrentProfile {
+  isVendor: boolean;
+  shopName: string | null;
+  shopDescription: string | null;
+  businessType: string | null;
+  taxCode: string | null;
+  verificationStatus: string | null;
+  verifiedAt: string | null;
+  verifiedBy: string | null;
+  vendorStatus: string | null;
+  dailyCapacity: number | null;
+  ratingAvg: number;
+  tierId: number | null;
+  tierName: string | null;
+  tierAssignedAt: string | null;
+  rejectionCount: number;
+  vendorSuspendedUntil: string | null;
+  updatedAt: string | null;
+}
+
 /**
  * Fetch user profile from backend
  * GET /api/profile
@@ -545,6 +565,48 @@ export async function getProfile(): Promise<UserProfile> {
     return data.result;
   } catch (error) {
     console.error('❌ Error fetching profile:', error);
+    throw error;
+  }
+}
+
+/**
+ * Fetch current vendor profile from backend
+ * GET /api/profile/vendor
+ */
+export async function getVendorProfile(): Promise<VendorCurrentProfile> {
+  console.log('🏪 Fetching vendor profile...');
+
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('No authentication token found');
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/profile/vendor`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'accept': '*/*'
+      }
+    });
+
+    console.log('🏪 Vendor profile response status:', response.status);
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch vendor profile: ${response.status}`);
+    }
+
+    const data: ApiResponse<VendorCurrentProfile> = await response.json();
+    console.log('🏪 Vendor profile API response:', data);
+
+    if (!data.isSuccess || !data.result) {
+      throw new Error(data.errorMessages?.join(', ') || 'Failed to fetch vendor profile');
+    }
+
+    return data.result;
+  } catch (error) {
+    console.error('❌ Error fetching vendor profile:', error);
     throw error;
   }
 }

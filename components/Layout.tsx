@@ -1,8 +1,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
+import Swal from 'sweetalert2';
 import { UserRole, AppRoute, getPath } from '../types';
 import { getCurrentUser } from '../services/auth';
 import { cartService } from '../services/cartService';
+import { createTopupLink, getMyWallet, WalletType } from '../services/walletService';
 import CartDropdown from './CartDropdown';
 import toast from '../services/toast';
 
@@ -26,9 +28,14 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
   const [cartCount, setCartCount] = useState<number>(0);
   const [isCartDropdownOpen, setIsCartDropdownOpen] = useState<boolean>(false);
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState<boolean>(false);
+  const [isWalletDropdownOpen, setIsWalletDropdownOpen] = useState<boolean>(false);
+  const [walletLoading, setWalletLoading] = useState<boolean>(false);
+  const [topupLoading, setTopupLoading] = useState<boolean>(false);
   const [userName, setUserName] = useState<string>('');
   const cartDropdownTimeout = useRef<NodeJS.Timeout | null>(null);
   const accountDropdownTimeout = useRef<NodeJS.Timeout | null>(null);
+  const walletDropdownTimeout = useRef<NodeJS.Timeout | null>(null);
+  const isTopupReturnHandled = useRef(false);
   const isCustomer = userRole === 'customer' || userRole === 'guest';
   const isVendor = userRole === 'vendor';
   const isAdmin = userRole === 'admin';
@@ -84,6 +91,43 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
       clearInterval(interval);
     };
   }, [isCustomer, activeRoute]); // Re-fetch when route changes
+
+  // Detect PayOS return status from URL and notify user.
+  useEffect(() => {
+    if (isTopupReturnHandled.current) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const status = (params.get('status') || '').toUpperCase();
+    const isCancelled = params.get('cancel') === 'true' || status === 'CANCELLED';
+    const isSuccess = status === 'PAID' || status === 'SUCCESS' || status === 'SUCCEEDED';
+    const hasPaymentParams =
+      params.has('code') ||
+      params.has('id') ||
+      params.has('cancel') ||
+      params.has('status') ||
+      params.has('orderCode');
+
+    if (!hasPaymentParams) return;
+
+    if (isCancelled) {
+      toast.error('Nạp tiền đã thất bại.');
+    } else if (isSuccess) {
+      toast.success('Nạp tiền thành công.');
+    }
+
+    // Remove only payment callback params, keep other query params untouched.
+    params.delete('code');
+    params.delete('id');
+    params.delete('cancel');
+    params.delete('status');
+    params.delete('orderCode');
+
+    const nextQuery = params.toString();
+    const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}${window.location.hash || ''}`;
+    window.history.replaceState({}, document.title, nextUrl);
+
+    isTopupReturnHandled.current = true;
+  }, []);
 
   const getNavItems = (): NavItem[] => {
     if (isCustomer) {
@@ -141,6 +185,178 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
     } catch (error) {
       console.error('❌ Logout failed:', error);
       toast.error('Không thể đăng xuất. Vui lòng thử lại.');
+    }
+  };
+
+  const resolveWalletType = (): WalletType => {
+    if (userRole === 'vendor') return 'Vendor';
+    if (userRole === 'admin') return 'System';
+    if (userRole === 'customer') return 'Customer';
+    if (activeRoute.startsWith('/vendor')) return 'Vendor';
+    if (activeRoute.startsWith('/admin')) return 'System';
+    return 'Customer';
+  };
+
+  const formatCurrency = (value: number): string => {
+    return new Intl.NumberFormat('vi-VN').format(value);
+  };
+
+  const parseAmountInput = (value: string): number => {
+    return Number(String(value || '').replace(/[^0-9]/g, ''));
+  };
+
+  const formatAmountInput = (value: string): string => {
+    const amount = parseAmountInput(value);
+    if (!Number.isFinite(amount) || amount <= 0) return '';
+    return formatCurrency(amount);
+  };
+
+  const formatDateTime = (value?: string | null): string => {
+    if (!value) return 'N/A';
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return value;
+    return new Intl.DateTimeFormat('vi-VN', {
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    }).format(date);
+  };
+
+  const mapWalletTypeLabel = (typeValue: WalletType | string | number | undefined): string => {
+    if (typeValue === 0 || String(typeValue).toLowerCase() === 'customer') return 'Customer';
+    if (typeValue === 1 || String(typeValue).toLowerCase() === 'vendor') return 'Vendor';
+    if (typeValue === 2 || String(typeValue).toLowerCase() === 'system') return 'System';
+    return String(typeValue ?? 'N/A');
+  };
+
+  const normalizeWalletType = (typeValue: WalletType | string | number | undefined): WalletType | null => {
+    const normalized = mapWalletTypeLabel(typeValue).toLowerCase();
+    if (normalized === 'customer') return 'Customer';
+    if (normalized === 'vendor') return 'Vendor';
+    if (normalized === 'system') return 'System';
+    return null;
+  };
+
+  const handleWalletClick = async () => {
+    try {
+      setWalletLoading(true);
+      const walletType = resolveWalletType();
+      const wallet = await getMyWallet(walletType);
+
+      const rawBalance = typeof wallet.balance === 'number' ? wallet.balance : 0;
+      const heldBalance = typeof wallet.heldBalance === 'number' ? wallet.heldBalance : 0;
+      const debt = typeof wallet.debt === 'number' ? wallet.debt : 0;
+      const apiWalletType = normalizeWalletType(wallet.type);
+      const showHeldBalance = walletType === 'Vendor';
+      const showDebt = walletType !== 'Customer';
+
+      if (apiWalletType && apiWalletType !== walletType) {
+        toast.warning(`API đang trả về ví ${apiWalletType} trong khi màn hình hiện tại là ${walletType}.`);
+      }
+
+      await toast.message({
+        title: 'Thông tin ví',
+        html: `<div style="text-align:left;line-height:1.8">
+          <div><b>Số dư:</b> ${formatCurrency(rawBalance)} VND</div>
+          ${showHeldBalance ? `<div><b>Số dư giữ:</b> ${formatCurrency(heldBalance)} VND</div>` : ''}
+          ${showDebt ? `<div><b>Công nợ:</b> ${formatCurrency(debt)} VND</div>` : ''}
+        </div>`,
+        icon: 'info',
+        confirmButtonText: 'Đóng',
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Không thể lấy thông tin ví.';
+      toast.error(message);
+    } finally {
+      setWalletLoading(false);
+    }
+  };
+
+  const extractTopupUrl = (data: Record<string, unknown>): string | null => {
+    const keys = ['checkoutUrl', 'paymentLink', 'payUrl', 'url', 'link'];
+    for (const key of keys) {
+      const value = data[key];
+      if (typeof value === 'string' && /^https?:\/\//i.test(value)) {
+        return value;
+      }
+    }
+    return null;
+  };
+
+  const handleTopupClick = async () => {
+    const walletType = resolveWalletType();
+    if (walletType !== 'Customer') {
+      toast.warning('Chức năng nạp tiền hiện chỉ hỗ trợ cho ví khách hàng.');
+      return;
+    }
+
+    const promptResult = await Swal.fire({
+      title: 'Nạp tiền vào ví',
+      text: 'Nhập số tiền cần nạp (VND)',
+      input: 'text',
+      inputValue: formatCurrency(100000),
+      inputAttributes: {
+        inputmode: 'numeric',
+        autocomplete: 'off',
+      },
+      didOpen: () => {
+        const input = Swal.getInput() as HTMLInputElement | null;
+        if (!input) return;
+
+        input.value = formatAmountInput(input.value) || input.value;
+        input.addEventListener('input', () => {
+          input.value = formatAmountInput(input.value);
+        });
+      },
+      showCancelButton: true,
+      confirmButtonText: 'Tạo link nạp tiền',
+      cancelButtonText: 'Hủy',
+      confirmButtonColor: '#8B4513',
+      cancelButtonColor: '#64748b',
+      customClass: {
+        popup: 'rounded-2xl',
+        confirmButton: 'rounded-lg font-bold px-6 py-3',
+        cancelButton: 'rounded-lg font-bold px-6 py-3',
+      },
+      inputValidator: (value) => {
+        const normalized = parseAmountInput(String(value || ''));
+        if (!Number.isFinite(normalized) || normalized <= 0) {
+          return 'Vui lòng nhập số tiền hợp lệ.';
+        }
+        return undefined;
+      },
+    });
+
+    if (!promptResult.isConfirmed) return;
+
+    const amount = parseAmountInput(String(promptResult.value || ''));
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error('Số tiền không hợp lệ.');
+      return;
+    }
+
+    try {
+      setTopupLoading(true);
+      const result = await createTopupLink(amount, walletType);
+      const resultData = result as Record<string, unknown>;
+      const paymentUrl = extractTopupUrl(resultData);
+
+      if (!paymentUrl) {
+        toast.error('Không nhận được link thanh toán từ hệ thống.');
+        return;
+      }
+
+      setIsWalletDropdownOpen(false);
+      window.location.href = paymentUrl;
+
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Không thể tạo link nạp tiền.';
+      toast.error(message);
+    } finally {
+      setTopupLoading(false);
     }
   };
 
@@ -216,6 +432,60 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
               <div className="hidden md:flex items-center gap-2 text-primary font-bold">
                 <span className="text-sm">1900 8888</span>
               </div>
+
+              {(userName || onLogout) && (
+                <div
+                  className="relative hidden md:block"
+                  onMouseEnter={() => {
+                    if (walletDropdownTimeout.current) {
+                      clearTimeout(walletDropdownTimeout.current);
+                    }
+                    setIsWalletDropdownOpen(true);
+                  }}
+                  onMouseLeave={() => {
+                    walletDropdownTimeout.current = setTimeout(() => {
+                      setIsWalletDropdownOpen(false);
+                    }, 200);
+                  }}
+                >
+                  <button
+                    onClick={handleWalletClick}
+                    disabled={walletLoading || topupLoading}
+                    className="flex items-center justify-center px-3 py-2 rounded-lg border border-gray-300 text-primary hover:border-primary transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                    title="Ví của tôi"
+                  >
+                    <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M3 7C3 5.34315 4.34315 4 6 4H19C20.1046 4 21 4.89543 21 6V8H17.5C15.567 8 14 9.567 14 11.5C14 13.433 15.567 15 17.5 15H21V17C21 18.6569 19.6569 20 18 20H6C4.34315 20 3 18.6569 3 17V7ZM17.5 10C16.6716 10 16 10.6716 16 11.5C16 12.3284 16.6716 13 17.5 13H22V10H17.5ZM6 6C5.44772 6 5 6.44772 5 7V7.2C5.31304 7.07116 5.65584 7 6 7H19V6H6Z" />
+                    </svg>
+                  </button>
+
+                  {isWalletDropdownOpen && (
+                    <div
+                      className="absolute top-full right-0 mt-0 w-44 bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden"
+                      onMouseEnter={() => {
+                        if (walletDropdownTimeout.current) {
+                          clearTimeout(walletDropdownTimeout.current);
+                        }
+                      }}
+                    >
+                      {resolveWalletType() === 'Customer' && (
+                        <button
+                          onClick={async () => {
+                            await handleTopupClick();
+                          }}
+                          disabled={topupLoading || walletLoading}
+                          className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-3 disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M11 17h2v-5h3l-4-5-4 5h3v5zm-7 2v2h16v-2H4z" />
+                          </svg>
+                          {topupLoading ? 'Đang tạo link...' : 'Nạp tiền'}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* Account Dropdown */}
               {userName && (

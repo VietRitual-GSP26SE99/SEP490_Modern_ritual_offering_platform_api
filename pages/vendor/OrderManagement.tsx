@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { orderService, VendorOrder, Order } from '../../services/orderService';
+import { getProfile } from '../../services/auth';
 
 interface OrderManagementProps {
   onNavigate: (path: string) => void;
@@ -7,19 +8,83 @@ interface OrderManagementProps {
 
 const TABS = [
   { id: 'all',          label: 'Tất cả' },
-  { id: 'Pending',      label: 'Chờ duyệt' },
-  { id: 'Confirmed',    label: 'Đã duyệt' },
-  { id: 'Preparing',    label: 'Đang chuẩn bị' },
   { id: 'Paid',         label: 'Đã thanh toán' },
+  { id: 'Confirmed',    label: 'Đã xác nhận' },
+  { id: 'Processing',   label: 'Đang xử lý' },
   { id: 'Delivering',   label: 'Đang giao' },
+  { id: 'Delivered',    label: 'Đã giao' },
   { id: 'Completed',    label: 'Hoàn thành' },
   { id: 'Cancelled',    label: 'Đã hủy' },
   { id: 'Refunded',     label: 'Đã hoàn' },
   { id: 'PaymentFailed', label: 'Thanh toán lỗi' },
 ];
 
+const formatVnd = (value: unknown): string => {
+  const amount = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(amount)) return '0đ';
+  return `${amount.toLocaleString('vi-VN')}đ`;
+};
+
+const formatDateVi = (value: unknown): string => {
+  if (!value) return 'N/A';
+  const date = new Date(String(value));
+  if (Number.isNaN(date.getTime())) return 'N/A';
+  return date.toLocaleDateString('vi-VN');
+};
+
+const hasMeaningfulText = (value: unknown): boolean => {
+  if (typeof value !== 'string') return false;
+  const normalized = value.trim().toLowerCase();
+  return normalized !== '' && normalized !== 'n/a' && normalized !== 'na' && normalized !== 'null' && normalized !== 'undefined';
+};
+
+const normalizeOrderStatus = (value: unknown): string => {
+  const normalized = String(value || '').trim().toLowerCase();
+  const statusMap: Record<string, string> = {
+    paid: 'Paid',
+    confirmed: 'Confirmed',
+    processing: 'Processing',
+    preparing: 'Processing',
+    delivering: 'Delivering',
+    shipping: 'Delivering',
+    delivered: 'Delivered',
+    completed: 'Completed',
+    cancelled: 'Cancelled',
+    refunded: 'Refunded',
+    paymentfailed: 'PaymentFailed',
+    pending: 'Pending',
+  };
+
+  return statusMap[normalized] || String(value || '').trim();
+};
+
+const isCustomerPaid = (order: Order): boolean => {
+  const paymentStatus = String(order.payment?.paymentStatus || '').trim().toLowerCase();
+  if (['paid', 'success', 'completed'].some((keyword) => paymentStatus.includes(keyword))) {
+    return true;
+  }
+
+  return ['Paid', 'Delivering', 'Completed', 'Delivered', 'Refunded']
+    .includes(String(order.orderStatus || ''));
+};
+
+const parseOrderDate = (value: unknown): Date | null => {
+  if (!value) return null;
+  const date = new Date(String(value));
+  if (Number.isNaN(date.getTime())) return null;
+  return date;
+};
+
+const toLocalYmd = (date: Date): string => {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, '0');
+  const dd = String(date.getDate()).padStart(2, '0');
+  return `${yyyy}-${mm}-${dd}`;
+};
+
 const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate }) => {
   const [orders, setOrders] = useState<VendorOrder[]>([]);
+  const [vendorShopName, setVendorShopName] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
@@ -30,21 +95,24 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate }) => {
   const [newStatus, setNewStatus] = useState('');
   const [statusReason, setStatusReason] = useState('');
   const [statusSuccessMsg, setStatusSuccessMsg] = useState<string | null>(null);
+  const [fromDate, setFromDate] = useState<string>('');
+  const [toDate, setToDate] = useState<string>('');
 
   // Strict status transition flow
   const NEXT_STATUSES: Record<string, { value: string; label: string }[]> = {
-    Pending:       [{ value: 'Confirmed',  label: 'Xác nhận đơn' },   { value: 'Cancelled', label: 'Hủy đơn' }],
-    Confirmed:     [{ value: 'Preparing',  label: 'Bắt đầu chuẩn bị' }, { value: 'Cancelled', label: 'Hủy đơn' }],
-    Preparing:     [{ value: 'Paid',       label: 'Chờ thanh toán' },  { value: 'Cancelled', label: 'Hủy đơn' }],
-    Paid:          [{ value: 'Delivering', label: 'Bắt đầu giao hàng' }, { value: 'Cancelled', label: 'Hủy đơn' }],
-    Delivering:    [{ value: 'Completed',  label: 'Hoàn thành đơn hàng' }],
+    Paid:          [{ value: 'Confirmed',  label: 'Xác nhận đơn' }, { value: 'Cancelled', label: 'Hủy đơn' }],
+    Confirmed:     [{ value: 'Processing', label: 'Bắt đầu xử lý đơn' }, { value: 'Cancelled', label: 'Hủy đơn' }],
+    Processing:    [{ value: 'Delivering', label: 'Bắt đầu giao hàng' }, { value: 'Cancelled', label: 'Hủy đơn' }],
+    Delivering:    [{ value: 'Delivered',  label: 'Xác nhận đã giao' }],
+    Delivered:     [],
     Completed:     [],
     Cancelled:     [{ value: 'Refunded',   label: 'Hoàn tiền' }],
     Refunded:      [],
     PaymentFailed: [{ value: 'Cancelled',  label: 'Hủy đơn' }],
     // Legacy statuses from old API
-    Shipping:      [{ value: 'Delivering', label: 'Chuyển sang đang giao' }, { value: 'Cancelled', label: 'Hủy đơn' }],
-    Delivered:     [{ value: 'Completed',  label: 'Hoàn thành đơn hàng' }],
+    Pending:       [{ value: 'Confirmed',  label: 'Xác nhận đơn' }, { value: 'Cancelled', label: 'Hủy đơn' }],
+    Preparing:     [{ value: 'Processing', label: 'Chuyển sang đang xử lý' }, { value: 'Cancelled', label: 'Hủy đơn' }],
+    Shipping:      [{ value: 'Delivered',  label: 'Xác nhận đã giao' }, { value: 'Cancelled', label: 'Hủy đơn' }],
   };
 
   const handleUpdateStatus = async () => {
@@ -53,7 +121,12 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate }) => {
     setStatusUpdateError(null);
     setStatusSuccessMsg(null);
     try {
-      await orderService.updateOrderStatus(selectedOrderDetail.orderId, newStatus, statusReason);
+      if (newStatus === 'Cancelled') {
+        await orderService.cancelOrder(selectedOrderDetail.orderId, statusReason);
+      } else {
+        await orderService.updateOrderStatus(selectedOrderDetail.orderId, newStatus, statusReason);
+      }
+
       const [detail, list] = await Promise.all([
         orderService.getOrderDetails(selectedOrderDetail.orderId),
         orderService.getVendorOrders(),
@@ -62,8 +135,10 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate }) => {
       setOrders(list);
       setNewStatus('');
       setStatusReason('');
-      if (newStatus === 'Completed') {
-        setStatusSuccessMsg('Đơn hàng đã hoàn thành! Hệ thống đang quyết toán doanh thu — tiền sẽ được cộng vào ví của bạn sau ít phút.');
+      if (newStatus === 'Delivered') {
+        setStatusSuccessMsg('Đơn hàng đã giao thành công. Khách hàng sẽ xác nhận để hoàn thành đơn.');
+      } else if (newStatus === 'Cancelled') {
+        setStatusSuccessMsg('Đơn hàng đã được hủy thành công.');
       } else {
         setStatusSuccessMsg('Cập nhật trạng thái thành công!');
       }
@@ -92,8 +167,12 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate }) => {
       try {
         setLoading(true);
         setError(null);
-        const data = await orderService.getVendorOrders();
+        const [data, profile] = await Promise.all([
+          orderService.getVendorOrders(),
+          getProfile().catch(() => null),
+        ]);
         setOrders(data);
+        setVendorShopName((profile?.shopName || '').trim());
       } catch (err) {
         setError('Không thể tải danh sách đơn hàng. Vui lòng thử lại.');
         console.error(err);
@@ -106,26 +185,43 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate }) => {
 
   const STATUS_CONFIG: Record<string, { badge: string; label: string }> = {
     Pending:       { badge: 'bg-yellow-100 text-yellow-700',   label: 'Chờ duyệt' },
-    Confirmed:     { badge: 'bg-blue-100 text-blue-700',       label: 'Đã duyệt' },
-    Preparing:     { badge: 'bg-violet-100 text-violet-700',   label: 'Đang chuẩn bị' },
+    Confirmed:     { badge: 'bg-blue-100 text-blue-700',       label: 'Đã xác nhận' },
+    Processing:    { badge: 'bg-violet-100 text-violet-700',   label: 'Đang xử lý' },
+    Preparing:     { badge: 'bg-violet-100 text-violet-700',   label: 'Đang xử lý' },
     Paid:          { badge: 'bg-emerald-100 text-emerald-700', label: 'Đã thanh toán' },
     Delivering:    { badge: 'bg-orange-100 text-orange-700',   label: 'Đang giao' },
+    Delivered:     { badge: 'bg-green-100 text-green-700',     label: 'Đã giao' },
     Completed:     { badge: 'bg-green-100 text-green-700',     label: 'Hoàn thành' },
     Cancelled:     { badge: 'bg-red-100 text-red-600',         label: 'Đã hủy' },
     Refunded:      { badge: 'bg-teal-100 text-teal-700',       label: 'Đã hoàn' },
     PaymentFailed: { badge: 'bg-rose-100 text-rose-700',       label: 'Thanh toán lỗi' },
     // Legacy
-    Shipping:      { badge: 'bg-orange-100 text-orange-700',   label: 'Đang giao (cũ)' },
-    Delivered:     { badge: 'bg-green-100 text-green-700',     label: 'Đã giao (cũ)' },
+    Shipping:      { badge: 'bg-orange-100 text-orange-700',   label: 'Đang giao' },
   };
 
-  const getStatusCfg = (status: string) =>
-    STATUS_CONFIG[status] ?? { badge: 'bg-gray-100 text-gray-600', label: status };
+  const getStatusCfg = (status: string) => {
+    const normalizedStatus = normalizeOrderStatus(status);
+    return STATUS_CONFIG[normalizedStatus] ?? { badge: 'bg-gray-100 text-gray-600', label: normalizedStatus || 'N/A' };
+  };
 
-  const filteredOrders = (filterStatus === 'all'
-    ? orders
-    : orders.filter(o => o.orderStatus === filterStatus)
-  ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const filteredOrders = orders
+    .filter((order) => (filterStatus === 'all'
+      ? true
+      : normalizeOrderStatus(order.orderStatus) === filterStatus))
+    .filter((order) => {
+      const createdAt = parseOrderDate(order.createdAt);
+      if (!createdAt) return !fromDate && !toDate;
+
+      const createdYmd = toLocalYmd(createdAt);
+      if (fromDate && createdYmd < fromDate) return false;
+      if (toDate && createdYmd > toDate) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const bTime = parseOrderDate(b.createdAt)?.getTime() ?? Number.MIN_SAFE_INTEGER;
+      const aTime = parseOrderDate(a.createdAt)?.getTime() ?? Number.MIN_SAFE_INTEGER;
+      return bTime - aTime;
+    });
 
   if (loading) {
     return (
@@ -168,9 +264,9 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate }) => {
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
           {[
             { label: 'Tổng đơn', value: orders.length, color: 'text-primary' },
-            { label: 'Đã giao', value: orders.filter(o => o.orderStatus === 'Delivered').length, color: 'text-green-600' },
-            { label: 'Chờ xử lý', value: orders.filter(o => ['Pending', 'Confirmed', 'Preparing'].includes(o.orderStatus)).length, color: 'text-amber-600' },
-            { label: 'Doanh thu', value: `${(orders.reduce((s, o) => s + o.vendorNetAmount, 0) / 1000000).toFixed(1)}M ₫`, color: 'text-blue-600' },
+            { label: 'Đã giao', value: orders.filter(o => ['Delivered', 'Completed'].includes(normalizeOrderStatus(o.orderStatus))).length, color: 'text-green-600' },
+            { label: 'Chờ xử lý', value: orders.filter(o => ['Paid', 'Confirmed', 'Processing', 'Delivering', 'Pending'].includes(normalizeOrderStatus(o.orderStatus))).length, color: 'text-amber-600' },
+            { label: 'Doanh thu', value: `${(orders.reduce((s, o) => s + (Number(o.vendorNetAmount) || 0), 0) / 1000000).toFixed(1)}M ₫`, color: 'text-blue-600' },
           ].map((s) => (
             <div key={s.label} className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{s.label}</p>
@@ -180,6 +276,35 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate }) => {
         </div>
 
         {/* Tabs */}
+        <div className="flex flex-wrap items-center gap-3 mb-4">
+          {/* <select
+            value="createdAt"
+            disabled
+            className="border border-gray-200 rounded-xl px-3 py-2 text-sm font-medium text-gray-700 bg-white"
+          >
+            <option value="createdAt">Ngày tạo</option>
+          </select> */}
+          <input
+            type="date"
+            value={fromDate}
+            onChange={(e) => setFromDate(e.target.value)}
+            className="border border-gray-200 rounded-xl px-3 py-2 text-sm font-medium text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          />
+          <input
+            type="date"
+            value={toDate}
+            min={fromDate || undefined}
+            onChange={(e) => setToDate(e.target.value)}
+            className="border border-gray-200 rounded-xl px-3 py-2 text-sm font-medium text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          />
+          <button
+            onClick={() => { setFromDate(''); setToDate(''); }}
+            className="px-4 py-2 rounded-xl text-sm font-bold text-slate-600 border border-gray-200 bg-white hover:bg-gray-50 transition"
+          >
+            Xóa lọc ngày
+          </button>
+        </div>
+
         <div className="flex flex-wrap gap-1 pb-4 mb-8 border-b border-gray-200">
           {TABS.map((tab) => (
             <button
@@ -213,18 +338,23 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate }) => {
                   <div className="p-6 md:p-8 flex flex-col md:flex-row gap-4 justify-between items-start md:items-center border-b border-gray-100 bg-gray-50/50">
                     <div className="flex flex-col md:flex-row gap-4 md:items-center">
                       <div>
+                        <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-1">Cửa hàng</span>
+                        <span className="text-gray-900 font-semibold">{vendorShopName || order.vendorName || 'N/A'}</span>
+                      </div>
+                      <div className="hidden md:block w-px h-8 bg-gray-300"></div>
+                      <div>
                         <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-1">Mã đơn hàng</span>
                         <span className="font-mono text-gray-900 font-bold text-base">#{order.orderId.slice(0, 8).toUpperCase()}</span>
                       </div>
                       <div className="hidden md:block w-px h-8 bg-gray-300"></div>
                       <div>
                         <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-1">Ngày đặt</span>
-                        <span className="text-gray-900 font-medium">{new Date(order.createdAt).toLocaleDateString('vi-VN')}</span>
+                        <span className="text-gray-900 font-medium">{formatDateVi(order.createdAt)}</span>
                       </div>
                       <div className="hidden md:block w-px h-8 bg-gray-300"></div>
                       <div>
                         <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-1">Giao hàng</span>
-                        <span className="text-gray-900 font-medium">{new Date(order.deliveryDate).toLocaleDateString('vi-VN')} lúc {order.deliveryTime?.slice(0, 5)}</span>
+                        <span className="text-gray-900 font-medium">{formatDateVi(order.deliveryDate)} lúc {order.deliveryTime?.slice(0, 5) || 'N/A'}</span>
                       </div>
                     </div>
                     <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest flex-shrink-0 ${cfg.badge}`}>
@@ -235,20 +365,25 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate }) => {
                   {/* Card body */}
                   <div className="p-6 md:p-8">
                     {/* Customer + vendor row */}
-                    <div className="flex items-center gap-3 mb-6 pb-6 border-b border-dashed border-gray-200">
+                    {/* <div className="flex items-center gap-3 mb-6 pb-6 border-b border-dashed border-gray-200">
                       <div>
                         <p className="text-xs text-slate-400 font-medium">Khách hàng</p>
                         <h4 className="font-bold text-gray-900 text-base">{order.customerName}</h4>
+                        {hasMeaningfulText(order.customerPhone) && (
+                          <p className="text-sm text-slate-500 mt-0.5">{order.customerPhone}</p>
+                        )}
                       </div>
-                      <div className="ml-auto text-right">
-                        <p className="text-xs text-slate-400 font-medium">Thanh toán</p>
-                        <p className="font-semibold text-gray-700">{order.paymentMethod}</p>
-                      </div>
-                    </div>
+                      {hasMeaningfulText(order.paymentMethod) && (
+                        <div className="ml-auto text-right">
+                          <p className="text-xs text-slate-400 font-medium">Thanh toán</p>
+                          <p className="font-semibold text-gray-700">{order.paymentMethod}</p>
+                        </div>
+                      )}
+                    </div> */}
 
                     {/* Items */}
                     <div className="space-y-4">
-                      {order.items.map((item) => (
+                      {(order.items || []).map((item) => (
                         <div key={item.itemId} className="flex gap-4 items-center">
                           <div
                             className="size-16 rounded-xl bg-gray-100 border border-gray-200 flex-shrink-0 bg-cover bg-center"
@@ -263,7 +398,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate }) => {
                             )}
                           </div>
                           <div className="text-right flex-shrink-0">
-                            <p className="font-bold text-primary text-base">{item.lineTotal.toLocaleString('vi-VN')}đ</p>
+                            <p className="font-bold text-primary text-base">{formatVnd(item.lineTotal)}</p>
                           </div>
                         </div>
                       ))}
@@ -281,11 +416,11 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate }) => {
                     <div>
                       <div className="flex items-baseline gap-2">
                         <span className="text-sm text-gray-500">Tổng tiền:</span>
-                        <span className="text-2xl font-black text-primary">{order.totalAmount.toLocaleString('vi-VN')}đ</span>
+                        <span className="text-2xl font-black text-primary">{formatVnd(order.totalAmount)}</span>
                       </div>
                       <p className="text-sm text-green-600 font-semibold mt-0.5">
-                        Thực nhận: {order.vendorNetAmount.toLocaleString('vi-VN')}đ
-                        <span className="text-gray-400 font-normal ml-1">(sau {(order.commissionRate * 100).toFixed(0)}% phí)</span>
+                        Thực nhận: {formatVnd(order.vendorNetAmount)}
+                        <span className="text-gray-400 font-normal ml-1">(sau {((Number(order.commissionRate) || 0) * 100).toFixed(0)}% phí)</span>
                       </p>
                     </div>
                     <div className="flex gap-3 w-full sm:w-auto">
@@ -338,6 +473,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate }) => {
               <div>
                 <h2 className="text-2xl font-black text-gray-900 font-display">Chi tiết đơn hàng</h2>
                 <p className="text-sm text-gray-500">Mã: #{selectedOrderDetail.orderId.substring(0, 8).toUpperCase()}</p>
+                <p className="text-sm text-gray-500">Shop: {vendorShopName || selectedOrderDetail.vendor?.shopName || 'N/A'}</p>
               </div>
             </div>
 
@@ -359,7 +495,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate }) => {
                   className="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-50 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary transition"
                 >
                   <option value="">-- Chọn trạng thái mới --</option>
-                  {(NEXT_STATUSES[selectedOrderDetail.orderStatus] ?? []).map((s) => (
+                  {(NEXT_STATUSES[normalizeOrderStatus(selectedOrderDetail.orderStatus)] ?? []).map((s) => (
                     <option key={s.value} value={s.value}>{s.label}</option>
                   ))}
                 </select>
@@ -380,6 +516,9 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate }) => {
               </div>
               {statusUpdateError && (
                 <p className="mt-2 text-xs text-red-500 font-medium">{statusUpdateError}</p>
+              )}
+              {(NEXT_STATUSES[normalizeOrderStatus(selectedOrderDetail.orderStatus)] ?? []).length === 0 && (
+                <p className="mt-2 text-xs text-slate-500 font-medium">Không có trạng thái tiếp theo cho đơn này ở phía Vendor.</p>
               )}
               {statusSuccessMsg && (
                 <div className="mt-3 bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-700 font-medium">
@@ -412,7 +551,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate }) => {
                     Danh sách gói lễ
                   </h3>
                   <div className="space-y-5">
-                    {selectedOrderDetail.items.map((item, idx) => (
+                    {(selectedOrderDetail.items || []).map((item, idx) => (
                       <div key={item.itemId} className="flex gap-4 items-start">
                         <div className="size-16 rounded-2xl bg-gray-100 border border-gray-200 flex-shrink-0 relative overflow-hidden">
                           <img
@@ -432,7 +571,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate }) => {
                           )}
                         </div>
                         <div className="pt-0.5 text-right flex-shrink-0">
-                          <p className="font-bold text-gray-800">{item.lineTotal.toLocaleString('vi-VN')}đ</p>
+                          <p className="font-bold text-gray-800">{formatVnd(item.lineTotal)}</p>
                         </div>
                       </div>
                     ))}
@@ -440,7 +579,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate }) => {
                 </div>
 
                 {/* Cancel / Refund */}
-                {(selectedOrderDetail.cancelReason || selectedOrderDetail.refundAmount > 0) && (
+                {(selectedOrderDetail.cancelReason || (Number(selectedOrderDetail.refundAmount) || 0) > 0) && (
                   <div className="bg-red-50 rounded-[1.5rem] border border-red-100 p-6 space-y-3">
                     <h4 className="text-xs font-bold uppercase tracking-widest text-red-400">Thông tin hủy đơn</h4>
                     {selectedOrderDetail.cancelReason && (
@@ -449,10 +588,10 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate }) => {
                         <p className="text-sm text-gray-700 font-medium">{selectedOrderDetail.cancelReason}</p>
                       </div>
                     )}
-                    {selectedOrderDetail.refundAmount > 0 && (
+                    {(Number(selectedOrderDetail.refundAmount) || 0) > 0 && (
                       <div>
                         <p className="text-xs text-red-400 mb-0.5">Số tiền hoàn</p>
-                        <p className="font-black text-red-600 text-lg">{selectedOrderDetail.refundAmount.toLocaleString('vi-VN')}đ</p>
+                        <p className="font-black text-red-600 text-lg">{formatVnd(selectedOrderDetail.refundAmount)}</p>
                       </div>
                     )}
                   </div>
@@ -467,33 +606,41 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate }) => {
                   <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-4 pb-3 border-b border-gray-100">Thanh toán</h3>
                   <div className="space-y-3 text-sm mb-4">
                     <div className="flex justify-between">
-                      <span className="text-gray-500">Tạm tính ({selectedOrderDetail.items.length} món)</span>
-                      <span className="font-medium">{selectedOrderDetail.pricing.subTotal.toLocaleString('vi-VN')}đ</span>
+                      <span className="text-gray-500">Tạm tính ({(selectedOrderDetail.items || []).length} món)</span>
+                      <span className="font-medium">{formatVnd(selectedOrderDetail.pricing?.subTotal)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">Phí giao hàng</span>
-                      <span className="font-medium">{selectedOrderDetail.pricing.shippingFee.toLocaleString('vi-VN')}đ</span>
+                      <span className="font-medium">{formatVnd(selectedOrderDetail.pricing?.shippingFee)}</span>
                     </div>
                   </div>
                   <div className="flex justify-between items-end border-t border-dashed border-gray-200 pt-3 mb-4">
                     <span className="text-sm font-bold text-gray-700">Tổng cộng</span>
-                    <span className="text-2xl font-black text-primary">{selectedOrderDetail.pricing.totalAmount.toLocaleString('vi-VN')}đ</span>
+                    <span className="text-2xl font-black text-primary">{formatVnd(selectedOrderDetail.pricing?.totalAmount)}</span>
                   </div>
                   <div className="space-y-1.5 text-xs border-t border-gray-100 pt-3">
                     <div className="flex justify-between text-red-400">
-                      <span>Phí nền tảng ({(selectedOrderDetail.pricing.commissionRate * 100).toFixed(0)}%)</span>
-                      <span>−{selectedOrderDetail.pricing.platformFee.toLocaleString('vi-VN')}đ</span>
+                      <span>Phí nền tảng ({((Number(selectedOrderDetail.pricing?.commissionRate) || 0) * 100).toFixed(0)}%)</span>
+                      <span>−{formatVnd(selectedOrderDetail.pricing?.platformFee)}</span>
                     </div>
                     <div className="flex justify-between font-bold text-green-600 bg-green-50 rounded-lg px-2 py-1.5">
                       <span>Thực nhận</span>
-                      <span>{selectedOrderDetail.pricing.vendorNetAmount.toLocaleString('vi-VN')}đ</span>
+                      <span>{formatVnd(selectedOrderDetail.pricing?.vendorNetAmount)}</span>
                     </div>
-                    <div className="flex justify-between text-gray-400 pt-1">
-                      <span>Phương thức</span>
-                      <span className="font-semibold text-gray-600">{selectedOrderDetail.payment.paymentMethod}</span>
+                    {hasMeaningfulText(selectedOrderDetail.payment.paymentMethod) && (
+                      <div className="flex justify-between text-gray-400 pt-1">
+                        <span>Phương thức</span>
+                        <span className="font-semibold text-gray-600">{selectedOrderDetail.payment.paymentMethod}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-gray-400">
+                      <span>Thanh toán khách</span>
+                      <span className={`font-semibold ${isCustomerPaid(selectedOrderDetail) ? 'text-green-600' : 'text-orange-500'}`}>
+                        {isCustomerPaid(selectedOrderDetail) ? 'Đã thanh toán' : 'Chưa thanh toán'}
+                      </span>
                     </div>
                     <div className="flex justify-between text-gray-400">
-                      <span>Đã chuyển khoản</span>
+                      <span>Chuyển khoản vendor</span>
                       <span className={`font-semibold ${selectedOrderDetail.payment.isPaidToVendor ? 'text-green-600' : 'text-orange-500'}`}>
                         {selectedOrderDetail.payment.isPaidToVendor ? 'Đã chuyển' : 'Chưa chuyển'}
                       </span>
@@ -508,7 +655,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate }) => {
                     <div>
                       <p className="text-xs text-gray-500 mb-1">Thời gian phục vụ</p>
                       <p className="font-bold text-gray-800">
-                        {new Date(selectedOrderDetail.delivery.deliveryDate).toLocaleDateString('vi-VN')} lúc {selectedOrderDetail.delivery.deliveryTime?.slice(0, 5)}
+                        {formatDateVi(selectedOrderDetail.delivery?.deliveryDate)} lúc {selectedOrderDetail.delivery?.deliveryTime?.slice(0, 5) || 'N/A'}
                       </p>
                     </div>
                     <div>
