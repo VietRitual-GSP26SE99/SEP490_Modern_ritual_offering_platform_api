@@ -13,7 +13,17 @@ const MyOrdersPage: React.FC = () => {
     const fetchOrders = async () => {
         try {
             const data = await orderService.getMyOrders();
-            setOrders(data || []);
+            // Sắp xếp đơn hàng theo thời gian (tăng dần)
+            const sortedOrders = (data || []).sort((a, b) => {
+                const getTime = (o: any) => {
+                    if (o.createdAt) return new Date(o.createdAt).getTime();
+                    // Fallback to delivery date if createdAt is missing
+                    if (o.deliveryDate) return new Date(`${o.deliveryDate}T${o.deliveryTime || '00:00:00'}`).getTime();
+                    return 0;
+                };
+                return getTime(a) - getTime(b);
+            });
+            setOrders(sortedOrders);
         } catch (error) {
             console.error('Lỗi khi lấy danh sách đơn hàng:', error);
             toast.error('Không thể tải danh sách đơn hàng.');

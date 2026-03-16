@@ -318,7 +318,11 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
               </p>
             )}
             <div className="flex items-baseline gap-4">
-              <p className="text-4xl font-black text-primary tracking-tight">{product.price.toLocaleString()}đ</p>
+              <p className="text-4xl font-black text-primary tracking-tight">
+                {(product.variants && product.variants[selectedVariantIndex] 
+                  ? product.variants[selectedVariantIndex].price 
+                  : product.price).toLocaleString()}đ
+              </p>
               {product.originalPrice && (
                 <p className="text-lg text-slate-400 line-through">{product.originalPrice.toLocaleString()}đ</p>
               )}
