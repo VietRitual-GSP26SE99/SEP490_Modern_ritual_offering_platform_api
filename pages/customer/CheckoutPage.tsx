@@ -451,8 +451,8 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
           </h2>
           <div className="space-y-4">
             {[
-              { id: 'PayOS', label: 'PayOS', desc: 'Chuyển khoản, Thẻ, QR - An toàn & Nhanh chóng' },
-              { id: 'wallet', label: 'Ví điện tử', desc: 'Momo, ZaloPay - Tiện lợi & Đơn giản' }
+              { id: 'PayOS', label: 'Ví của bạn', desc: 'Nếu số dư không đủ thì sẽ nạp tiền bằng cách chuyển khoản, QR - An toàn & Nhanh chóng' },
+              
             ].map((m, i) => (
               <label key={m.id} className={`flex items-center p-6 border-2 rounded-3xl cursor-pointer transition-all ${paymentMethod === m.id ? 'border-primary bg-gray-50' : 'border-gray-200 hover:border-primary'}`}>
                 <input

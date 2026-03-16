@@ -1200,8 +1200,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
       console.log('✅ Profile refreshed:', refreshedProfileWithAddress);
     } catch (err) {
       console.error('❌ Failed to update profile:', err);
-      setError('Không thể cập nhật profile. Vui lòng thử lại.');
-      toast.error('Cập nhật thất bại: ' + (err instanceof Error ? err.message : 'Lỗi không xác định'));
+      const friendlyMessage = err instanceof Error ? err.message : 'Không thể cập nhật profile. Vui lòng thử lại.';
+      setError(friendlyMessage);
+      toast.error('Cập nhật thất bại: ' + friendlyMessage);
     } finally {
       setUpdating(false);
     }

@@ -675,7 +675,21 @@ export async function updateProfile(profileData: UpdateProfileRequest): Promise<
     if (!response.ok) {
       const errorText = await response.text();
       console.error('❌ Update failed:', errorText);
-      throw new Error(`Failed to update profile: ${response.status}`);
+
+      let parsedMessage = '';
+      try {
+        const parsed = JSON.parse(errorText);
+        if (Array.isArray(parsed?.errorMessages) && parsed.errorMessages.length > 0) {
+          parsedMessage = parsed.errorMessages.join(', ');
+        } else if (typeof parsed?.message === 'string' && parsed.message.trim()) {
+          parsedMessage = parsed.message.trim();
+        }
+      } catch {
+        // Keep raw text fallback when response is not JSON.
+      }
+
+      const fallbackText = errorText?.trim();
+      throw new Error(parsedMessage || fallbackText || `Failed to update profile: ${response.status}`);
     }
 
     const data: ApiResponse<UserProfile> = await response.json();
