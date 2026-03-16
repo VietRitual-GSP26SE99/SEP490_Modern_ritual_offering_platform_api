@@ -66,15 +66,62 @@ class CartService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data: ApiResponse<CartApi> = await response.json();
+      const text = await response.text();
+      let data: any = text ? JSON.parse(text) : null;
       console.log(' Cart data:', data);
       
-      if (data.isSuccess && data.result) {
-        return data.result;
-      } else {
-        console.error(' API Error:', data.errorMessages);
-        return null;
+      if (data && data.isSuccess !== undefined) {
+        if (!data.isSuccess) {
+          console.error(' API Error:', data.errorMessages);
+          return null;
+        }
+        data = data.result; // Extract the payload
       }
+      
+      // If the API returns an array directly, wrap it in a CartApi object
+      if (Array.isArray(data)) {
+        console.log(' Cart is an array, wrapping it in CartApi structure');
+        data = {
+          cartId: 0,
+          userId: '',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          cartItems: data,
+          totalItems: data.reduce((sum, item) => sum + (item.quantity || 1), 0),
+          subtotal: data.reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 1)), 0)
+        } as CartApi;
+      }
+      
+      // If data is an object but misses cartItems
+      if (data && typeof data === 'object' && !data.cartItems) {
+        // Try to handle nested items inside 'vendors'
+        if (data.vendors && Array.isArray(data.vendors)) {
+          let allItems: any[] = [];
+          data.vendors.forEach((v: any) => {
+            const nestedItems = v.items || v.cartItems || v.packageItems || v.products || v.packages || v.listItems || v.cartItemDetails || [];
+            if (Array.isArray(nestedItems)) {
+              allItems = [...allItems, ...nestedItems];
+            }
+          });
+          data.cartItems = allItems;
+        } else if (data.items) {
+          data.cartItems = data.items;
+        } else {
+          data.cartItems = [];
+        }
+      }
+      
+      // Fix camelCase inconsistencies
+      if (data && data.totalItem !== undefined) data.totalItems = data.totalItem;
+      if (data && data.subTotal !== undefined) data.subtotal = data.subTotal;
+      if (data && data.id !== undefined) data.cartId = data.id;
+      
+      // Ensure it's not undefined
+      if (data && typeof data === 'object') {
+        data.cartItems = data.cartItems || [];
+      }
+      
+      return data as CartApi;
     } catch (error) {
       console.error(' Failed to fetch cart:', error);
       return null;
@@ -98,10 +145,16 @@ class CartService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data: ApiResponse<any> = await response.json();
+      const text = await response.text();
+      let data: any = null;
+      try { data = text ? JSON.parse(text) : null; } catch(e) {}
       console.log(' Add to cart response:', data);
       
-      return data.isSuccess;
+      if (data && data.isSuccess !== undefined) {
+        return data.isSuccess;
+      }
+      
+      return response.ok;
     } catch (error) {
       console.error(' Failed to add to cart:', error);
       return false;
@@ -125,10 +178,15 @@ class CartService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data: ApiResponse<any> = await response.json();
+      const text = await response.text();
+      let data: any = null;
+      try { data = text ? JSON.parse(text) : null; } catch(e) {}
       console.log(' Update cart response:', data);
       
-      return data.isSuccess;
+      if (data && data.isSuccess !== undefined) {
+        return data.isSuccess;
+      }
+      return response.ok;
     } catch (error) {
       console.error(' Failed to update cart item:', error);
       return false;
@@ -156,10 +214,15 @@ class CartService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data: ApiResponse<any> = await response.json();
+      const text = await response.text();
+      let data: any = null;
+      try { data = text ? JSON.parse(text) : null; } catch(e) {}
       console.log('✅ Remove item response:', data);
       
-      return data.isSuccess;
+      if (data && data.isSuccess !== undefined) {
+        return data.isSuccess;
+      }
+      return response.ok;
     } catch (error) {
       // Only log non-404 errors
       if (!(error instanceof Error && error.message.includes('404'))) {
@@ -185,10 +248,15 @@ class CartService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data: ApiResponse<any> = await response.json();
+      const text = await response.text();
+      let data: any = null;
+      try { data = text ? JSON.parse(text) : null; } catch(e) {}
       console.log(' Clear cart response:', data);
       
-      return data.isSuccess;
+      if (data && data.isSuccess !== undefined) {
+        return data.isSuccess;
+      }
+      return response.ok;
     } catch (error) {
       console.error(' Failed to clear cart:', error);
       return false;

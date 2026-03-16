@@ -41,10 +41,11 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
 
         if (apiPackage) {
           // Fetch vendor info
-          const vendorInfo = await vendorService.getVendorCached(apiPackage.vendorProfileId);
+          const vendorId = apiPackage.vendorProfileId || (apiPackage as any).vendorId;
+          const vendorInfo = vendorId ? await vendorService.getVendorCached(vendorId) : null;
           const vendorMap = new Map();
-          if (vendorInfo) {
-            vendorMap.set(apiPackage.vendorProfileId, vendorInfo);
+          if (vendorInfo && vendorId) {
+            vendorMap.set(vendorId, vendorInfo);
             setVendor(vendorInfo);
           }
 

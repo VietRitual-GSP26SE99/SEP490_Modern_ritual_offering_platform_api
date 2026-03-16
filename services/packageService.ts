@@ -25,14 +25,19 @@ class PackageService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data: ApiResponse<ApiPackage[]> = await response.json();
+      const data: any = await response.json();
       console.log(' API Response:', data);
-      console.log(' Packages received:', data.result?.length || 0);
+      
+      if (Array.isArray(data)) {
+        console.log(' Packages received:', data.length);
+        return data as ApiPackage[];
+      }
       
       if (data.isSuccess && data.result) {
+        console.log(' Packages received:', data.result.length);
         return data.result;
       } else {
-        console.error(' API Error:', data.errorMessages);
+        console.error(' API Error:', data.errorMessages || 'Unknown error');
         return [];
       }
     } catch (error) {
@@ -62,14 +67,19 @@ class PackageService {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data: ApiResponse<ApiPackage> = await response.json();
+      const data: any = await response.json();
       console.log(' Package detail:', data);
+      
+      if (!data.isSuccess && (data.packageId !== undefined || data.id !== undefined || data.vendorId !== undefined)) {
+        console.log(' Package loaded successfully from raw format');
+        return data as ApiPackage;
+      }
       
       if (data.isSuccess && data.result) {
         console.log(' Package loaded successfully');
         return data.result;
       } else {
-        console.error('❌ API Error:', data.errorMessages);
+        console.error('❌ API Error:', data.errorMessages || 'Unknown error');
         return null;
       }
     } catch (error) {
@@ -102,7 +112,7 @@ class PackageService {
   async getPackagesByVendor(vendorId: string): Promise<ApiPackage[]> {
     try {
       const allPackages = await this.getAllPackages();
-      return allPackages.filter(pkg => pkg.vendorProfileId === vendorId);
+      return allPackages.filter(pkg => (pkg.vendorProfileId === vendorId || (pkg as any).vendorId === vendorId));
     } catch (error) {
       console.error('Failed to filter packages by vendor:', error);
       return [];
@@ -185,22 +195,27 @@ class PackageService {
     console.log('📦 Final parsed variants:', parsedVariants);
     
     // Get vendor info from map if available
-    const vendor = vendorMap?.get(apiPackage.vendorProfileId);
+    const vendorId = apiPackage.vendorProfileId || (apiPackage as any).vendorId;
+    const vendor = vendorId ? vendorMap?.get(vendorId) : undefined;
+    
+    // Fallbacks for missing fields
+    const pkgId = apiPackage.packageId?.toString() || (apiPackage as any).id?.toString() || defaultVariant?.packageId?.toString() || '';
+    const pkgName = apiPackage.packageName || (apiPackage as any).name || defaultVariant?.variantName || 'Mâm cúng truyền thống';
     
     return {
-      id: apiPackage.packageId.toString(),
-      name: apiPackage.packageName,
+      id: pkgId,
+      name: pkgName,
       description: apiPackage.description || 'Mâm cúng truyền thống với đầy đủ lễ vật',
-      category: this.mapCategoryIdToOccasion(apiPackage.categoryId.toString()),
+      category: this.mapCategoryIdToOccasion(apiPackage.categoryId?.toString() || '1'),
       price: defaultVariant?.price || 2500000,
-      image: this.generatePlaceholderImage(apiPackage.packageId.toString()),
-      gallery: this.generateGalleryImages(apiPackage.packageId.toString()),
+      image: (apiPackage as any).imageUrl || this.generatePlaceholderImage(pkgId),
+      gallery: this.generateGalleryImages(pkgId),
       rating: 4.8,
       reviews: 128,
       tag: apiPackage.isActive ? 'NEW' : undefined,
       variants: parsedVariants,
-      vendorId: apiPackage.vendorProfileId,
-      vendorName: vendor?.shopName || `Shop ${apiPackage.vendorProfileId.substring(0, 8)}`,
+      vendorId: vendorId,
+      vendorName: vendor?.shopName || (vendorId ? `Shop ${vendorId.substring(0, 8)}` : 'Shop'),
     };
   }
 
@@ -221,7 +236,7 @@ class PackageService {
   async mapToProductsWithVendors(apiPackages: ApiPackage[]): Promise<Product[]> {
     try {
       // Lấy danh sách unique vendor IDs
-      const vendorIds = [...new Set(apiPackages.map(pkg => pkg.vendorProfileId))];
+      const vendorIds = [...new Set(apiPackages.map(pkg => pkg.vendorProfileId || (pkg as any).vendorId).filter(id => id))];
       console.log('🏪 Fetching vendors for IDs:', vendorIds);
       
       // Fetch tất cả vendors với error handling cho từng vendor
