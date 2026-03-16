@@ -1,6 +1,39 @@
 import React, { useState, useEffect } from 'react';
-import { getProfile, UserProfile, updateProfile, UpdateProfileRequest } from '../../services/auth';
+import { getProfile, getVendorProfile, UserProfile, VendorCurrentProfile, updateProfile, UpdateProfileRequest } from '../../services/auth';
 import { geocodingService } from '../../services/geocodingService';
+import {
+  Province,
+  District,
+  Ward,
+  getProvinces,
+  getDistrictsByProvince,
+  getWardsByDistrict,
+} from '../../services/vietnamAddressApi';
+import AddressMapPicker from '../../components/AddressMapPicker';
+
+const DEFAULT_MAP_POSITION = {
+  latitude: 10.7769,
+  longitude: 106.7009,
+};
+
+const normalizeAddressText = (value?: string | null): string => {
+  if (!value) return '';
+  return value
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/\b(tinh|thanh pho|quan|huyen|phuong|xa|thi tran|thi xa|tp\.?|q\.?|p\.?)\b/g, ' ')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+};
+
+const isNameMatch = (left?: string, right?: string): boolean => {
+  const leftNorm = normalizeAddressText(left);
+  const rightNorm = normalizeAddressText(right);
+  if (!leftNorm || !rightNorm) return false;
+  return leftNorm.includes(rightNorm) || rightNorm.includes(leftNorm);
+};
 
 interface VendorShopProps {
   onNavigate: (path: string) => void;
@@ -8,6 +41,7 @@ interface VendorShopProps {
 
 const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [vendorProfile, setVendorProfile] = useState<VendorCurrentProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showUpdateModal, setShowUpdateModal] = useState(false);
@@ -25,14 +59,39 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
   });
   const [updateLoading, setUpdateLoading] = useState(false);
   const [coordinateLoading, setCoordinateLoading] = useState(false);
+  const [provinces, setProvinces] = useState<Province[]>([]);
+  const [districts, setDistricts] = useState<District[]>([]);
+  const [wards, setWards] = useState<Ward[]>([]);
+  const [loadingProvinces, setLoadingProvinces] = useState(false);
+  const [loadingDistricts, setLoadingDistricts] = useState(false);
+  const [loadingWards, setLoadingWards] = useState(false);
+  const [selectedProvince, setSelectedProvince] = useState<number | null>(null);
+  const [selectedDistrict, setSelectedDistrict] = useState<number | null>(null);
+  const [selectedWard, setSelectedWard] = useState<number | null>(null);
+  const [detailedAddress, setDetailedAddress] = useState('');
+  const [mapPreview, setMapPreview] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [mapPreviewLoading, setMapPreviewLoading] = useState(false);
+  const [mapPreviewError, setMapPreviewError] = useState<string | null>(null);
+  const [searchMapLoading, setSearchMapLoading] = useState(false);
+  const [isCreatingNewAddress, setIsCreatingNewAddress] = useState(false);
+
+  const mapPickerPosition = mapPreview ?? {
+    latitude: Number(formData.latitude) || DEFAULT_MAP_POSITION.latitude,
+    longitude: Number(formData.longitude) || DEFAULT_MAP_POSITION.longitude,
+  };
 
   // Fetch profile data on component mount
   useEffect(() => {
     const fetchProfile = async () => {
       try {
         setLoading(true);
-        const profileData = await getProfile();
+        const [profileData, vendorData] = await Promise.all([
+          getProfile(),
+          getVendorProfile().catch(() => null),
+        ]);
+
         setProfile(profileData);
+        setVendorProfile(vendorData);
         setError(null);
       } catch (err) {
         console.error('Failed to fetch profile:', err);
@@ -71,8 +130,8 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
           latitude: profile.latitude || 0,
           longitude: profile.longitude || 0,
           avatarFile: null,
-          shopDescription: 'Chuyên cung cấp mâm cúng trọn gói chất lượng cao với các dịch vụ tư vấn miễn phí.',
-          taxCode: profile.businessLicenseNo || ''
+          shopDescription: vendorProfile?.shopDescription || 'Chuyên cung cấp mâm cúng trọn gói chất lượng cao với các dịch vụ tư vấn miễn phí.',
+          taxCode: vendorProfile?.taxCode || profile.businessLicenseNo || ''
         });
       } catch (error) {
         console.error('Error updating form data:', error);
@@ -86,12 +145,142 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
           latitude: profile?.latitude || 0,
           longitude: profile?.longitude || 0,
           avatarFile: null,
-          shopDescription: 'Chuyên cung cấp mâm cúng trọn gói chất lượng cao.',
-          taxCode: profile?.businessLicenseNo || ''
+          shopDescription: vendorProfile?.shopDescription || 'Chuyên cung cấp mâm cúng trọn gói chất lượng cao.',
+          taxCode: vendorProfile?.taxCode || profile?.businessLicenseNo || ''
         });
       }
     }
+  }, [profile, vendorProfile]);
+
+  useEffect(() => {
+    const loadProvinces = async () => {
+      try {
+        setLoadingProvinces(true);
+        const provinceList = await getProvinces();
+        setProvinces(provinceList);
+      } catch (error) {
+        console.error('Failed to load provinces:', error);
+      } finally {
+        setLoadingProvinces(false);
+      }
+    };
+
+    loadProvinces();
+  }, []);
+
+  useEffect(() => {
+    if (!profile) return;
+
+    setDetailedAddress(profile.addressText?.split(',')[0]?.trim() || profile.addressText || '');
+    if (profile.latitude && profile.longitude) {
+      setMapPreview({ latitude: profile.latitude, longitude: profile.longitude });
+    }
   }, [profile]);
+
+  useEffect(() => {
+    if (!showUpdateModal) return;
+    setIsCreatingNewAddress(false);
+    setMapPreviewError(null);
+  }, [showUpdateModal]);
+
+  useEffect(() => {
+    if (!profile || provinces.length === 0 || selectedProvince) return;
+
+    const hydrateAddressSelections = async () => {
+      const parts = (profile.addressText || '')
+        .split(',')
+        .map((part) => part.trim())
+        .filter(Boolean);
+
+      const provinceHint = parts.length > 0 ? parts[parts.length - 1] : undefined;
+      const districtHint = parts.length > 1 ? parts[parts.length - 2] : undefined;
+      const wardHint = parts.length > 2 ? parts[parts.length - 3] : undefined;
+
+      let resolvedProvinceName = provinceHint;
+      let resolvedDistrictName = districtHint;
+      let resolvedWardName = wardHint;
+
+      if ((!resolvedProvinceName || !resolvedDistrictName) && profile.latitude && profile.longitude) {
+        const reverseData = await geocodingService.reverseGeocodeDetails(profile.latitude, profile.longitude);
+        resolvedProvinceName = resolvedProvinceName || reverseData?.provinceName;
+        resolvedDistrictName = resolvedDistrictName || reverseData?.districtName;
+        resolvedWardName = resolvedWardName || reverseData?.wardName;
+      }
+
+      const matchedProvince = findProvinceByReverse(resolvedProvinceName);
+      if (!matchedProvince) return;
+
+      setSelectedProvince(matchedProvince.code);
+      const districtList = await getDistrictsByProvince(matchedProvince.code);
+      setDistricts(districtList);
+
+      const matchedDistrict = findDistrictByReverse(resolvedDistrictName, districtList);
+      if (!matchedDistrict) return;
+
+      setSelectedDistrict(matchedDistrict.code);
+      const wardList = await getWardsByDistrict(matchedDistrict.code);
+      setWards(wardList);
+
+      const matchedWard = findWardByReverse(resolvedWardName, wardList);
+      if (matchedWard) {
+        setSelectedWard(matchedWard.code);
+      }
+    };
+
+    hydrateAddressSelections().catch((error) => {
+      console.error('Failed to hydrate vendor address selections:', error);
+    });
+  }, [profile, provinces, selectedProvince]);
+
+  useEffect(() => {
+    if (!selectedProvince) {
+      setDistricts([]);
+      setSelectedDistrict(null);
+      setWards([]);
+      setSelectedWard(null);
+      return;
+    }
+
+    const loadDistricts = async () => {
+      try {
+        setLoadingDistricts(true);
+        const districtList = await getDistrictsByProvince(selectedProvince);
+        setDistricts(districtList);
+      } catch (error) {
+        console.error('Failed to load districts:', error);
+        setDistricts([]);
+      } finally {
+        setLoadingDistricts(false);
+      }
+    };
+
+    loadDistricts();
+  }, [selectedProvince]);
+
+  useEffect(() => {
+    if (!selectedDistrict) {
+      setWards([]);
+      setSelectedWard(null);
+      return;
+    }
+
+    const loadWards = async () => {
+      try {
+        setLoadingWards(true);
+        const wardList = await getWardsByDistrict(selectedDistrict);
+        setWards(wardList);
+      } catch (error) {
+        console.error('Failed to load wards:', error);
+        setWards([]);
+      } finally {
+        setLoadingWards(false);
+      }
+    };
+
+    loadWards();
+  }, [selectedDistrict]);
+
+  const displayShopName = (vendorProfile?.shopName || profile?.shopName || '').trim() || 'Chưa có tên cửa hàng';
 
   // Handle form input changes
   const handleInputChange = (field: string, value: string | number | File | null) => {
@@ -101,30 +290,207 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
     }));
   };
 
-  // Handle address coordinate fetching
-  const handleGetCoordinates = async () => {
-    if (!formData.addressText.trim()) {
-      alert('Vui lòng nhập địa chỉ trước!');
+  const findProvinceByReverse = (provinceName?: string): Province | undefined => {
+    return provinces.find((province) =>
+      isNameMatch(provinceName, province.name) || isNameMatch(provinceName, province.full_name)
+    );
+  };
+
+  const findDistrictByReverse = (districtName: string | undefined, districtList: District[]): District | undefined => {
+    return districtList.find((district) =>
+      isNameMatch(districtName, district.name) || isNameMatch(districtName, district.full_name)
+    );
+  };
+
+  const findWardByReverse = (wardName: string | undefined, wardList: Ward[]): Ward | undefined => {
+    return wardList.find((ward) =>
+      isNameMatch(wardName, ward.name) || isNameMatch(wardName, ward.full_name)
+    );
+  };
+
+  const handleUseCurrentLocation = async () => {
+    if (!navigator.geolocation) {
+      setMapPreviewError('Trình duyệt không hỗ trợ lấy vị trí hiện tại.');
       return;
     }
 
     try {
-      setCoordinateLoading(true);
-      const result = await geocodingService.geocodeAddress(formData.addressText);
-      
-      if (result) {
-        setFormData(prev => ({
-          ...prev,
-          latitude: result.latitude,
-          longitude: result.longitude
-        }));
-        alert(`✅ Đã lấy tọa độ thành công!\nVĩ độ: ${result.latitude}\nKinh độ: ${result.longitude}`);
-      } else {
-        alert('❌ Không thể lấy tọa độ cho địa chỉ này. Vui lòng thử địa chỉ khác.');
+      setMapPreviewLoading(true);
+      setMapPreviewError(null);
+
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        });
+      });
+
+      const latitude = position.coords.latitude;
+      const longitude = position.coords.longitude;
+      setMapPreview({ latitude, longitude });
+      setFormData((prev) => ({ ...prev, latitude, longitude }));
+
+      const reverseAddress = await geocodingService.reverseGeocode(latitude, longitude);
+      if (reverseAddress) {
+        setDetailedAddress(reverseAddress.split(',')[0]?.trim() || reverseAddress);
       }
     } catch (error) {
-      console.error('Error getting coordinates:', error);
-      alert('❌ Lỗi khi lấy tọa độ. Vui lòng thử lại.');
+      console.error('Failed to get current location:', error);
+      setMapPreviewError('Không thể lấy vị trí hiện tại. Vui lòng kiểm tra quyền truy cập vị trí.');
+    } finally {
+      setMapPreviewLoading(false);
+    }
+  };
+
+  const handleMapPositionChange = ({ latitude, longitude }: { latitude: number; longitude: number }) => {
+    setMapPreview({ latitude, longitude });
+    setMapPreviewError(null);
+    setFormData((prev) => ({ ...prev, latitude, longitude }));
+  };
+
+  const resetAddressInputsForNew = () => {
+    setIsCreatingNewAddress(true);
+    setSelectedProvince(null);
+    setSelectedDistrict(null);
+    setSelectedWard(null);
+    setDistricts([]);
+    setWards([]);
+    setDetailedAddress('');
+    setMapPreview(null);
+    setMapPreviewError(null);
+    setFormData((prev) => ({
+      ...prev,
+      addressText: '',
+      latitude: 0,
+      longitude: 0,
+    }));
+  };
+
+  const restoreAddressFromProfile = () => {
+    setIsCreatingNewAddress(false);
+    setMapPreviewError(null);
+    if (!profile) return;
+
+    setDetailedAddress(profile.addressText?.split(',')[0]?.trim() || profile.addressText || '');
+    setFormData((prev) => ({
+      ...prev,
+      addressText: profile.addressText || '',
+      latitude: profile.latitude || 0,
+      longitude: profile.longitude || 0,
+    }));
+
+    if (profile.latitude && profile.longitude) {
+      setMapPreview({ latitude: profile.latitude, longitude: profile.longitude });
+    } else {
+      setMapPreview(null);
+    }
+  };
+
+  const handleSearchOnMap = async () => {
+    const selectedProvinceName = provinces.find((p) => p.code === selectedProvince)?.name;
+    const selectedDistrictName = districts.find((d) => d.code === selectedDistrict)?.name;
+    const selectedWardName = wards.find((w) => w.code === selectedWard)?.name;
+
+    if (!selectedProvinceName || !selectedDistrictName) {
+      setMapPreviewError('Vui lòng chọn Tỉnh/Thành phố và Quận/Huyện trước khi tìm trên bản đồ.');
+      return;
+    }
+
+    if (!detailedAddress.trim()) {
+      setMapPreviewError('Vui lòng nhập địa chỉ chi tiết trước khi tìm trên bản đồ.');
+      return;
+    }
+
+    try {
+      setSearchMapLoading(true);
+      setMapPreviewError(null);
+
+      const geoResult = await geocodingService.geocodeAddressComponents({
+        detailedAddress: detailedAddress.trim(),
+        wardName: selectedWardName,
+        districtName: selectedDistrictName,
+        provinceName: selectedProvinceName,
+      });
+
+      if (!geoResult) {
+        setMapPreviewError('Không tìm thấy vị trí phù hợp. Bạn thử nhập chi tiết hơn nhé.');
+        return;
+      }
+
+      setMapPreview({
+        latitude: geoResult.latitude,
+        longitude: geoResult.longitude,
+      });
+      setFormData((prev) => ({
+        ...prev,
+        latitude: geoResult.latitude,
+        longitude: geoResult.longitude,
+      }));
+    } catch (error) {
+      console.error('Failed to search address on map:', error);
+      setMapPreviewError('Không thể tìm vị trí trên bản đồ lúc này. Vui lòng thử lại.');
+    } finally {
+      setSearchMapLoading(false);
+    }
+  };
+
+  const handleConfirmMapSelection = async () => {
+    const targetLat = mapPickerPosition.latitude;
+    const targetLng = mapPickerPosition.longitude;
+
+    try {
+      setCoordinateLoading(true);
+      setMapPreviewError(null);
+
+      const reverseData = await geocodingService.reverseGeocodeDetails(targetLat, targetLng);
+
+      const matchedProvince = findProvinceByReverse(reverseData?.provinceName);
+      let matchedDistrict: District | undefined;
+      let matchedWard: Ward | undefined;
+
+      if (matchedProvince) {
+        setSelectedProvince(matchedProvince.code);
+        const provinceDistricts = await getDistrictsByProvince(matchedProvince.code);
+        setDistricts(provinceDistricts);
+
+        matchedDistrict = findDistrictByReverse(reverseData?.districtName, provinceDistricts);
+        if (matchedDistrict) {
+          setSelectedDistrict(matchedDistrict.code);
+          const districtWards = await getWardsByDistrict(matchedDistrict.code);
+          setWards(districtWards);
+
+          matchedWard = findWardByReverse(reverseData?.wardName, districtWards);
+          if (matchedWard) {
+            setSelectedWard(matchedWard.code);
+          }
+        }
+      }
+
+      const nextDetailedAddress =
+        reverseData?.detailedAddress ||
+        reverseData?.formattedAddress.split(',')[0]?.trim() ||
+        detailedAddress ||
+        'Địa điểm đã chọn trên bản đồ';
+
+      const provinceText = matchedProvince?.name || reverseData?.provinceName || '';
+      const districtText = matchedDistrict?.name || reverseData?.districtName || '';
+      const wardText = matchedWard?.name || reverseData?.wardName || '';
+      const composedAddressText = [nextDetailedAddress, wardText, districtText, provinceText]
+        .filter(Boolean)
+        .join(', ');
+
+      setDetailedAddress(nextDetailedAddress);
+      setMapPreview({ latitude: targetLat, longitude: targetLng });
+      setFormData((prev) => ({
+        ...prev,
+        latitude: targetLat,
+        longitude: targetLng,
+        addressText: composedAddressText || reverseData?.formattedAddress || prev.addressText,
+      }));
+    } catch (error) {
+      console.error('Failed to confirm map selection:', error);
+      setMapPreviewError('Không thể xác nhận vị trí trên bản đồ. Vui lòng thử lại.');
     } finally {
       setCoordinateLoading(false);
     }
@@ -136,16 +502,48 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
     
     try {
       setUpdateLoading(true);
+
+      if (isCreatingNewAddress && (!selectedProvince || !selectedDistrict || !detailedAddress.trim())) {
+        alert('Vui lòng nhập đầy đủ địa chỉ mới (Tỉnh/Thành phố, Quận/Huyện, địa chỉ chi tiết).');
+        return;
+      }
       
       // Only send fields that exist in API
+      const selectedProvinceName = provinces.find((p) => p.code === selectedProvince)?.name;
+      const selectedDistrictName = districts.find((d) => d.code === selectedDistrict)?.name;
+      const selectedWardName = wards.find((w) => w.code === selectedWard)?.name;
+
+      let finalLatitude = formData.latitude;
+      let finalLongitude = formData.longitude;
+
+      if (isCreatingNewAddress && selectedProvinceName && selectedDistrictName) {
+        const geoResult = await geocodingService.geocodeAddressComponents({
+          detailedAddress: detailedAddress?.trim() || undefined,
+          wardName: selectedWardName,
+          districtName: selectedDistrictName,
+          provinceName: selectedProvinceName,
+        });
+
+        if (geoResult) {
+          finalLatitude = geoResult.latitude;
+          finalLongitude = geoResult.longitude;
+        }
+      }
+
+      const composedAddressText = isCreatingNewAddress
+        ? [detailedAddress?.trim(), selectedWardName, selectedDistrictName, selectedProvinceName]
+            .filter(Boolean)
+            .join(', ')
+        : profile?.addressText || formData.addressText;
+
       const apiData: UpdateProfileRequest = {
         fullName: formData.fullName,
         gender: formData.gender,
         phoneNumber: formData.phoneNumber,
         dateOfBirth: formData.dateOfBirth,
-        addressText: formData.addressText,
-        latitude: formData.latitude,
-        longitude: formData.longitude,
+        addressText: composedAddressText || formData.addressText,
+        latitude: finalLatitude,
+        longitude: finalLongitude,
         avatarFile: formData.avatarFile
       };
       
@@ -245,7 +643,7 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
                 {profile?.avatarUrl ? (
                   <img
                     src={profile.avatarUrl}
-                    alt={profile.shopName || 'Shop avatar'}
+                    alt={displayShopName || 'Shop avatar'}
                     className="w-24 h-24 md:w-32 md:h-32 rounded-2xl object-cover border-4 border-gold/30 shadow-md"
                     onError={(e) => {
                       (e.target as HTMLImageElement).style.display = 'none';
@@ -263,7 +661,7 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2">
                   <h1 className="text-3xl md:text-4xl font-playfair font-bold text-primary">
-                    {profile.shopName || 'Chưa có tên cửa hàng'}
+                    {displayShopName}
                   </h1>
                   {profile.verificationStatus === 'Verified' && (
                     <span className="text-gold text-xl">✓</span>
@@ -273,7 +671,7 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
                 <div className="flex items-center gap-4 mb-4">
                   <div className="flex items-center gap-1">
                     <span className="text-gold text-lg">★</span>
-                    <span className="font-bold text-primary">{profile?.ratingAvg || 0}</span>
+                    <span className="font-bold text-primary">{vendorProfile?.ratingAvg ?? profile?.ratingAvg ?? 0}</span>
                     <span className="text-sm text-gray-500">(256 đánh giá)</span>
                   </div>
                   <div className="flex items-center gap-1 text-gray-600">
@@ -317,17 +715,16 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
                 Thông Tin Cửa Hàng
               </h2>
               <p className="text-gray-700 leading-relaxed mb-6">
-                Cung cấp mâm cúng trọn gói chất lượng cao với các dịch vụ tư vấn miễn phí. 
-                Cam kết sử dụng nguyên liệu tươi sạch, tuân theo nghi lễ truyền thống.
+                {vendorProfile?.shopDescription || 'Cung cấp mâm cúng trọn gói chất lượng cao với các dịch vụ tư vấn miễn phí. Cam kết sử dụng nguyên liệu tươi sạch, tuân theo nghi lễ truyền thống.'}
               </p>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-gold/10">
                 <div>
-                  <p className="text-xs font-bold uppercase text-gold tracking-widest mb-2">📍 Địa Chỉ</p>
+                  <p className="text-xs font-bold uppercase text-gold tracking-widest mb-2"> Địa Chỉ</p>
                   <p className="text-gray-700 font-semibold">{profile?.addressText || 'Chưa có địa chỉ'}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-bold uppercase text-gold tracking-widest mb-2">📞 Liên Hệ</p>
+                  <p className="text-xs font-bold uppercase text-gold tracking-widest mb-2"> Liên Hệ</p>
                   <div className="space-y-2">
                     <p className="text-gray-700 font-semibold">{profile?.phoneNumber || 'Chưa có số điện thoại'}</p>
                     <p className="text-gray-700 font-semibold">{profile?.userId || 'user'}@vietritual.com</p>
@@ -432,7 +829,7 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
         {/* Reviews Section */}
         <div className="bg-white rounded-2xl border border-gold/10 shadow-sm p-8 mb-12">
           <h2 className="text-2xl font-bold text-primary mb-6">
-            ⭐ Đánh Giá Gần Đây
+            Đánh Giá Gần Đây
           </h2>
           <div className="space-y-4">
             {[
@@ -511,7 +908,7 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Tên Cửa Hàng</label>
                     <input
                       type="text"
-                      value={profile?.shopName || 'Modern Ritual Shop'}
+                      value={displayShopName || 'Modern Ritual Shop'}
                       className="w-full px-3 py-3 bg-white border border-gray-300 rounded-lg text-gray-500"
                       readOnly
                     />
@@ -556,23 +953,153 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
                 {/* Địa Chỉ Cửa Hàng */}
                 <div className="mt-6">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Địa Chỉ Cửa Hàng</label>
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      value={formData.addressText}
-                      onChange={(e) => handleInputChange('addressText', e.target.value)}
-                      className="flex-1 px-3 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                    />
-                    <button
-                      type="button"
-                      onClick={handleGetCoordinates}
-                      disabled={coordinateLoading || !formData.addressText.trim()}
-                      className="px-4 py-3 bg-blue-500 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600 transition-colors whitespace-nowrap"
-                    >
-                      {coordinateLoading ? 'Đang lấy tọa độ...' : 'Lấy Tọa Độ'}
-                    </button>
-                  </div>
+                  {!isCreatingNewAddress && (
+                    <div className="rounded-xl border border-gray-200 bg-white p-4">
+                      <p className="text-sm text-gray-700">
+                        {profile?.addressText || 'Chưa có địa chỉ cửa hàng'}
+                      </p>
+                      <div className="mt-3 flex justify-end">
+                        <button
+                          type="button"
+                          onClick={resetAddressInputsForNew}
+                          className="rounded-lg border border-primary px-4 py-2 text-xs font-bold uppercase tracking-wide text-primary hover:bg-primary/10"
+                        >
+                          Đặt địa chỉ mới
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {isCreatingNewAddress && (
+                    <>
+                      <div className="flex justify-end mb-3">
+                        <button
+                          type="button"
+                          onClick={restoreAddressFromProfile}
+                          className="text-xs font-semibold text-gray-600 hover:underline"
+                        >
+                          Hủy nhập địa chỉ mới
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <select
+                          value={selectedProvince || ''}
+                          onChange={(e) => {
+                            const code = e.target.value ? Number(e.target.value) : null;
+                            setSelectedProvince(code);
+                            setSelectedDistrict(null);
+                            setSelectedWard(null);
+                          }}
+                          className="w-full px-3 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                          disabled={loadingProvinces}
+                          required={isCreatingNewAddress}
+                        >
+                          <option value="">{loadingProvinces ? 'Đang tải tỉnh/thành...' : 'Chọn Tỉnh/Thành phố'}</option>
+                          {provinces.map((province) => (
+                            <option key={province.code} value={province.code}>{province.name}</option>
+                          ))}
+                        </select>
+
+                        <select
+                          value={selectedDistrict || ''}
+                          onChange={(e) => {
+                            const code = e.target.value ? Number(e.target.value) : null;
+                            setSelectedDistrict(code);
+                            setSelectedWard(null);
+                          }}
+                          className="w-full px-3 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                          disabled={!selectedProvince || loadingDistricts}
+                          required={isCreatingNewAddress}
+                        >
+                          <option value="">{loadingDistricts ? 'Đang tải quận/huyện...' : 'Chọn Quận/Huyện'}</option>
+                          {districts.map((district) => (
+                            <option key={district.code} value={district.code}>{district.name}</option>
+                          ))}
+                        </select>
+
+                        <select
+                          value={selectedWard || ''}
+                          onChange={(e) => {
+                            const code = e.target.value ? Number(e.target.value) : null;
+                            setSelectedWard(code);
+                          }}
+                          className="w-full px-3 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
+                          disabled={!selectedDistrict || loadingWards}
+                        >
+                          <option value="">{loadingWards ? 'Đang tải phường/xã...' : 'Chọn Phường/Xã (tùy chọn)'}</option>
+                          {wards.map((ward) => (
+                            <option key={ward.code} value={ward.code}>{ward.name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="mt-3">
+                        <input
+                          type="text"
+                          value={detailedAddress}
+                          onChange={(e) => {
+                            setDetailedAddress(e.target.value);
+                            setFormData((prev) => ({ ...prev, addressText: e.target.value }));
+                          }}
+                          placeholder="Số nhà, tên đường..."
+                          className="w-full px-3 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          required={isCreatingNewAddress}
+                        />
+                        <div className="mt-2 flex justify-end">
+                          <button
+                            type="button"
+                            onClick={handleSearchOnMap}
+                            disabled={searchMapLoading}
+                            className="rounded-lg border border-primary px-4 py-2 text-xs font-bold uppercase tracking-wide text-primary hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            {searchMapLoading ? 'Đang tìm...' : 'Tìm trên bản đồ'}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
+                        <div className="flex justify-end mb-2">
+                          <button
+                            type="button"
+                            onClick={handleUseCurrentLocation}
+                            className="text-xs font-semibold text-primary hover:underline"
+                          >
+                            Dùng vị trí hiện tại
+                          </button>
+                        </div>
+
+                        {mapPreviewLoading && (
+                          <p className="text-sm text-slate-500">Đang tìm vị trí trên bản đồ...</p>
+                        )}
+                        {!mapPreviewLoading && mapPreviewError && (
+                          <p className="text-sm text-red-600">{mapPreviewError}</p>
+                        )}
+
+                        {!mapPreviewLoading && (
+                          <>
+                            <AddressMapPicker
+                              position={mapPickerPosition}
+                              onPositionChange={handleMapPositionChange}
+                            />
+                            <div className="mt-2 flex justify-end">
+                              <button
+                                type="button"
+                                onClick={handleConfirmMapSelection}
+                                disabled={coordinateLoading}
+                                className="rounded-lg bg-primary px-4 py-2 text-xs font-bold uppercase tracking-wide text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                              >
+                                {coordinateLoading ? 'Đang xác nhận...' : 'Xác nhận vị trí đã chọn'}
+                              </button>
+                            </div>
+                            <p className="mt-2 text-xs text-slate-500">
+                              Nhấn vào bản đồ hoặc kéo ghim để chỉnh vị trí chính xác trước khi lưu.
+                            </p>
+                          </>
+                        )}
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 {/* Mô Tả Cửa Hàng */}
@@ -592,7 +1119,7 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Giấy Phép Kinh Doanh</label>
                     <select
-                      value={profile?.verificationStatus === 'Verified' ? 'Có' : 'Không'}
+                      value={(vendorProfile?.verificationStatus || profile?.verificationStatus) === 'Verified' ? 'Có' : 'Không'}
                       className="w-full px-3 py-3 bg-green-50 border border-green-300 rounded-lg text-green-700 font-medium"
                       disabled
                     >
@@ -606,7 +1133,7 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Mã Số Thuế</label>
                     <input
                       type="text"
-                      value={formData.taxCode}
+                      value={formData.taxCode || ''}
                       onChange={(e) => handleInputChange('taxCode', e.target.value)}
                       className="w-full px-3 py-3 bg-green-50 border border-green-300 rounded-lg text-green-700 font-medium"
                       placeholder="Nhập mã số thuế..."
