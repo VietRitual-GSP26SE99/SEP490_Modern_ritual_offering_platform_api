@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { checkoutService, CheckoutSummary } from '../../services/checkoutService';
 import { getCurrentUser, getProfile } from '../../services/auth';
+import { addressService, CustomerAddress } from '../../services/addressService';
 import toast from '../../services/toast';
 
 const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate }) => {
@@ -14,11 +15,14 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
   const [processing, setProcessing] = useState(false);
 
   const [deliveryDate, setDeliveryDate] = useState('');
-  const [deliveryTimeSlot, setDeliveryTimeSlot] = useState('07:00:00');
+  const [deliveryTimeSlot, setDeliveryTimeSlot] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('PayOS');
   const [decorationNotes, setDecorationNotes] = useState<{ [key: number]: string }>({});
   const [phoneNumber, setPhoneNumber] = useState('');
   const [fullName, setFullName] = useState('');
+  const [addresses, setAddresses] = useState<CustomerAddress[]>([]);
+  const [showAddressSelector, setShowAddressSelector] = useState(false);
+  const [selectingAddress, setSelectingAddress] = useState(false);
 
   const timeSlots = [
     { value: '07:00:00', label: '7:00 - 9:00 (Tý-Sửu)' },
@@ -52,6 +56,10 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
 
       try {
         setLoading(true);
+        // Fetch addresses first
+        const addressList = await addressService.getAddresses();
+        setAddresses(addressList);
+
         const summaryData = await checkoutService.getSummary([
           parseInt(cartItemId)
         ]);
@@ -99,9 +107,59 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
     fetchSummary();
   }, [isCheckingAuth, searchParams, navigate]);
 
+  const handleSelectAddress = async (addressId: string | number) => {
+    try {
+      setSelectingAddress(true);
+      const success = await addressService.setDefaultAddress(addressId);
+      if (success) {
+        // Refresh summary to get new shipping fee
+        const cartItemId = searchParams.get('cartItemId');
+        if (cartItemId) {
+          const summaryData = await checkoutService.getSummary([parseInt(cartItemId)]);
+          if (summaryData) {
+            setSummary(summaryData);
+          }
+        }
+        setShowAddressSelector(false);
+        toast.success('Đã cập nhật địa chỉ giao hàng');
+      } else {
+        toast.error('Không thể thay đổi địa chỉ');
+      }
+    } catch (err) {
+      toast.error('Lỗi khi thay đổi địa chỉ');
+    } finally {
+      setSelectingAddress(false);
+    }
+  };
+
   const handleCheckout = async () => {
     if (!deliveryDate) {
       toast.error('Vui lòng chọn ngày giao hàng');
+      return;
+    }
+
+    if (!deliveryTimeSlot) {
+      toast.error('Vui lòng nhập giờ giao hàng');
+      return;
+    }
+
+    // Validate 48h and 1 month limit
+    const now = new Date();
+    const [hours, minutes] = deliveryTimeSlot.split(':').map(Number);
+    const selectedDateTime = new Date(deliveryDate);
+    selectedDateTime.setHours(hours, minutes, 0, 0);
+
+    const diffInHours = (selectedDateTime.getTime() - now.getTime()) / (1000 * 60 * 60);
+    const oneMonthFromNow = new Date();
+    oneMonthFromNow.setMonth(now.getMonth() + 1);
+
+    if (diffInHours < 48) {
+      toast.error('Thời gian đặt hàng phải cách thời điểm hiện tại ít nhất 48 giờ để chuẩn bị.');
+      return;
+    }
+
+    if (selectedDateTime > oneMonthFromNow) {
+      toast.error('Thời gian đặt hàng không được quá 1 tháng kể từ hiện tại.');
       return;
     }
 
@@ -253,13 +311,71 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
               <input type="tel" defaultValue={phoneNumber} placeholder="Nhập số điện thoại" className="w-full bg-ritual-bg border-gold/10 rounded-2xl p-4 focus:ring-primary focus:border-primary" />
             </div>
             <div className="md:col-span-2 space-y-2">
-              <label className="text-xs font-bold uppercase text-slate-400">Địa chỉ nhận hàng</label>
-              <input
-                type="text"
-                defaultValue={summary.deliveryAddress || ''}
-                placeholder="Số nhà, tên đường..."
-                className="w-full bg-ritual-bg border-gold/10 rounded-2xl p-4 focus:ring-primary focus:border-primary"
-              />
+              <div className="flex justify-between items-center">
+                <label className="text-xs font-bold uppercase text-slate-400">Địa chỉ nhận hàng</label>
+                {addresses.length > 0 && (
+                  <button 
+                    type="button"
+                    onClick={() => setShowAddressSelector(!showAddressSelector)}
+                    className="text-xs font-bold text-primary hover:underline flex items-center gap-1"
+                  >
+                    <span className="material-symbols-outlined text-sm">edit_location</span>
+                    {showAddressSelector ? 'Đóng' : 'Thay đổi'}
+                  </button>
+                )}
+              </div>
+              
+              {showAddressSelector ? (
+                <div className="space-y-3 mt-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                  <p className="text-xs text-slate-500 italic pb-2">Chọn một địa chỉ từ danh sách của bạn:</p>
+                  <div className="grid grid-cols-1 gap-3 max-h-60 overflow-y-auto pr-2 custom-scrollbar">
+                    {addresses.map((addr) => (
+                      <div 
+                        key={addr.addressId}
+                        onClick={() => !selectingAddress && handleSelectAddress(addr.addressId)}
+                        className={`p-4 rounded-2xl border-2 transition-all cursor-pointer flex justify-between items-start group ${
+                          summary.deliveryAddress?.includes(addr.addressText) 
+                            ? 'border-primary bg-primary/5' 
+                            : 'border-gray-100 hover:border-primary/30 hover:bg-ritual-bg'
+                        } ${selectingAddress ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      >
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-gray-800 group-hover:text-primary transition-colors">
+                            {addr.addressText}
+                          </p>
+                          {addr.isDefault && (
+                            <span className="inline-block mt-1 px-2 py-0.5 bg-primary/10 text-primary text-[10px] font-bold rounded-md">Mặc định</span>
+                          )}
+                        </div>
+                        {summary.deliveryAddress?.includes(addr.addressText) && (
+                          <span className="material-symbols-outlined text-primary">check_circle</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => navigate('/profile?tab=address')}
+                    className="w-full py-3 px-4 rounded-xl border border-dashed border-gray-300 text-slate-500 text-sm hover:text-primary hover:border-primary transition-all flex items-center justify-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-sm">add_circle</span>
+                    Thêm địa chỉ mới
+                  </button>
+                </div>
+              ) : (
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={summary.deliveryAddress || ''}
+                    readOnly
+                    placeholder="Chọn địa chỉ từ danh sách..."
+                    className="w-full bg-ritual-bg border border-gold/10 rounded-2xl p-4 focus:ring-primary focus:border-primary cursor-default text-gray-700 font-medium"
+                  />
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300">
+                    <span className="material-symbols-outlined">location_on</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </section>
@@ -276,21 +392,19 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
                 type="date"
                 value={deliveryDate}
                 onChange={(e) => setDeliveryDate(e.target.value)}
-                min={new Date().toISOString().split('T')[0]}
+                min={new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString().split('T')[0]}
+                max={new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]}
                 className="w-full bg-ritual-bg border border-gold/10 rounded-2xl p-4 focus:ring-primary focus:border-primary"
               />
             </div>
             <div className="space-y-2">
-              <label className="text-xs font-bold uppercase text-slate-400">Giờ giao hàng (Hoàng đạo)</label>
-              <select
+              <label className="text-xs font-bold uppercase text-slate-400">Giờ giao hàng</label>
+              <input
+                type="time"
                 value={deliveryTimeSlot}
                 onChange={(e) => setDeliveryTimeSlot(e.target.value)}
                 className="w-full bg-ritual-bg border border-gold/10 rounded-2xl p-4 focus:ring-primary focus:border-primary"
-              >
-                {timeSlots.map(slot => (
-                  <option key={slot.value} value={slot.value}>{slot.label}</option>
-                ))}
-              </select>
+              />
             </div>
           </div>
           <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 text-sm text-slate-600">
