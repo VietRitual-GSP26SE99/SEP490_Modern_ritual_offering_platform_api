@@ -52,9 +52,15 @@ const AppContent: React.FC<{
   onRoleChange: (role: UserRole) => void;
 }> = ({ userRole, isAuthenticated, onLogout, onRoleChange }) => {
   const navigate = useNavigate();
+  const currentUser = getCurrentUser();
+  const normalizedRoles = (currentUser?.roles || [])
+    .filter((role): role is string => typeof role === 'string')
+    .map((role) => role.toLowerCase());
+  const hasVendorRole = userRole === 'vendor' || normalizedRoles.includes('vendor');
+  const hasCustomerRole = userRole === 'customer' || normalizedRoles.includes('customer');
   const isProfileSetupRequired =
     isAuthenticated &&
-    userRole === 'customer' &&
+    hasCustomerRole &&
     localStorage.getItem(PROFILE_SETUP_REQUIRED_KEY) === 'true';
 
   const handleLogin = (role: UserRole, firstTimeLogin?: boolean) => {
@@ -124,20 +130,20 @@ const AppContent: React.FC<{
       <Route path="/shop" element={isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/shop" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><CustomerProductList onNavigate={handleNavigate} /></Layout>} />
       <Route path="/product/:id" element={isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/product/:id" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><CustomerProductDetail onNavigate={handleNavigate} /></Layout>} />
       <Route path="/cart" element={isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/cart" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><CartPage onNavigate={handleNavigate} /></Layout>} />
-      <Route path="/checkout" element={isAuthenticated && userRole === 'customer' ? (isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/checkout" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><CustomerCheckout onNavigate={handleNavigate} /></Layout>) : <Navigate to="/auth" />} />
-      <Route path="/payment-success" element={isAuthenticated && userRole === 'customer' ? (isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <PaymentSuccessPage onNavigate={handleNavigate} />) : <Navigate to="/auth" />} />
-      <Route path="/tracking" element={isAuthenticated && userRole === 'customer' ? (isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/tracking" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><CustomerTracking /></Layout>) : <Navigate to="/auth" />} />
-      <Route path="/profile" element={isAuthenticated && userRole === 'customer' ? <ProfilePageWrapper /> : <Navigate to="/auth" />} />
-      <Route path="/profile/orders" element={isAuthenticated && userRole === 'customer' ? (isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/profile/orders" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><MyOrdersPage /></Layout>) : <Navigate to="/auth" />} />
-      <Route path="/profile/orders/:id" element={isAuthenticated && userRole === 'customer' ? (isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/profile/orders/:id" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><OrderDetailsPage /></Layout>) : <Navigate to="/auth" />} />
+      <Route path="/checkout" element={isAuthenticated && hasCustomerRole ? (isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/checkout" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><CustomerCheckout onNavigate={handleNavigate} /></Layout>) : <Navigate to="/auth" />} />
+      <Route path="/payment-success" element={isAuthenticated && hasCustomerRole ? (isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <PaymentSuccessPage onNavigate={handleNavigate} />) : <Navigate to="/auth" />} />
+      <Route path="/tracking" element={isAuthenticated && hasCustomerRole ? (isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/tracking" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><CustomerTracking /></Layout>) : <Navigate to="/auth" />} />
+      <Route path="/profile" element={isAuthenticated && hasCustomerRole ? <ProfilePageWrapper /> : <Navigate to="/auth" />} />
+      <Route path="/profile/orders" element={isAuthenticated && hasCustomerRole ? (isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/profile/orders" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><MyOrdersPage /></Layout>) : <Navigate to="/auth" />} />
+      <Route path="/profile/orders/:id" element={isAuthenticated && hasCustomerRole ? (isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/profile/orders/:id" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><OrderDetailsPage /></Layout>) : <Navigate to="/auth" />} />
 
       {/* Vendor Routes */}
-      <Route path="/vendor/dashboard" element={isAuthenticated && userRole === 'vendor' ? <Layout activeRoute="/vendor/dashboard" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><VendorDashboard onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
-      <Route path="/vendor/shop" element={isAuthenticated && userRole === 'vendor' ? <Layout activeRoute="/vendor/shop" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><VendorShop onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
-      <Route path="/vendor/products" element={isAuthenticated && userRole === 'vendor' ? <Layout activeRoute="/vendor/products" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><ProductManagement onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
-      <Route path="/vendor/orders" element={isAuthenticated && userRole === 'vendor' ? <Layout activeRoute="/vendor/orders" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><OrderManagement onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
-      <Route path="/vendor/analytics" element={isAuthenticated && userRole === 'vendor' ? <Layout activeRoute="/vendor/analytics" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><VendorAnalytics onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
-      <Route path="/vendor/settings" element={isAuthenticated && userRole === 'vendor' ? <Layout activeRoute="/vendor/settings" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><VendorSettings onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
+      <Route path="/vendor/dashboard" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/dashboard" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorDashboard onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
+      <Route path="/vendor/shop" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/shop" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorShop onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
+      <Route path="/vendor/products" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/products" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><ProductManagement onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
+      <Route path="/vendor/orders" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/orders" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><OrderManagement onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
+      <Route path="/vendor/analytics" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/analytics" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorAnalytics onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
+      <Route path="/vendor/settings" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/settings" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorSettings onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
 
       {/* Staff Routes */}
       <Route path="/staff/dashboard" element={isAuthenticated && userRole === 'staff' ? <StaffDashboard onNavigate={handleNavigate} onLogout={onLogout} /> : <Navigate to="/auth" />} />

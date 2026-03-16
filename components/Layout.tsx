@@ -32,6 +32,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
   const isCustomer = userRole === 'customer' || userRole === 'guest';
   const isVendor = userRole === 'vendor';
   const isAdmin = userRole === 'admin';
+  const currentUser = getCurrentUser();
+  const hasVendorRole =
+    currentUser?.role === 'vendor' ||
+    currentUser?.roles?.some((role) => typeof role === 'string' && role.toLowerCase() === 'vendor');
 
   // Fetch user info
   useEffect(() => {
@@ -142,6 +146,22 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
 
   return (
     <div className="min-h-screen flex flex-col font-sans">
+      {!hideHeader && isCustomer && activeRoute === '/' && hasVendorRole && (
+        <div className="bg-gradient-to-r from-amber-50 via-white to-amber-50 border-b border-amber-100">
+          <div className="max-w-7xl mx-auto px-6 md:px-10 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <div className="flex items-center gap-2 text-amber-800">
+              <span className="text-sm font-semibold tracking-wide">Tài khoản của bạn có quyền Người Bán</span>
+            </div>
+            <button
+              onClick={() => onNavigate('/vendor/dashboard')}
+              className="inline-flex items-center justify-center rounded-full border border-amber-300 bg-white px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-amber-800 hover:bg-amber-100 transition-all"
+            >
+              Đi Đến Kênh Người Bán
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Header - Hidden during first-time setup */}
       {!hideHeader && (
         <header className="sticky top-0 z-50 bg-white border-b border-gray-200">

@@ -10,7 +10,8 @@ import {
   District,
   Ward
 } from '../../services/vietnamAddressApi';
-import { googleMapsService, geocodingService } from '../../services/geocodingService';
+import { geocodingService, ReverseGeocodingAddress, AddressSuggestion } from '../../services/geocodingService';
+import AddressMapPicker from '../../components/AddressMapPicker';
 
 interface ProfilePageProps {
   onNavigate: (path: string) => void;
@@ -40,6 +41,7 @@ interface UpdateCustomerAddressRequest {
 }
 
 const PROFILE_SETUP_REQUIRED_KEY = 'modern-ritual-profile-setup-required';
+const DEFAULT_MAP_POSITION = { latitude: 10.8231, longitude: 106.6297 };
 
 const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
   const [searchParams] = useSearchParams();
@@ -119,6 +121,18 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
   // Google Maps Geocoding states
   const [geoLoading, setGeoLoading] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
+  const [mapPreviewLoading, setMapPreviewLoading] = useState(false);
+  const [mapPreviewError, setMapPreviewError] = useState<string | null>(null);
+  const [mapConfirmLoading, setMapConfirmLoading] = useState(false);
+  const [mapPreview, setMapPreview] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [isMapSelectionLocked, setIsMapSelectionLocked] = useState(false);
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
+  const [loadingAddressSuggestions, setLoadingAddressSuggestions] = useState(false);
+
+  const mapPickerPosition = mapPreview ?? {
+    latitude: Number(editForm.latitude) || DEFAULT_MAP_POSITION.latitude,
+    longitude: Number(editForm.longitude) || DEFAULT_MAP_POSITION.longitude,
+  };
 
   const isSameAddressId = (
     left: string | number | null | undefined,
@@ -129,6 +143,30 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
     }
 
     return String(left) === String(right);
+  };
+
+  const normalizeAddressText = (value?: string | null): string => {
+    if (!value) return '';
+    return value
+      .toLowerCase()
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/\b(tinh|thanh pho|quan|huyen|phuong|xa|thi tran|thi xa|tp\.?|q\.?|p\.?)\b/g, ' ')
+      .replace(/[^a-z0-9\s]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  };
+
+  const isNameMatch = (left?: string, right?: string): boolean => {
+    const leftNorm = normalizeAddressText(left);
+    const rightNorm = normalizeAddressText(right);
+    if (!leftNorm || !rightNorm) return false;
+    return leftNorm.includes(rightNorm) || rightNorm.includes(leftNorm);
+  };
+
+  const isPinnedCoordinateLabel = (value?: string | null): boolean => {
+    if (!value) return false;
+    return /^Vị trí đã ghim\s*\(/i.test(value.trim());
   };
 
   const fetchCustomerAddresses = async (): Promise<CustomerAddress[]> => {
@@ -411,6 +449,104 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
     }
   }, [selectedProvince, selectedDistrict, selectedWard, detailedAddress, provinces, districts, wards]);
 
+  // Auto-preview map when user inputs a new detailed address.
+  useEffect(() => {
+    if (!isEditing) return;
+
+    // With saved address selection, use existing coordinates directly.
+    if (selectedExistingAddressId !== null) {
+      const selectedAddress = customerAddresses.find((addr, index) => {
+        const id = addr.addressId ?? `address-${index}`;
+        return isSameAddressId(selectedExistingAddressId, id);
+      });
+
+      if (
+        selectedAddress &&
+        typeof selectedAddress.latitude === 'number' &&
+        typeof selectedAddress.longitude === 'number'
+      ) {
+        setMapPreview({ latitude: selectedAddress.latitude, longitude: selectedAddress.longitude });
+        setMapPreviewError(null);
+      } else {
+        setMapPreview(null);
+      }
+      setMapPreviewLoading(false);
+      return;
+    }
+
+    // Keep user-picked map location stable; only recalculate when address fields are changed manually.
+    if (isMapSelectionLocked && mapPreview) {
+      setMapPreviewLoading(false);
+      return;
+    }
+
+    const provinceName = provinces.find(p => p.code === selectedProvince)?.name;
+    const districtName = districts.find(d => d.code === selectedDistrict)?.name;
+    const wardName = wards.find(w => w.code === selectedWard)?.name;
+    const hasEnoughAddress = !!detailedAddress.trim() && !!provinceName && !!districtName;
+
+    if (!hasEnoughAddress) {
+      setMapPreview(null);
+      setMapPreviewLoading(false);
+      setMapPreviewError(null);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      try {
+        setMapPreviewLoading(true);
+        setMapPreviewError(null);
+
+        const result = await geocodingService.geocodeAddressComponents({
+          detailedAddress: detailedAddress.trim(),
+          wardName,
+          districtName,
+          provinceName,
+        });
+
+        if (cancelled) return;
+
+        if (result) {
+          setMapPreview({ latitude: result.latitude, longitude: result.longitude });
+          setEditForm((prev) => ({
+            ...prev,
+            latitude: result.latitude,
+            longitude: result.longitude,
+          }));
+        } else {
+          setMapPreview(null);
+          setMapPreviewError('Không tìm thấy vị trí chính xác cho địa chỉ này.');
+        }
+      } catch {
+        if (cancelled) return;
+        setMapPreview(null);
+        setMapPreviewError('Không thể tìm thấy vị trí trên bản đồ cho địa chỉ đã nhập.');
+      } finally {
+        if (!cancelled) {
+          setMapPreviewLoading(false);
+        }
+      }
+    }, 650);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [
+    isEditing,
+    isMapSelectionLocked,
+    selectedExistingAddressId,
+    customerAddresses,
+    detailedAddress,
+    selectedProvince,
+    selectedDistrict,
+    selectedWard,
+    provinces,
+    districts,
+    wards,
+  ]);
+
   // Fetch profile data on component mount
   useEffect(() => {
     const fetchProfile = async () => {
@@ -620,6 +756,279 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
       setGeoError(errorMessage);
     } finally {
       setGeoLoading(false);
+    }
+  };
+
+  const handleUseCurrentLocation = async () => {
+    if (!navigator.geolocation) {
+      setMapPreviewError('Trình duyệt không hỗ trợ lấy vị trí hiện tại.');
+      return;
+    }
+
+    try {
+      setMapPreviewLoading(true);
+      setMapPreviewError(null);
+
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        });
+      });
+
+      const latitude = position.coords.latitude;
+      const longitude = position.coords.longitude;
+
+      setMapPreview({ latitude, longitude });
+      setIsMapSelectionLocked(true);
+      setEditForm((prev) => ({ ...prev, latitude, longitude }));
+
+      const reverseAddress = await geocodingService.reverseGeocode(latitude, longitude);
+      if (reverseAddress) {
+        setDetailedAddress(reverseAddress);
+      }
+    } catch (error) {
+      console.error('❌ Failed to get current location:', error);
+      setMapPreviewError('Không thể lấy vị trí hiện tại. Vui lòng kiểm tra quyền truy cập vị trí.');
+    } finally {
+      setMapPreviewLoading(false);
+    }
+  };
+
+  const handleMapPositionChange = ({ latitude, longitude }: { latitude: number; longitude: number }) => {
+    setMapPreview({ latitude, longitude });
+    setIsMapSelectionLocked(true);
+    setMapPreviewError(null);
+    setEditForm((prev) => ({
+      ...prev,
+      latitude,
+      longitude,
+    }));
+  };
+
+  useEffect(() => {
+    if (!isEditing || selectedExistingAddressId !== null) {
+      setAddressSuggestions([]);
+      setLoadingAddressSuggestions(false);
+      return;
+    }
+
+    const keyword = detailedAddress.trim();
+    if (keyword.length < 3) {
+      setAddressSuggestions([]);
+      setLoadingAddressSuggestions(false);
+      return;
+    }
+
+    const districtName = districts.find((d) => d.code === selectedDistrict)?.name;
+    const provinceName = provinces.find((p) => p.code === selectedProvince)?.name;
+
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      try {
+        setLoadingAddressSuggestions(true);
+        const suggestions = await geocodingService.suggestAddresses(keyword, districtName, provinceName);
+        if (cancelled) return;
+        setAddressSuggestions(suggestions);
+      } finally {
+        if (!cancelled) {
+          setLoadingAddressSuggestions(false);
+        }
+      }
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [isEditing, selectedExistingAddressId, detailedAddress, selectedDistrict, selectedProvince, districts, provinces]);
+
+  const handlePickAddressSuggestion = (suggestion: AddressSuggestion) => {
+    const display = suggestion.displayName;
+    const firstPart = display.split(',')[0]?.trim() || detailedAddress;
+
+    setSelectedExistingAddressId(null);
+    setDetailedAddress(firstPart);
+    setMapPreview({ latitude: suggestion.latitude, longitude: suggestion.longitude });
+    setIsMapSelectionLocked(true);
+    setMapPreviewError(null);
+    setAddressSuggestions([]);
+    setEditForm((prev) => ({
+      ...prev,
+      addressText: display,
+      latitude: suggestion.latitude,
+      longitude: suggestion.longitude,
+    }));
+  };
+
+  const findProvinceByReverse = (reverseData: ReverseGeocodingAddress): Province | undefined => {
+    return provinces.find((province) => {
+      return (
+        isNameMatch(reverseData.provinceName, province.name) ||
+        isNameMatch(reverseData.provinceName, province.full_name) ||
+        isNameMatch(reverseData.formattedAddress, province.name) ||
+        isNameMatch(reverseData.formattedAddress, province.full_name)
+      );
+    });
+  };
+
+  const findDistrictByReverse = (reverseData: ReverseGeocodingAddress, districtList: District[]): District | undefined => {
+    return districtList.find((district) => {
+      return (
+        isNameMatch(reverseData.districtName, district.name) ||
+        isNameMatch(reverseData.districtName, district.full_name) ||
+        isNameMatch(reverseData.formattedAddress, district.name) ||
+        isNameMatch(reverseData.formattedAddress, district.full_name)
+      );
+    });
+  };
+
+  const findWardByReverse = (reverseData: ReverseGeocodingAddress, wardList: Ward[]): Ward | undefined => {
+    return wardList.find((ward) => {
+      return (
+        isNameMatch(reverseData.wardName, ward.name) ||
+        isNameMatch(reverseData.wardName, ward.full_name) ||
+        isNameMatch(reverseData.formattedAddress, ward.name) ||
+        isNameMatch(reverseData.formattedAddress, ward.full_name)
+      );
+    });
+  };
+
+  const handleConfirmMapSelection = async () => {
+    const targetLat = mapPickerPosition.latitude;
+    const targetLng = mapPickerPosition.longitude;
+
+    try {
+      setMapConfirmLoading(true);
+      setMapPreviewError(null);
+      setSelectedExistingAddressId(null);
+
+      const reverseData = await geocodingService.reverseGeocodeDetails(targetLat, targetLng);
+
+      const fallbackProvinceName = provinces.find((p) => p.code === selectedProvince)?.name;
+      const fallbackDistrictName = districts.find((d) => d.code === selectedDistrict)?.name;
+      const fallbackWardName = wards.find((w) => w.code === selectedWard)?.name;
+
+      const effectiveReverseData: ReverseGeocodingAddress = reverseData || {
+        formattedAddress: '',
+        provinceName: fallbackProvinceName,
+        districtName: fallbackDistrictName,
+        wardName: fallbackWardName,
+        detailedAddress: detailedAddress?.trim() || '',
+      };
+
+      const calculateDistanceKm = (
+        lat1: number,
+        lng1: number,
+        lat2: number,
+        lng2: number
+      ): number => {
+        const toRad = (value: number) => (value * Math.PI) / 180;
+        const earthRadiusKm = 6371;
+        const dLat = toRad(lat2 - lat1);
+        const dLng = toRad(lng2 - lng1);
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+          Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return earthRadiusKm * c;
+      };
+
+      const matchedProvince = findProvinceByReverse(effectiveReverseData);
+      let matchedDistrict: District | undefined;
+      let matchedWard: Ward | undefined;
+
+      if (matchedProvince) {
+        setSelectedProvince(matchedProvince.code);
+        const provinceDistricts = await getDistrictsByProvince(matchedProvince.code);
+        setDistricts(provinceDistricts);
+
+        matchedDistrict = findDistrictByReverse(effectiveReverseData, provinceDistricts);
+        if (matchedDistrict) {
+          setSelectedDistrict(matchedDistrict.code);
+          const districtWards = await getWardsByDistrict(matchedDistrict.code);
+          setWards(districtWards);
+
+          matchedWard = findWardByReverse(effectiveReverseData, districtWards);
+          if (matchedWard) {
+            setSelectedWard(matchedWard.code);
+          }
+        }
+      }
+
+      let nextDetailedAddress =
+        effectiveReverseData.detailedAddress ||
+        effectiveReverseData.formattedAddress.split(',')[0]?.trim() ||
+        detailedAddress;
+
+      if (isPinnedCoordinateLabel(nextDetailedAddress)) {
+        nextDetailedAddress = effectiveReverseData.formattedAddress.split(',')[0]?.trim() || '';
+      }
+
+      let resolvedDetailedAddress = nextDetailedAddress;
+      let resolvedAddressTextFromSuggestion = '';
+
+      // Prefer nearest suggestion around the selected pin to avoid keeping stale value like S106 when pin is on S105.
+      if (detailedAddress.trim().length >= 3 && !isPinnedCoordinateLabel(detailedAddress)) {
+        const nearbySuggestions = await geocodingService.suggestAddresses(
+          detailedAddress.trim(),
+          matchedDistrict?.name || effectiveReverseData.districtName || fallbackDistrictName,
+          matchedProvince?.name || effectiveReverseData.provinceName || fallbackProvinceName
+        );
+
+        if (nearbySuggestions.length > 0) {
+          const nearest = [...nearbySuggestions].sort((a, b) => {
+            const distA = calculateDistanceKm(targetLat, targetLng, a.latitude, a.longitude);
+            const distB = calculateDistanceKm(targetLat, targetLng, b.latitude, b.longitude);
+            return distA - distB;
+          })[0];
+
+          const nearestDistanceKm = calculateDistanceKm(targetLat, targetLng, nearest.latitude, nearest.longitude);
+          if (nearestDistanceKm <= 0.8) {
+            resolvedDetailedAddress = nearest.displayName.split(',')[0]?.trim() || resolvedDetailedAddress;
+            resolvedAddressTextFromSuggestion = nearest.displayName;
+          }
+        }
+      }
+
+      const provinceText = matchedProvince?.name || effectiveReverseData.provinceName || fallbackProvinceName || '';
+      const districtText = matchedDistrict?.name || effectiveReverseData.districtName || fallbackDistrictName || '';
+      const wardText = matchedWard?.name || effectiveReverseData.wardName || fallbackWardName || '';
+
+      if (!resolvedDetailedAddress || !resolvedDetailedAddress.trim()) {
+        resolvedDetailedAddress =
+          effectiveReverseData.formattedAddress.split(',')[0]?.trim() ||
+          detailedAddress.trim() ||
+          'Địa điểm đã chọn trên bản đồ';
+      }
+
+      const composedAddressText = [resolvedDetailedAddress, wardText, districtText, provinceText]
+        .filter(Boolean)
+        .join(', ');
+
+      setDetailedAddress(resolvedDetailedAddress);
+
+      setMapPreview({ latitude: targetLat, longitude: targetLng });
+      setIsMapSelectionLocked(true);
+      setEditForm((prev) => ({
+        ...prev,
+        latitude: targetLat,
+        longitude: targetLng,
+        addressText:
+          resolvedAddressTextFromSuggestion ||
+          composedAddressText ||
+          effectiveReverseData.formattedAddress ||
+          prev.addressText,
+      }));
+
+      toast.success('Đã xác nhận vị trí pin và tự động điền địa chỉ vào form.');
+    } catch (error) {
+      console.error('❌ Failed to confirm map selection:', error);
+      setMapPreviewError('Không thể xác nhận vị trí trên bản đồ. Vui lòng thử lại.');
+    } finally {
+      setMapConfirmLoading(false);
     }
   };
 
@@ -1190,6 +1599,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                                 type="button"
                                 onClick={() => {
                                   setSelectedExistingAddressId(null);
+                                  setIsMapSelectionLocked(false);
                                   setSelectedProvince(null);
                                   setSelectedDistrict(null);
                                   setSelectedWard(null);
@@ -1219,6 +1629,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                                 const label = addr.addressText || addr.fullAddress || '';
                                 const handleSelectAddress = () => {
                                   setSelectedExistingAddressId(id);
+                                  setIsMapSelectionLocked(true);
                                   setSelectedProvince(null);
                                   setSelectedDistrict(null);
                                   setSelectedWard(null);
@@ -1384,6 +1795,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                               value={selectedProvince || ''}
                               onChange={(e) => {
                                 setSelectedExistingAddressId(null);
+                                setIsMapSelectionLocked(false);
                                 const code = e.target.value ? Number(e.target.value) : null;
                                 setSelectedProvince(code);
                                 setSelectedDistrict(null);
@@ -1425,6 +1837,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                               value={selectedDistrict || ''}
                               onChange={(e) => {
                                 setSelectedExistingAddressId(null);
+                                setIsMapSelectionLocked(false);
                                 const code = e.target.value ? Number(e.target.value) : null;
                                 setSelectedDistrict(code);
                                 setSelectedWard(null);
@@ -1452,6 +1865,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                               value={selectedWard || ''}
                               onChange={(e) => {
                                 setSelectedExistingAddressId(null);
+                                setIsMapSelectionLocked(false);
                                 const code = e.target.value ? Number(e.target.value) : null;
                                 setSelectedWard(code);
                               }}
@@ -1492,11 +1906,73 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                             value={detailedAddress}
                             onChange={(e) => {
                               setSelectedExistingAddressId(null);
+                              setIsMapSelectionLocked(false);
                               setDetailedAddress(e.target.value);
                             }}
                             required={selectedExistingAddressId === null}
                             className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
                           />
+                          {loadingAddressSuggestions && (
+                            <p className="text-xs text-slate-500">Đang tìm gợi ý địa chỉ...</p>
+                          )}
+                          {!loadingAddressSuggestions && addressSuggestions.length > 0 && (
+                            <div className="max-h-52 overflow-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+                              {addressSuggestions.map((suggestion, index) => (
+                                <button
+                                  key={`${suggestion.latitude}-${suggestion.longitude}-${index}`}
+                                  type="button"
+                                  onClick={() => handlePickAddressSuggestion(suggestion)}
+                                  className="w-full border-b border-gray-100 px-3 py-2 text-left text-sm text-slate-700 hover:bg-primary/5 last:border-b-0"
+                                >
+                                  {suggestion.displayName}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold uppercase text-slate-400 tracking-widest">
+                            Bản đồ vị trí
+                          </label>
+                          <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                            <div className="flex justify-end mb-2">
+                              <button
+                                type="button"
+                                onClick={handleUseCurrentLocation}
+                                className="text-xs font-semibold text-primary hover:underline"
+                              >
+                                Dùng vị trí hiện tại
+                              </button>
+                            </div>
+                            {mapPreviewLoading && (
+                              <p className="text-sm text-slate-500">Đang tìm vị trí trên bản đồ...</p>
+                            )}
+                            {!mapPreviewLoading && mapPreviewError && (
+                              <p className="text-sm text-red-600">{mapPreviewError}</p>
+                            )}
+                            {!mapPreviewLoading && (
+                              <>
+                                <AddressMapPicker
+                                  position={mapPickerPosition}
+                                  onPositionChange={handleMapPositionChange}
+                                />
+                                <div className="mt-2 flex justify-end">
+                                  <button
+                                    type="button"
+                                    onClick={handleConfirmMapSelection}
+                                    disabled={mapConfirmLoading}
+                                    className="rounded-lg bg-primary px-4 py-2 text-xs font-bold uppercase tracking-wide text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                                  >
+                                    {mapConfirmLoading ? 'Đang xác nhận...' : 'Xác nhận vị trí đã chọn'}
+                                  </button>
+                                </div>
+                                <p className="mt-2 text-xs text-slate-500">
+                                  Nhấn vào bản đồ hoặc kéo ghim để chỉnh vị trí chính xác trước khi lưu.
+                                </p>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
 

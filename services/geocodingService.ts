@@ -16,6 +16,20 @@ export interface GeocodingResult {
   provider: 'nominatim' | 'google' | 'approximate';
 }
 
+export interface ReverseGeocodingAddress {
+  formattedAddress: string;
+  provinceName?: string;
+  districtName?: string;
+  wardName?: string;
+  detailedAddress?: string;
+}
+
+export interface AddressSuggestion {
+  displayName: string;
+  latitude: number;
+  longitude: number;
+}
+
 // Nominatim (OpenStreetMap) Response
 export interface NominatimResponse {
   place_id: number;
@@ -259,6 +273,71 @@ class GeocodingService {
     provinceName?: string;
   }): Promise<GeocodingResult | null> {
     const { detailedAddress, wardName, districtName, provinceName } = components;
+    const hasDetailedInput = !!detailedAddress?.trim();
+
+    const combinedAddress = [detailedAddress, wardName, districtName, provinceName]
+      .filter(Boolean)
+      .join(', ')
+      .toLowerCase();
+
+    // Practical fallback for highly common landmarks that users often input like shopping apps.
+    if (combinedAddress.includes('vinhomes grand park')) {
+      return {
+        latitude: 10.8429,
+        longitude: 106.8325,
+        formattedAddress: 'Vinhomes Grand Park, Long Bình, Thủ Đức, TP. Hồ Chí Minh',
+        provider: 'approximate'
+      };
+    }
+
+    // Prioritize house/building tokens (contains digits) to avoid wrong nearby points.
+    const strictKeywords = hasDetailedInput
+      ? this.extractKeywords(detailedAddress)
+          .filter((word) => /\d/.test(word) || word.length >= 4)
+          .slice(0, 6)
+      : [];
+
+    const canonicalize = (value: string): string =>
+      this.normalizeVi(value).replace(/[^a-z0-9]/g, '');
+
+    const isStrictMatch = (formattedAddress: string): boolean => {
+      if (strictKeywords.length === 0) return true;
+      const normalizedDisplay = this.normalizeVi(formattedAddress);
+      const canonicalDisplay = canonicalize(formattedAddress);
+
+      const matchedKeywords = strictKeywords.filter((keyword) => {
+        const normalizedKeyword = this.normalizeVi(keyword);
+        const canonicalKeyword = canonicalize(keyword);
+        return (
+          normalizedDisplay.includes(normalizedKeyword) ||
+          (canonicalKeyword.length > 0 && canonicalDisplay.includes(canonicalKeyword))
+        );
+      });
+
+      const numericKeywords = strictKeywords.filter((keyword) => /\d/.test(keyword));
+      const numericMatched = matchedKeywords.filter((keyword) => /\d/.test(keyword));
+      const textKeywords = strictKeywords.filter((keyword) => !/\d/.test(keyword));
+      const textMatched = matchedKeywords.filter((keyword) => !/\d/.test(keyword));
+
+      const numericPass = numericKeywords.length === 0 || numericMatched.length >= 1;
+      const textPass =
+        textKeywords.length === 0 ||
+        textMatched.length / textKeywords.length >= 0.6;
+
+      const missingKeywords = strictKeywords.filter((keyword) => !matchedKeywords.includes(keyword));
+
+      if (!numericPass || !textPass) {
+        console.warn('⚠️ Reject geocoding result due to missing strict keywords:', {
+          formattedAddress,
+          strictKeywords,
+          matchedKeywords,
+          missingKeywords,
+        });
+        return false;
+      }
+
+      return true;
+    };
 
     // Phát hiện địa chỉ chi tiết có tên đường thực sự hay chỉ là số nhà đơn lẻ
     const hasRealStreet = detailedAddress
@@ -284,7 +363,7 @@ class GeocodingService {
       city: districtName,
       state: provinceName,
     });
-    if (structuredResult) {
+    if (structuredResult && isStrictMatch(structuredResult.formattedAddress)) {
       console.log('✅ Nominatim structured success!');
       return structuredResult;
     }
@@ -310,27 +389,60 @@ class GeocodingService {
       queries.push({ q: `${provinceName}, Vietnam` });
     }
 
+    let bestLooseCandidate: GeocodingResult | null = null;
+
     for (const { q, district, province } of queries) {
       try {
         console.log('🔍 Trying Nominatim free-text:', q);
-        const result = await this.geocodeWithNominatim(
+        const constrainedResult = await this.geocodeWithNominatim(
           q,
           district || province
             ? { district, province }
             : undefined
         );
-        if (result) return result;
+        if (constrainedResult) {
+          if (isStrictMatch(constrainedResult.formattedAddress)) {
+            return constrainedResult;
+          }
+
+          // Keep first nearby result as a fallback (better than no position).
+          if (!bestLooseCandidate) {
+            bestLooseCandidate = constrainedResult;
+          }
+        }
+
+        // Retry without district/province hard filter to avoid false negatives on OSM naming variants.
+        if (!constrainedResult && (district || province)) {
+          const relaxedResult = await this.geocodeWithNominatim(q);
+          if (relaxedResult) {
+            const relaxedDisplay = this.normalizeVi(relaxedResult.formattedAddress);
+            const provinceOk = !province || relaxedDisplay.includes(this.normalizeVi(province));
+
+            if (provinceOk && isStrictMatch(relaxedResult.formattedAddress)) {
+              return relaxedResult;
+            }
+
+            if (provinceOk && !bestLooseCandidate) {
+              bestLooseCandidate = relaxedResult;
+            }
+          }
+        }
         await new Promise(r => setTimeout(r, 350));
       } catch { /* continue */ }
     }
 
-    // 3. Approximate cuối cùng
-    if (provinceName) {
+    if (bestLooseCandidate) {
+      console.warn('⚠️ Using nearby fallback geocoding result:', bestLooseCandidate.formattedAddress);
+      return bestLooseCandidate;
+    }
+
+    // 3. Approximate cuối cùng (only when user did not provide detailed address)
+    if (provinceName && !hasDetailedInput) {
       const approx = this.getApproximateCoordinates(provinceName, districtName);
       if (approx) return approx;
     }
 
-    throw new Error('Không tìm thấy tọa độ cho địa chỉ này');
+    throw new Error('Không tìm thấy tọa độ chính xác cho địa chỉ này. Vui lòng nhập rõ số nhà, đường, phường/xã.');
   }
 
   /** Nominatim structured search — chính xác hơn free-text */
@@ -602,7 +714,7 @@ class GeocodingService {
    * @param longitude - Kinh độ
    * @returns Địa chỉ
    */
-  async reverseGeocode(latitude: number, longitude: number): Promise<string | null> {
+  async reverseGeocodeDetails(latitude: number, longitude: number): Promise<ReverseGeocodingAddress | null> {
     try {
       // Try Nominatim first (FREE)
       const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?lat=${latitude}&lon=${longitude}&format=json&addressdetails=1`;
@@ -616,7 +728,68 @@ class GeocodingService {
       if (response.ok) {
         const data = await response.json();
         if (data && data.display_name) {
-          return data.display_name;
+          const address = (data.address || {}) as Record<string, string | undefined>;
+
+          const provinceName =
+            address.state ||
+            address.province ||
+            address.region ||
+            address.city;
+
+          const districtName =
+            address.city_district ||
+            address.county ||
+            address.state_district ||
+            address.city ||
+            address.town ||
+            address.municipality;
+
+          const wardName =
+            address.suburb ||
+            address.quarter ||
+            address.neighbourhood ||
+            address.city_block ||
+            address.village;
+
+          const detailedParts = [address.house_number, address.road, address.hamlet]
+            .filter(Boolean)
+            .map((part) => String(part));
+
+          const firstDisplaySegment = String(data.display_name)
+            .split(',')
+            .map((segment: string) => segment.trim())
+            .find((segment: string) => segment.length > 0);
+
+          return {
+            formattedAddress: data.display_name,
+            provinceName,
+            districtName,
+            wardName,
+            detailedAddress: detailedParts.join(', ') || firstDisplaySegment,
+          };
+        }
+      }
+
+      // Fallback provider with liberal CORS policy.
+      const bigDataUrl = `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=vi`;
+      const bigDataResponse = await fetch(bigDataUrl);
+      if (bigDataResponse.ok) {
+        const bigData = await bigDataResponse.json();
+        const localityParts = [
+          bigData.locality,
+          bigData.city || bigData.principalSubdivision,
+          bigData.principalSubdivision,
+          bigData.countryName,
+        ].filter(Boolean);
+
+        if (localityParts.length > 0) {
+          return {
+            formattedAddress: localityParts.join(', '),
+            provinceName: bigData.principalSubdivision,
+            districtName: bigData.city || bigData.locality,
+            wardName: bigData.locality,
+            detailedAddress: bigData.locality,
+          };
         }
       }
       
@@ -628,14 +801,52 @@ class GeocodingService {
         const googleData: GoogleMapsResponse = await googleResponse.json();
 
         if (googleData.status === 'OK' && googleData.results.length > 0) {
-          return googleData.results[0].formatted_address;
+          return {
+            formattedAddress: googleData.results[0].formatted_address,
+            detailedAddress: googleData.results[0].formatted_address.split(',')[0]?.trim(),
+          };
         }
       }
       
       return null;
     } catch (error) {
-      console.error('❌ Error in reverseGeocode:', error);
+      console.error('❌ Error in reverseGeocodeDetails:', error);
       return null;
+    }
+  }
+
+  async reverseGeocode(latitude: number, longitude: number): Promise<string | null> {
+    const details = await this.reverseGeocodeDetails(latitude, longitude);
+    return details?.formattedAddress || null;
+  }
+
+  async suggestAddresses(query: string, districtName?: string, provinceName?: string): Promise<AddressSuggestion[]> {
+    const keyword = query.trim();
+    if (!keyword || keyword.length < 3) return [];
+
+    try {
+      const composedQuery = [keyword, districtName, provinceName, 'Vietnam']
+        .filter(Boolean)
+        .join(', ');
+
+      const encodedAddress = encodeURIComponent(composedQuery);
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodedAddress}&format=json&limit=6&countrycodes=vn&addressdetails=1`;
+
+      const response = await fetch(url, {
+        headers: { 'User-Agent': 'Modern-Ritual-Offering-Platform/1.0' }
+      });
+
+      if (!response.ok) return [];
+
+      const data: NominatimResponse[] = await response.json();
+      return data.map((item) => ({
+        displayName: item.display_name,
+        latitude: parseFloat(item.lat),
+        longitude: parseFloat(item.lon),
+      }));
+    } catch (error) {
+      console.error('❌ Error in suggestAddresses:', error);
+      return [];
     }
   }
 }
