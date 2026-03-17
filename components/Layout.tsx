@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import Swal from 'sweetalert2';
 import { UserRole, AppRoute, getPath } from '../types';
 import { getCurrentUser } from '../services/auth';
@@ -7,6 +7,10 @@ import { cartService } from '../services/cartService';
 import { createTopupLink, getMyWallet, WalletType } from '../services/walletService';
 import CartDropdown from './CartDropdown';
 import toast from '../services/toast';
+
+const PENDING_CHECKOUT_KEY = 'pendingCheckoutRequest';
+const TOPUP_SUCCESS_TOAST_KEY = 'checkoutTopupSuccessToast';
+const TOPUP_CANCEL_TOAST_KEY = 'checkoutTopupCancelToast';
 
 interface NavItem {
   path?: string;
@@ -94,7 +98,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
   }, [isCustomer, activeRoute]); // Re-fetch when route changes
 
   // Detect PayOS return status from URL and notify user.
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (isTopupReturnHandled.current) return;
 
     const params = new URLSearchParams(window.location.search);
@@ -110,9 +114,35 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
 
     if (!hasPaymentParams) return;
 
+    const pendingRaw = sessionStorage.getItem(PENDING_CHECKOUT_KEY);
+    let pendingCheckoutReturnPath: string | null = null;
+    if (pendingRaw) {
+      try {
+        const pendingData = JSON.parse(pendingRaw) as { returnPath?: string };
+        if (typeof pendingData?.returnPath === 'string' && pendingData.returnPath.length > 0) {
+          pendingCheckoutReturnPath = pendingData.returnPath;
+        }
+      } catch (error) {
+      }
+    }
+
     if (isCancelled) {
+      if (pendingCheckoutReturnPath) {
+        sessionStorage.setItem(TOPUP_CANCEL_TOAST_KEY, '1');
+        sessionStorage.removeItem(PENDING_CHECKOUT_KEY);
+        isTopupReturnHandled.current = true;
+        window.location.replace(pendingCheckoutReturnPath);
+        return;
+      }
       toast.error('Nạp tiền đã thất bại.');
     } else if (isSuccess) {
+      if (pendingCheckoutReturnPath) {
+        sessionStorage.setItem(TOPUP_SUCCESS_TOAST_KEY, '1');
+        sessionStorage.removeItem(PENDING_CHECKOUT_KEY);
+        isTopupReturnHandled.current = true;
+        window.location.replace(pendingCheckoutReturnPath);
+        return;
+      }
       toast.success('Nạp tiền thành công.');
     }
 

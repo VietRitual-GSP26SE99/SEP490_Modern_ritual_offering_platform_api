@@ -32,7 +32,7 @@ export interface AddToCartRequest {
 }
 
 export interface UpdateCartItemRequest {
-  itemId: number;  // API endpoint expects 'itemId' even though response has 'cartItemId'
+  cartItemId: number;
   quantity: number;
 }
 

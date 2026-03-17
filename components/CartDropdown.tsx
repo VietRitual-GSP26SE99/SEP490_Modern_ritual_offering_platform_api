@@ -40,7 +40,13 @@ const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose, onNavigate
       setCart(cartData);
       
       if (cartData && cartData.cartItems && cartData.cartItems.length > 0) {
-        const cartItemIds = cartData.cartItems.map(item => item.cartItemId);
+        const cartItemIds = Array.from(
+          new Set(
+            cartData.cartItems
+              .map(item => item.cartItemId)
+              .filter((id) => Number.isFinite(id))
+          )
+        );
         const summary = await checkoutService.getSummary(cartItemIds);
         setCheckoutSummary(summary);
       } else {
@@ -58,6 +64,7 @@ const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose, onNavigate
   const cartItems = cart?.cartItems || [];
   const displayItems = cartItems.slice(0, 5); // Show max 5 items
   const remainingCount = cartItems.length - displayItems.length;
+  const displayTotal = checkoutSummary?.subTotal ?? cart?.subtotal ?? 0;
 
   return (
     <div 
@@ -94,7 +101,7 @@ const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose, onNavigate
             {displayItems.map((item) => {
               // Find matching item in checkout summary for correct pricing
               const summaryItem = checkoutSummary?.items?.find(i => i.cartItemId === item.cartItemId);
-              const displayPrice = summaryItem?.totalPrice || (item.price * (item.quantity || 1)) || 0;
+              const displayPrice = summaryItem?.lineTotal ?? summaryItem?.totalPrice ?? (item.price * (item.quantity || 1)) ?? 0;
               
               return (
               <div 
@@ -161,7 +168,7 @@ const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose, onNavigate
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs text-slate-600">Tổng tiền:</span>
               <span className="text-lg font-black text-primary">
-                {(Object.keys(cartItems).length > 0 ? (checkoutSummary?.subTotal || cart?.subtotal || 0) : 0).toLocaleString()}đ
+                {displayTotal.toLocaleString()}đ
               </span>
             </div>
             <button 

@@ -6,6 +6,10 @@ import { getCurrentUser, getProfile } from '../../services/auth';
 import { addressService, CustomerAddress } from '../../services/addressService';
 import toast from '../../services/toast';
 
+const PENDING_CHECKOUT_KEY = 'pendingCheckoutRequest';
+const TOPUP_SUCCESS_TOAST_KEY = 'checkoutTopupSuccessToast';
+const TOPUP_CANCEL_TOAST_KEY = 'checkoutTopupCancelToast';
+
 const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -41,6 +45,18 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
     }
     setIsCheckingAuth(false);
   }, [navigate]);
+
+  useEffect(() => {
+    if (sessionStorage.getItem(TOPUP_CANCEL_TOAST_KEY) === '1') {
+      sessionStorage.removeItem(TOPUP_CANCEL_TOAST_KEY);
+      toast.info('Bạn đã hủy thanh toán. Đã quay lại trang thanh toán.');
+    }
+
+    if (sessionStorage.getItem(TOPUP_SUCCESS_TOAST_KEY) === '1') {
+      sessionStorage.removeItem(TOPUP_SUCCESS_TOAST_KEY);
+      toast.success('Nạp tiền thành công, bạn có thể đặt hàng rồi đó.');
+    }
+  }, []);
 
   useEffect(() => {
     if (isCheckingAuth) return;
@@ -171,17 +187,18 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
     console.log(' Form state:', { deliveryDate, deliveryTimeSlot, paymentMethod });
     console.log(' Summary items:', summary.items);
 
+    const checkoutRequest = {
+      deliveryDate,
+      deliveryTime: deliveryTimeSlot,
+      paymentMethod,
+      items: summary.items.map(item => ({
+        cartItemId: item.cartItemId,
+        decorationNote: decorationNotes[item.cartItemId] || ''
+      }))
+    };
+
     setProcessing(true);
     try {
-      const checkoutRequest = {
-        deliveryDate,
-        deliveryTime: deliveryTimeSlot,
-        items: summary.items.map(item => ({
-          cartItemId: item.cartItemId,
-          decorationNote: decorationNotes[item.cartItemId] || ''
-        }))
-      };
-
       console.log(' Checkout request data:', JSON.stringify(checkoutRequest, null, 2));
 
       const result = await checkoutService.processCheckout(checkoutRequest);
@@ -206,22 +223,6 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
 
           // Delay nhỏ để user nhìn thấy toast
           await new Promise(resolve => setTimeout(resolve, 1500));
-
-          if (paymentMethod === 'PayOS') {
-            try {
-              const payosResult = await checkoutService.initiatePayOSPayment(summary.totalAmount);
-              console.log(' PayOS initiation result:', payosResult);
-
-              const redirectUrl = payosResult?.paymentUrl || payosResult?.checkoutUrl;
-
-              if (redirectUrl) {
-                window.location.href = redirectUrl;
-                return;
-              }
-            } catch (payosError) {
-              console.warn(' PayOS initiation failed, using checkout payment URL:', payosError);
-            }
-          }
 
           window.location.href = result.paymentUrl;
         } else {
@@ -249,6 +250,12 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
       if (error.message?.includes('Số dư') && paymentMethod === 'PayOS') {
         toast.info('Số dư ví không đủ. Đang tạo phiên nạp qua PayOS...');
         try {
+          sessionStorage.setItem(PENDING_CHECKOUT_KEY, JSON.stringify({
+            request: checkoutRequest,
+            createdAt: Date.now(),
+            returnPath: `${window.location.pathname}${window.location.search}`
+          }));
+
           const payosResult = await checkoutService.initiatePayOSPayment(summary.totalAmount);
           const redirectUrl = payosResult?.paymentUrl || payosResult?.checkoutUrl;
 
@@ -256,7 +263,10 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
             window.location.href = redirectUrl;
             return;
           }
+
+          sessionStorage.removeItem(PENDING_CHECKOUT_KEY);
         } catch (payosError) {
+          sessionStorage.removeItem(PENDING_CHECKOUT_KEY);
           console.error(' PayOS initiation failed:', payosError);
           toast.error('Lỗi khi tạo liên kết PayOS. Vui lòng thử lại sau.');
         }
@@ -407,12 +417,12 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
               />
             </div>
           </div>
-          <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 text-sm text-slate-600">
+          {/* <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 text-sm text-slate-600">
             <div className="flex gap-2 mb-2">
               <span className="font-bold text-primary">Mẹo:</span>
             </div>
             <p>Vui lòng chọn khung giờ hoàng đạo để đảm bảo ý nghĩa tâm linh của buổi lễ. Hãy để chúng tôi tư vấn giờ tốt nhất cho sự kiện của bạn.</p>
-          </div>
+          </div> */}
         </section>
 
         <section className="bg-white p-8 md:p-12 rounded-[2.5rem] border border-gray-200 shadow-sm">
@@ -546,6 +556,14 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
                 Đang xử lý...
               </span>
             ) : 'Thanh toán ngay'}
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate('/cart')}
+            className="w-full mt-3 bg-white text-slate-700 py-4 rounded-2xl font-bold border border-gray-200 hover:border-primary hover:text-primary transition-all"
+          >
+            Quay về giỏ hàng
           </button>
         </div>
       </aside>

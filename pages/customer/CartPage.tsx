@@ -5,6 +5,8 @@ import { checkoutService, CheckoutSummary } from '../../services/checkoutService
 import { getCurrentUser } from '../../services/auth';
 import toast from '../../services/toast';
 
+const MAX_CART_ITEM_QUANTITY = 50;
+
 const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate }) => {
   const navigate = useNavigate();
   const [cart, setCart] = useState<CartApi | null>(null);
@@ -82,11 +84,16 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
       return;
     }
 
+    if (newQuantity > MAX_CART_ITEM_QUANTITY) {
+      toast.info(`Số lượng tối đa cho mỗi sản phẩm là ${MAX_CART_ITEM_QUANTITY}.`);
+      return;
+    }
+
     setUpdating(cartItemId);
     try {
       console.log('📝 Updating quantity:', { cartItemId, newQuantity });
       // API endpoint expects 'itemId' parameter even though response has 'cartItemId'
-      const success = await cartService.updateCartItem({ itemId: cartItemId, quantity: newQuantity });
+      const success = await cartService.updateCartItem({ cartItemId: cartItemId, quantity: newQuantity });
       
       if (success) {
         // Re-fetch cart from server to ensure sync
@@ -289,11 +296,14 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
                           <input
                             type="number"
                             min="1"
+                            max={MAX_CART_ITEM_QUANTITY}
                             value={isUpdating ? '' : item.quantity}
                             onChange={(e) => {
                               const newValue = parseInt(e.target.value);
-                              if (!isNaN(newValue) && newValue > 0) {
+                              if (!isNaN(newValue) && newValue > 0 && newValue <= MAX_CART_ITEM_QUANTITY) {
                                 updateQuantity(item.cartItemId, newValue);
+                              } else if (!isNaN(newValue) && newValue > MAX_CART_ITEM_QUANTITY) {
+                                toast.info(`Số lượng tối đa cho mỗi sản phẩm là ${MAX_CART_ITEM_QUANTITY}.`);
                               }
                             }}
                             disabled={isUpdating}
@@ -302,7 +312,7 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
                           />
                           <button 
                             onClick={() => updateQuantity(item.cartItemId, item.quantity + 1)}
-                            disabled={isUpdating}
+                            disabled={isUpdating || item.quantity >= MAX_CART_ITEM_QUANTITY}
                             className="w-8 h-8 rounded bg-white text-primary font-bold hover:bg-primary hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             +
