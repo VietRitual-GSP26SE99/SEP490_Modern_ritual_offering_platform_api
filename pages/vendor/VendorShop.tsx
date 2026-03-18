@@ -75,6 +75,10 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
   const [searchMapLoading, setSearchMapLoading] = useState(false);
   const [isCreatingNewAddress, setIsCreatingNewAddress] = useState(false);
 
+  const currentShopAddress = (vendorProfile?.shopAddressText || profile?.addressText || '').trim();
+  const currentShopLatitude = vendorProfile?.shopLatitude ?? profile?.latitude ?? 0;
+  const currentShopLongitude = vendorProfile?.shopLongitude ?? profile?.longitude ?? 0;
+
   const mapPickerPosition = mapPreview ?? {
     latitude: Number(formData.latitude) || DEFAULT_MAP_POSITION.latitude,
     longitude: Number(formData.longitude) || DEFAULT_MAP_POSITION.longitude,
@@ -126,9 +130,9 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
           gender: profile.gender || 'Nam',
           phoneNumber: profile.phoneNumber || '',
           dateOfBirth: formattedDate,
-          addressText: profile.addressText || '',
-          latitude: profile.latitude || 0,
-          longitude: profile.longitude || 0,
+          addressText: currentShopAddress,
+          latitude: currentShopLatitude,
+          longitude: currentShopLongitude,
           avatarFile: null,
           shopDescription: vendorProfile?.shopDescription || 'Chuyên cung cấp mâm cúng trọn gói chất lượng cao với các dịch vụ tư vấn miễn phí.',
           taxCode: vendorProfile?.taxCode || profile.businessLicenseNo || ''
@@ -141,9 +145,9 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
           gender: profile?.gender || 'Nam',
           phoneNumber: profile?.phoneNumber || '',
           dateOfBirth: '',
-          addressText: profile?.addressText || '',
-          latitude: profile?.latitude || 0,
-          longitude: profile?.longitude || 0,
+          addressText: currentShopAddress,
+          latitude: currentShopLatitude,
+          longitude: currentShopLongitude,
           avatarFile: null,
           shopDescription: vendorProfile?.shopDescription || 'Chuyên cung cấp mâm cúng trọn gói chất lượng cao.',
           taxCode: vendorProfile?.taxCode || profile?.businessLicenseNo || ''
@@ -171,11 +175,11 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
   useEffect(() => {
     if (!profile) return;
 
-    setDetailedAddress(profile.addressText?.split(',')[0]?.trim() || profile.addressText || '');
-    if (profile.latitude && profile.longitude) {
-      setMapPreview({ latitude: profile.latitude, longitude: profile.longitude });
+    setDetailedAddress(currentShopAddress.split(',')[0]?.trim() || currentShopAddress || '');
+    if (currentShopLatitude && currentShopLongitude) {
+      setMapPreview({ latitude: currentShopLatitude, longitude: currentShopLongitude });
     }
-  }, [profile]);
+  }, [profile, vendorProfile]);
 
   useEffect(() => {
     if (!showUpdateModal) return;
@@ -372,16 +376,16 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
     setMapPreviewError(null);
     if (!profile) return;
 
-    setDetailedAddress(profile.addressText?.split(',')[0]?.trim() || profile.addressText || '');
+    setDetailedAddress(currentShopAddress.split(',')[0]?.trim() || currentShopAddress || '');
     setFormData((prev) => ({
       ...prev,
-      addressText: profile.addressText || '',
-      latitude: profile.latitude || 0,
-      longitude: profile.longitude || 0,
+      addressText: currentShopAddress,
+      latitude: currentShopLatitude,
+      longitude: currentShopLongitude,
     }));
 
-    if (profile.latitude && profile.longitude) {
-      setMapPreview({ latitude: profile.latitude, longitude: profile.longitude });
+    if (currentShopLatitude && currentShopLongitude) {
+      setMapPreview({ latitude: currentShopLatitude, longitude: currentShopLongitude });
     } else {
       setMapPreview(null);
     }
@@ -596,10 +600,15 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
               onClick={() => {
                 setError(null);
                 setLoading(true);
-                // Retry fetching profile
-                getProfile()
-                  .then(setProfile)
-                  .catch(err => setError(err.message))
+                Promise.all([
+                  getProfile(),
+                  getVendorProfile().catch(() => null),
+                ])
+                  .then(([profileData, vendorData]) => {
+                    setProfile(profileData);
+                    setVendorProfile(vendorData);
+                  })
+                  .catch((err) => setError(err instanceof Error ? err.message : 'Không thể tải thông tin cửa hàng'))
                   .finally(() => setLoading(false));
               }}
               className="px-6 py-3 bg-primary text-white rounded-lg font-bold hover:bg-primary/90 transition-all"
@@ -619,10 +628,10 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
   }
 
   const stats = [
-    { label: 'Sản phẩm', value: 24, icon: 'shopping_bag' },
-    { label: 'Đơn hàng', value: 284, icon: 'shopping_cart' },
-    { label: 'Đánh giá', value: `${profile?.ratingAvg || 0}/5`, icon: 'star' },
-    { label: 'Người theo dõi', value: '1.2K', icon: 'people' },
+    // { label: 'Sản phẩm', value: 24, icon: 'shopping_bag' },
+    // { label: 'Đơn hàng', value: 284, icon: 'shopping_cart' },
+    // { label: 'Đánh giá', value: `${profile?.ratingAvg || 0}/5`, icon: 'star' },
+    // { label: 'Người theo dõi', value: '1.2K', icon: 'people' },
   ];
 
   const products = [
@@ -721,7 +730,7 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-gold/10">
                 <div>
                   <p className="text-xs font-bold uppercase text-gold tracking-widest mb-2"> Địa Chỉ</p>
-                  <p className="text-gray-700 font-semibold">{profile?.addressText || 'Chưa có địa chỉ'}</p>
+                  <p className="text-gray-700 font-semibold">{currentShopAddress || 'Chưa có địa chỉ'}</p>
                 </div>
                 <div>
                   <p className="text-xs font-bold uppercase text-gold tracking-widest mb-2"> Liên Hệ</p>
@@ -776,7 +785,7 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
 
           {/* Right: Quick Actions */}
           <div className="space-y-4">
-            <div className="bg-white rounded-2xl border border-gold/10 shadow-sm p-6 text-center hover:shadow-lg transition-all">
+            {/* <div className="bg-white rounded-2xl border border-gold/10 shadow-sm p-6 text-center hover:shadow-lg transition-all">
               <div className="text-4xl text-gold mb-3 block"></div>
               <h3 className="font-bold text-primary mb-2">Quản Lý Cửa Hàng</h3>
               <p className="text-xs text-gray-600 mb-4">Chỉnh sửa thông tin và cài đặt</p>
@@ -786,7 +795,7 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
               >
                 Cập Nhật
               </button>
-            </div>
+            </div> */}
 
             <div className="bg-white rounded-2xl border border-gold/10 shadow-sm p-6 text-center hover:shadow-lg transition-all">
               <div className="text-4xl text-gold mb-3 block"></div>
@@ -856,348 +865,6 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
       </div>
 
       {/* Update Profile Modal */}
-      {showUpdateModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-2xl font-bold text-gray-800">Cài Đặt Cửa Hàng</h2>
-                  <p className="text-gray-600 text-sm mt-1">Quản lý thông tin cửa hàng và thanh toán</p>
-                </div>
-                <button
-                  onClick={() => setShowUpdateModal(false)}
-                  className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
-                >
-                  ×
-                </button>
-              </div>
-              
-              {/* Tabs */}
-              <div className="flex mt-6 border-b border-gray-200">
-                <button className="px-4 py-2 text-sm font-medium text-red-500 border-b-2 border-red-500 flex items-center gap-2">
-                   Thông Tin Cửa Hàng
-                </button>
-                {/* <button className="px-4 py-2 text-sm font-medium text-gray-500 flex items-center gap-2">
-                  🏦 Thông Tin Ngân Hàng
-                </button>
-                <button className="px-4 py-2 text-sm font-medium text-gray-500 flex items-center gap-2">
-                  💳 Hoa Hồng & Phí
-                </button>
-                <button className="px-4 py-2 text-sm font-medium text-gray-500 flex items-center gap-2">
-                  📊 Thống Báo
-                </button> */}
-              </div>
-            </div>
-            
-            <form onSubmit={handleUpdateProfile} className="p-6">
-              <div className="bg-gray-50 rounded-lg p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-bold text-gray-800">Thông Tin Cửa Hàng</h3>
-                  <button
-                    type="button"
-                    className="px-4 py-2 text-sm font-medium text-red-500 border border-red-500 rounded-lg hover:bg-red-50 flex items-center gap-2"
-                  >
-                    Chỉnh Sửa
-                  </button>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Tên Cửa Hàng */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Tên Cửa Hàng</label>
-                    <input
-                      type="text"
-                      value={displayShopName || 'Modern Ritual Shop'}
-                      className="w-full px-3 py-3 bg-white border border-gray-300 rounded-lg text-gray-500"
-                      readOnly
-                    />
-                  </div>
-
-                  {/* Tên Chủ Cửa Hàng */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Tên Chủ Cửa Hàng</label>
-                    <input
-                      type="text"
-                      value={formData.fullName}
-                      onChange={(e) => handleInputChange('fullName', e.target.value)}
-                      className="w-full px-3 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                    />
-                  </div>
-
-                  {/* Số Điện Thoại */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Số Điện Thoại</label>
-                    <input
-                      type="tel"
-                      value={formData.phoneNumber}
-                      onChange={(e) => handleInputChange('phoneNumber', e.target.value)}
-                      className="w-full px-3 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                      required
-                    />
-                  </div>
-
-                  {/* Email */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
-                    <input
-                      type="email"
-                      value={`${profile?.userId || 'shop'}@modernritual.vn`}
-                      className="w-full px-3 py-3 bg-gray-100 border border-gray-300 rounded-lg text-gray-500"
-                      readOnly
-                    />
-                  </div>
-                </div>
-
-                {/* Địa Chỉ Cửa Hàng */}
-                <div className="mt-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Địa Chỉ Cửa Hàng</label>
-                  {!isCreatingNewAddress && (
-                    <div className="rounded-xl border border-gray-200 bg-white p-4">
-                      <p className="text-sm text-gray-700">
-                        {profile?.addressText || 'Chưa có địa chỉ cửa hàng'}
-                      </p>
-                      <div className="mt-3 flex justify-end">
-                        <button
-                          type="button"
-                          onClick={resetAddressInputsForNew}
-                          className="rounded-lg border border-primary px-4 py-2 text-xs font-bold uppercase tracking-wide text-primary hover:bg-primary/10"
-                        >
-                          Đặt địa chỉ mới
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {isCreatingNewAddress && (
-                    <>
-                      <div className="flex justify-end mb-3">
-                        <button
-                          type="button"
-                          onClick={restoreAddressFromProfile}
-                          className="text-xs font-semibold text-gray-600 hover:underline"
-                        >
-                          Hủy nhập địa chỉ mới
-                        </button>
-                      </div>
-
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <select
-                          value={selectedProvince || ''}
-                          onChange={(e) => {
-                            const code = e.target.value ? Number(e.target.value) : null;
-                            setSelectedProvince(code);
-                            setSelectedDistrict(null);
-                            setSelectedWard(null);
-                          }}
-                          className="w-full px-3 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
-                          disabled={loadingProvinces}
-                          required={isCreatingNewAddress}
-                        >
-                          <option value="">{loadingProvinces ? 'Đang tải tỉnh/thành...' : 'Chọn Tỉnh/Thành phố'}</option>
-                          {provinces.map((province) => (
-                            <option key={province.code} value={province.code}>{province.name}</option>
-                          ))}
-                        </select>
-
-                        <select
-                          value={selectedDistrict || ''}
-                          onChange={(e) => {
-                            const code = e.target.value ? Number(e.target.value) : null;
-                            setSelectedDistrict(code);
-                            setSelectedWard(null);
-                          }}
-                          className="w-full px-3 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
-                          disabled={!selectedProvince || loadingDistricts}
-                          required={isCreatingNewAddress}
-                        >
-                          <option value="">{loadingDistricts ? 'Đang tải quận/huyện...' : 'Chọn Quận/Huyện'}</option>
-                          {districts.map((district) => (
-                            <option key={district.code} value={district.code}>{district.name}</option>
-                          ))}
-                        </select>
-
-                        <select
-                          value={selectedWard || ''}
-                          onChange={(e) => {
-                            const code = e.target.value ? Number(e.target.value) : null;
-                            setSelectedWard(code);
-                          }}
-                          className="w-full px-3 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-100"
-                          disabled={!selectedDistrict || loadingWards}
-                        >
-                          <option value="">{loadingWards ? 'Đang tải phường/xã...' : 'Chọn Phường/Xã (tùy chọn)'}</option>
-                          {wards.map((ward) => (
-                            <option key={ward.code} value={ward.code}>{ward.name}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="mt-3">
-                        <input
-                          type="text"
-                          value={detailedAddress}
-                          onChange={(e) => {
-                            setDetailedAddress(e.target.value);
-                            setFormData((prev) => ({ ...prev, addressText: e.target.value }));
-                          }}
-                          placeholder="Số nhà, tên đường..."
-                          className="w-full px-3 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                          required={isCreatingNewAddress}
-                        />
-                        <div className="mt-2 flex justify-end">
-                          <button
-                            type="button"
-                            onClick={handleSearchOnMap}
-                            disabled={searchMapLoading}
-                            className="rounded-lg border border-primary px-4 py-2 text-xs font-bold uppercase tracking-wide text-primary hover:bg-primary/10 disabled:cursor-not-allowed disabled:opacity-60"
-                          >
-                            {searchMapLoading ? 'Đang tìm...' : 'Tìm trên bản đồ'}
-                          </button>
-                        </div>
-                      </div>
-
-                      <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 p-3">
-                        <div className="flex justify-end mb-2">
-                          <button
-                            type="button"
-                            onClick={handleUseCurrentLocation}
-                            className="text-xs font-semibold text-primary hover:underline"
-                          >
-                            Dùng vị trí hiện tại
-                          </button>
-                        </div>
-
-                        {mapPreviewLoading && (
-                          <p className="text-sm text-slate-500">Đang tìm vị trí trên bản đồ...</p>
-                        )}
-                        {!mapPreviewLoading && mapPreviewError && (
-                          <p className="text-sm text-red-600">{mapPreviewError}</p>
-                        )}
-
-                        {!mapPreviewLoading && (
-                          <>
-                            <AddressMapPicker
-                              position={mapPickerPosition}
-                              onPositionChange={handleMapPositionChange}
-                            />
-                            <div className="mt-2 flex justify-end">
-                              <button
-                                type="button"
-                                onClick={handleConfirmMapSelection}
-                                disabled={coordinateLoading}
-                                className="rounded-lg bg-primary px-4 py-2 text-xs font-bold uppercase tracking-wide text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                              >
-                                {coordinateLoading ? 'Đang xác nhận...' : 'Xác nhận vị trí đã chọn'}
-                              </button>
-                            </div>
-                            <p className="mt-2 text-xs text-slate-500">
-                              Nhấn vào bản đồ hoặc kéo ghim để chỉnh vị trí chính xác trước khi lưu.
-                            </p>
-                          </>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
-
-                {/* Mô Tả Cửa Hàng */}
-                <div className="mt-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Mô Tả Cửa Hàng</label>
-                  <textarea
-                    value={formData.shopDescription}
-                    onChange={(e) => handleInputChange('shopDescription', e.target.value)}
-                    className="w-full px-3 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    rows={3}
-                    placeholder="Mô tả về cửa hàng của bạn..."
-                  />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-6">
-                  {/* Giấy Phép Kinh Doanh */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Giấy Phép Kinh Doanh</label>
-                    <select
-                      value={(vendorProfile?.verificationStatus || profile?.verificationStatus) === 'Verified' ? 'Có' : 'Không'}
-                      className="w-full px-3 py-3 bg-green-50 border border-green-300 rounded-lg text-green-700 font-medium"
-                      disabled
-                    >
-                      <option value="Có">Có</option>
-                      <option value="Không">Không</option>
-                    </select>
-                  </div>
-
-                  {/* Mã Số Thuế */}
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Mã Số Thuế</label>
-                    <input
-                      type="text"
-                      value={formData.taxCode || ''}
-                      onChange={(e) => handleInputChange('taxCode', e.target.value)}
-                      className="w-full px-3 py-3 bg-green-50 border border-green-300 rounded-lg text-green-700 font-medium"
-                      placeholder="Nhập mã số thuế..."
-                    />
-                  </div>
-                </div>
-
-                {/* Coordinates Display */}
-                {(formData.latitude !== 0 || formData.longitude !== 0) && (
-                  <div className="grid grid-cols-2 gap-4 mt-6">
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Vĩ Độ</label>
-                      <input
-                        type="number"
-                        step="any"
-                        value={formData.latitude}
-                        onChange={(e) => handleInputChange('latitude', parseFloat(e.target.value) || 0)}
-                        className="w-full px-3 py-3 bg-gray-50 border border-gray-300 rounded-lg text-sm"
-                        readOnly
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">Kinh Độ</label>
-                      <input
-                        type="number"
-                        step="any"
-                        value={formData.longitude}
-                        onChange={(e) => handleInputChange('longitude', parseFloat(e.target.value) || 0)}
-                        className="w-full px-3 py-3 bg-gray-50 border border-gray-300 rounded-lg text-sm"
-                        readOnly
-                      />
-                    </div>
-                  </div>
-                )}
-
-                {/* Avatar Upload */}
-                <div className="mt-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Ảnh Đại Diện Cửa Hàng</label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileChange}
-                    className="w-full px-3 py-3 bg-white border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  />
-                  {formData.avatarFile && (
-                    <p className="text-sm text-green-600 mt-2">✅ Đã chọn: {formData.avatarFile.name}</p>
-                  )}
-                </div>
-
-                {/* Submit Button */}
-                <div className="flex justify-end mt-8">
-                  <button
-                    type="submit"
-                    disabled={updateLoading}
-                    className="px-8 py-3 bg-blue-500 text-white rounded-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:bg-blue-600 transition-colors"
-                  >
-                    {updateLoading ? ' Đang cập nhật...' : ' Lưu Thay Đổi'}
-                  </button>
-                </div>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

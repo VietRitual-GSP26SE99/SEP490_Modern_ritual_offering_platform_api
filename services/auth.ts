@@ -485,6 +485,9 @@ export interface VendorCurrentProfile {
   isVendor: boolean;
   shopName: string | null;
   shopDescription: string | null;
+  shopAddressText?: string | null;
+  shopLatitude?: number | null;
+  shopLongitude?: number | null;
   businessType: string | null;
   taxCode: string | null;
   verificationStatus: string | null;
@@ -499,6 +502,17 @@ export interface VendorCurrentProfile {
   rejectionCount: number;
   vendorSuspendedUntil: string | null;
   updatedAt: string | null;
+}
+
+export interface UpdateVendorProfileRequest {
+  shopName?: string;
+  shopDescription?: string;
+  shopAddressText?: string;
+  shopLatitude?: number;
+  shopLongitude?: number;
+  dailyCapacity?: number;
+  taxCode?: string;
+  businessType?: 'Individual' | 'Company' | string;
 }
 
 /**
@@ -607,6 +621,66 @@ export async function getVendorProfile(): Promise<VendorCurrentProfile> {
     return data.result;
   } catch (error) {
     console.error('❌ Error fetching vendor profile:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update current vendor profile (partial update)
+ * PUT /api/profile/vendor
+ */
+export async function updateVendorProfile(profileData: UpdateVendorProfileRequest): Promise<VendorCurrentProfile | null> {
+  console.log('🏪 Updating vendor profile...');
+
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('No authentication token found');
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/profile/vendor`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'accept': '*/*'
+      },
+      body: JSON.stringify(profileData),
+    });
+
+    console.log('🏪 Update vendor profile response status:', response.status);
+
+    const responseText = await response.text();
+
+    if (!response.ok) {
+      let parsedMessage = '';
+      try {
+        const parsed = JSON.parse(responseText);
+        if (Array.isArray(parsed?.errorMessages) && parsed.errorMessages.length > 0) {
+          parsedMessage = parsed.errorMessages.join(', ');
+        } else if (typeof parsed?.message === 'string' && parsed.message.trim()) {
+          parsedMessage = parsed.message.trim();
+        }
+      } catch {
+        // Keep raw text fallback when response is not JSON.
+      }
+
+      const fallbackText = responseText?.trim();
+      throw new Error(parsedMessage || fallbackText || `Failed to update vendor profile: ${response.status}`);
+    }
+
+    if (!responseText.trim()) {
+      return null;
+    }
+
+    const data: ApiResponse<VendorCurrentProfile> = JSON.parse(responseText);
+    if (!data.isSuccess) {
+      throw new Error(data.errorMessages?.join(', ') || 'Failed to update vendor profile');
+    }
+
+    return data.result || null;
+  } catch (error) {
+    console.error('❌ Error updating vendor profile:', error);
     throw error;
   }
 }

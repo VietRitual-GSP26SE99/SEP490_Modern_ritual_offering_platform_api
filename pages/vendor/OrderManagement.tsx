@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { orderService, VendorOrder, Order } from '../../services/orderService';
 import { getProfile } from '../../services/auth';
 import VendorRefundTab from './VendorRefundTab';
@@ -89,12 +89,40 @@ const parseDate = (v: unknown): Date | null => {
 const toYmd = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 
+const formatYmdToVi = (ymd: string): string => {
+  if (!ymd) return '';
+  const [year, month, day] = ymd.split('-');
+  if (!year || !month || !day) return '';
+  return `${day}/${month}/${year}`;
+};
+
+const parseViDateToYmd = (value: string): string | null => {
+  const normalized = value.trim();
+  const match = normalized.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (!match) return null;
+
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  if (!Number.isFinite(day) || !Number.isFinite(month) || !Number.isFinite(year)) return null;
+  if (day < 1 || day > 31 || month < 1 || month > 12 || year < 1900) return null;
+
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) return null;
+
+  return toYmd(date);
+};
+
 const getStatusBadge = (status: unknown) =>
   STATUS_BADGE[normalizeStatus(status)] ?? { badge: 'bg-gray-100 text-gray-600', label: String(status) };
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNavigate }) => {
+  const ORDERS_PER_PAGE = 5;
+  const fromDateInputRef = useRef<HTMLInputElement | null>(null);
+  const toDateInputRef = useRef<HTMLInputElement | null>(null);
+
   // ── orders state ────────────────────────────────────────────────────────────
   const [orders, setOrders]               = useState<VendorOrder[]>([]);
   const [vendorShopName, setVendorShopName] = useState('');
@@ -103,6 +131,9 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
   const [filterStatus, setFilterStatus]   = useState('all');
   const [fromDate, setFromDate]           = useState('');
   const [toDate, setToDate]               = useState('');
+  const [fromDateText, setFromDateText]   = useState('');
+  const [toDateText, setToDateText]       = useState('');
+  const [currentPage, setCurrentPage]     = useState(1);
 
   // ── detail modal state ──────────────────────────────────────────────────────
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
@@ -117,11 +148,104 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
   const [mainTab, setMainTab]             = useState<'orders' | 'refunds'>('orders');
   const [pendingRefunds, setPendingRefunds] = useState(0);
 
+  const getTodayYmd = (): string => toYmd(new Date());
+
+  const applyDatePreset = (preset: 'today' | 'last7' | 'last30' | 'thisMonth' | 'clear') => {
+    const today = new Date();
+    const end = toYmd(today);
+
+    if (preset === 'clear') {
+      setFromDate('');
+      setToDate('');
+      setFromDateText('');
+      setToDateText('');
+      return;
+    }
+
+    if (preset === 'today') {
+      setFromDate(end);
+      setToDate(end);
+      return;
+    }
+
+    if (preset === 'thisMonth') {
+      const start = new Date(today.getFullYear(), today.getMonth(), 1);
+      setFromDate(toYmd(start));
+      setToDate(end);
+      return;
+    }
+
+    const days = preset === 'last7' ? 6 : 29;
+    const start = new Date(today);
+    start.setDate(today.getDate() - days);
+    setFromDate(toYmd(start));
+    setToDate(end);
+  };
+
+  const handleFromDateChange = (value: string) => {
+    setFromDate(value);
+    setFromDateText(formatYmdToVi(value));
+    if (toDate && value && toDate < value) {
+      setToDate(value);
+      setToDateText(formatYmdToVi(value));
+    }
+  };
+
+  const handleToDateChange = (value: string) => {
+    setToDate(value);
+    setToDateText(formatYmdToVi(value));
+    if (fromDate && value && value < fromDate) {
+      setFromDate(value);
+      setFromDateText(formatYmdToVi(value));
+    }
+  };
+
+  const handleFromDateTextChange = (rawValue: string) => {
+    const sanitized = rawValue.replace(/[^\d/]/g, '').slice(0, 10);
+    setFromDateText(sanitized);
+
+    const parsed = parseViDateToYmd(sanitized);
+    if (parsed) {
+      handleFromDateChange(parsed);
+    }
+  };
+
+  const handleToDateTextChange = (rawValue: string) => {
+    const sanitized = rawValue.replace(/[^\d/]/g, '').slice(0, 10);
+    setToDateText(sanitized);
+
+    const parsed = parseViDateToYmd(sanitized);
+    if (parsed) {
+      handleToDateChange(parsed);
+    }
+  };
+
+  const handleFromDateTextBlur = () => {
+    const parsed = parseViDateToYmd(fromDateText);
+    setFromDateText(parsed ? formatYmdToVi(parsed) : formatYmdToVi(fromDate));
+  };
+
+  const handleToDateTextBlur = () => {
+    const parsed = parseViDateToYmd(toDateText);
+    setToDateText(parsed ? formatYmdToVi(parsed) : formatYmdToVi(toDate));
+  };
+
+  const openNativeDatePicker = (input: HTMLInputElement | null) => {
+    if (!input) return;
+    const pickerInput = input as HTMLInputElement & { showPicker?: () => void };
+    if (typeof pickerInput.showPicker === 'function') {
+      pickerInput.showPicker();
+      return;
+    }
+    pickerInput.click();
+  };
+
   // ── fetch orders ────────────────────────────────────────────────────────────
   const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
+      setCurrentPage(1);
       const [data, profile] = await Promise.all([
         orderService.getVendorOrders(),
         getProfile().catch(() => null),
@@ -192,6 +316,31 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
       return true;
     })
     .sort((a, b) => (parseDate(b.createdAt)?.getTime() ?? 0) - (parseDate(a.createdAt)?.getTime() ?? 0));
+
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / ORDERS_PER_PAGE));
+  const safeCurrentPage = Math.min(currentPage, totalPages);
+  const paginatedOrders = filteredOrders.slice(
+    (safeCurrentPage - 1) * ORDERS_PER_PAGE,
+    safeCurrentPage * ORDERS_PER_PAGE,
+  );
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [currentPage, totalPages]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filterStatus, fromDate, toDate, mainTab]);
+
+  useEffect(() => {
+    setFromDateText(formatYmdToVi(fromDate));
+  }, [fromDate]);
+
+  useEffect(() => {
+    setToDateText(formatYmdToVi(toDate));
+  }, [toDate]);
 
   // ── loading / error screens ─────────────────────────────────────────────────
   if (loading) {
@@ -267,15 +416,108 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
         {mainTab === 'orders' && (
           <>
             {/* Date filter */}
-            <div className="flex flex-wrap items-center gap-3 mb-4">
-              <input type="date" value={fromDate} onChange={e => setFromDate(e.target.value)}
-                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
-              <input type="date" value={toDate} min={fromDate || undefined} onChange={e => setToDate(e.target.value)}
-                className="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary" />
-              <button onClick={() => { setFromDate(''); setToDate(''); }}
-                className="px-4 py-2 rounded-xl text-sm font-bold text-slate-600 border border-gray-200 bg-white hover:bg-gray-50 transition">
-                Xóa lọc ngày
-              </button>
+            <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
+              <div className="flex flex-wrap items-end gap-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Từ ngày</label>
+                  <div className="min-w-[170px] border border-gray-200 rounded-xl bg-white focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary flex items-center overflow-hidden">
+                    <input
+                      type="text"
+                      value={fromDateText}
+                      onChange={(e) => handleFromDateTextChange(e.target.value)}
+                      onBlur={handleFromDateTextBlur}
+                      placeholder="dd/mm/yyyy"
+                      className="w-full px-3 py-2 text-sm text-gray-700 bg-transparent outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => openNativeDatePicker(fromDateInputRef.current)}
+                      className="px-3 py-2 border-l border-gray-200 text-slate-500 hover:bg-gray-50"
+                      aria-label="Chọn ngày bắt đầu"
+                    >
+                      📅
+                    </button>
+                  </div>
+                  <input
+                    ref={fromDateInputRef}
+                    type="date"
+                    value={fromDate}
+                    max={toDate || getTodayYmd()}
+                    onChange={(e) => handleFromDateChange(e.target.value)}
+                    className="absolute opacity-0 pointer-events-none w-0 h-0"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                  />
+                </div>
+
+                <div className="flex flex-col gap-1">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Đến ngày</label>
+                  <div className="min-w-[170px] border border-gray-200 rounded-xl bg-white focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary flex items-center overflow-hidden">
+                    <input
+                      type="text"
+                      value={toDateText}
+                      onChange={(e) => handleToDateTextChange(e.target.value)}
+                      onBlur={handleToDateTextBlur}
+                      placeholder="dd/mm/yyyy"
+                      className="w-full px-3 py-2 text-sm text-gray-700 bg-transparent outline-none"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => openNativeDatePicker(toDateInputRef.current)}
+                      className="px-3 py-2 border-l border-gray-200 text-slate-500 hover:bg-gray-50"
+                      aria-label="Chọn ngày kết thúc"
+                    >
+                      📅
+                    </button>
+                  </div>
+                  <input
+                    ref={toDateInputRef}
+                    type="date"
+                    value={toDate}
+                    min={fromDate || undefined}
+                    max={getTodayYmd()}
+                    onChange={(e) => handleToDateChange(e.target.value)}
+                    className="absolute opacity-0 pointer-events-none w-0 h-0"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                  />
+                </div>
+
+                <button
+                  onClick={() => applyDatePreset('clear')}
+                  className="px-4 py-2 rounded-xl text-sm font-bold text-slate-600 border border-gray-200 bg-white hover:bg-gray-50 transition"
+                >
+                  Xóa lọc ngày
+                </button>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2 mt-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 mr-1">Lọc nhanh</span>
+                <button
+                  onClick={() => applyDatePreset('today')}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold border border-gray-200 text-slate-700 bg-white hover:bg-gray-50 transition"
+                >
+                  Hôm nay
+                </button>
+                <button
+                  onClick={() => applyDatePreset('last7')}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold border border-gray-200 text-slate-700 bg-white hover:bg-gray-50 transition"
+                >
+                  7 ngày qua
+                </button>
+                <button
+                  onClick={() => applyDatePreset('last30')}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold border border-gray-200 text-slate-700 bg-white hover:bg-gray-50 transition"
+                >
+                  30 ngày qua
+                </button>
+                <button
+                  onClick={() => applyDatePreset('thisMonth')}
+                  className="px-3 py-1.5 rounded-lg text-xs font-bold border border-gray-200 text-slate-700 bg-white hover:bg-gray-50 transition"
+                >
+                  Tháng này
+                </button>
+              </div>
             </div>
 
             {/* Status tabs */}
@@ -300,7 +542,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                   <p className="text-gray-500">Không có đơn hàng nào ở trạng thái này.</p>
                 </div>
               ) : (
-                filteredOrders.map(order => {
+                paginatedOrders.map(order => {
                   const cfg = getStatusBadge(order.orderStatus);
                   return (
                     <div key={order.orderId} className="bg-white rounded-[2rem] border border-gray-200 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300">
@@ -391,6 +633,52 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                 })
               )}
             </div>
+
+            {filteredOrders.length > ORDERS_PER_PAGE && (
+              <div className="mt-6 flex flex-col md:flex-row items-center justify-between gap-3 border border-gray-200 rounded-2xl bg-white px-4 md:px-6 py-4">
+                <p className="text-sm text-slate-600">
+                  Hiển thị{' '}
+                  <span className="font-semibold">{(safeCurrentPage - 1) * ORDERS_PER_PAGE + 1}</span>
+                  {' - '}
+                  <span className="font-semibold">{Math.min(safeCurrentPage * ORDERS_PER_PAGE, filteredOrders.length)}</span>
+                  {' / '}
+                  <span className="font-semibold">{filteredOrders.length}</span>
+                  {' đơn hàng'}
+                </p>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                    disabled={safeCurrentPage === 1}
+                    className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Trước
+                  </button>
+
+                  {Array.from({ length: totalPages }, (_, index) => index + 1).map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`min-w-9 h-9 px-2 rounded-lg text-sm font-bold transition-all ${
+                        safeCurrentPage === page
+                          ? 'bg-primary text-white'
+                          : 'border border-slate-300 text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+
+                  <button
+                    onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
+                    disabled={safeCurrentPage === totalPages}
+                    className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Sau
+                  </button>
+                </div>
+              </div>
+            )}
           </>
         )}
 

@@ -11,6 +11,20 @@ const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
   const [loadingProducts, setLoadingProducts] = useState(true);
   const { heroSlides, services, trustStats } = MOCK_DATA;
 
+  const getProductDetailPath = (rawId: string): string => {
+    const numericId = Number(String(rawId).trim());
+    if (Number.isInteger(numericId) && numericId > 0) {
+      return `/product/${numericId}`;
+    }
+    return `/product/${encodeURIComponent(String(rawId).trim())}`;
+  };
+
+  const pickRandomProducts = <T,>(items: T[], count: number): T[] => {
+    if (items.length <= count) return items;
+    const shuffled = [...items].sort(() => Math.random() - 0.5);
+    return shuffled.slice(0, count);
+  };
+
   // Fetch products from API
   useEffect(() => {
     const fetchProducts = async () => {
@@ -19,14 +33,13 @@ const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
         const apiPackages = await packageService.getAllPackages();
         if (apiPackages.length > 0) {
           const mappedProducts = await packageService.mapToProductsWithVendors(apiPackages);
-          // Get first 3 products for homepage
-          setProducts(mappedProducts.slice(0, 3));
+          setProducts(pickRandomProducts(mappedProducts, 3));
         } else {
-          setProducts(MOCK_PRODUCTS);
+          setProducts(pickRandomProducts(MOCK_PRODUCTS, 3));
         }
       } catch (error) {
         console.error('Error fetching products:', error);
-        setProducts(MOCK_PRODUCTS);
+        setProducts(pickRandomProducts(MOCK_PRODUCTS, 3));
       } finally {
         setLoadingProducts(false);
       }
@@ -107,7 +120,11 @@ const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
         ) : (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             {products.map((product) => (
-                <div key={product.id} className="bg-white rounded-3xl overflow-hidden shadow-md hover:shadow-2xl transition-all border border-gray-200 group cursor-pointer">
+            <div
+              key={product.id}
+              className="bg-white rounded-3xl overflow-hidden shadow-md hover:shadow-2xl transition-all border border-gray-200 group cursor-pointer"
+              onClick={() => onNavigate(getProductDetailPath(product.id))}
+            >
                     <div className="relative h-72 overflow-hidden">
                         <img alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src={product.image} />
                         {product.tag && (
@@ -127,7 +144,13 @@ const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
                         <p className="text-gray-500 text-sm mb-6 line-clamp-2">{product.description}</p>
                         <div className="flex items-center justify-between">
                             <span className="text-primary text-2xl font-black tracking-tight">{product.price.toLocaleString()}đ</span>
-                            <button className="bg-gray-100 hover:bg-primary text-primary hover:text-white p-3 rounded-2xl transition-all font-bold">
+                          <button
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              onNavigate(getProductDetailPath(product.id));
+                            }}
+                            className="bg-gray-100 hover:bg-primary text-primary hover:text-white p-3 rounded-2xl transition-all font-bold"
+                          >
                                 +
                             </button>
                         </div>

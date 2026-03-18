@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { orderService, VendorOrder } from '../../services/orderService';
 
 interface VendorDashboardProps {
   onNavigate: (path: string) => void;
@@ -6,18 +7,123 @@ interface VendorDashboardProps {
 
 const VendorDashboard: React.FC<VendorDashboardProps> = ({ onNavigate }) => {
   const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'orders' | 'settings'>('overview');
+  const [allVendorOrders, setAllVendorOrders] = useState<VendorOrder[]>([]);
+  const [paidPendingOrders, setPaidPendingOrders] = useState<VendorOrder[]>([]);
+  const [isLoadingPaidPendingOrders, setIsLoadingPaidPendingOrders] = useState(false);
+  const [paidPendingOrdersError, setPaidPendingOrdersError] = useState<string | null>(null);
+
+  const normalizeStatus = (status: string): string => String(status || '').trim().toLowerCase();
+
+  const formatRelativeTime = (value: string): string => {
+    const parsed = new Date(value);
+    if (Number.isNaN(parsed.getTime())) {
+      return 'Vừa xong';
+    }
+
+    const diffMs = Date.now() - parsed.getTime();
+    if (diffMs < 60_000) return 'Vừa xong';
+    if (diffMs < 3_600_000) return `${Math.floor(diffMs / 60_000)} phút trước`;
+    if (diffMs < 86_400_000) return `${Math.floor(diffMs / 3_600_000)} giờ trước`;
+    return `${Math.floor(diffMs / 86_400_000)} ngày trước`;
+  };
+
+  const getOrderTitle = (order: VendorOrder): string => {
+    if (!order.items || order.items.length === 0) return 'Đơn hàng không có sản phẩm';
+    if (order.items.length === 1) {
+      return order.items[0].packageName || order.items[0].variantName || 'Sản phẩm';
+    }
+
+    const firstItemName = order.items[0].packageName || order.items[0].variantName || 'Sản phẩm';
+    return `${firstItemName} (+${order.items.length - 1} sản phẩm)`;
+  };
+
+  const getDisplayCustomerName = (order: VendorOrder): string => {
+    const name = String(order.customerName || '').trim();
+    const normalizedName = name.toLowerCase();
+    const isPlaceholderName = !name || normalizedName === 'khách hàng' || normalizedName === 'customer' || normalizedName === 'n/a';
+    if (!isPlaceholderName) return name;
+
+    const profileId = String(order.customerProfileId || '').trim();
+    if (profileId) return `Mã KH: ${profileId.slice(0, 8).toUpperCase()}`;
+
+    return 'Khách hàng';
+  };
+
+  const formatRevenue = (value: number): string => `${Math.max(0, value).toLocaleString('vi-VN')}đ`;
+
+  const loadPaidPendingOrders = async () => {
+    setIsLoadingPaidPendingOrders(true);
+    setPaidPendingOrdersError(null);
+
+    try {
+      const orders = await orderService.getVendorOrders();
+      setAllVendorOrders(orders);
+
+      const filtered = orders
+        .filter((order) => normalizeStatus(order.orderStatus) === 'paid')
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+      const enriched = await Promise.all(
+        filtered.map(async (order) => {
+          const rawName = String(order.customerName || '').trim();
+          const normalizedName = rawName.toLowerCase();
+          const hasName = rawName.length > 0 && normalizedName !== 'khách hàng' && normalizedName !== 'customer' && normalizedName !== 'n/a';
+          if (hasName) {
+            return order;
+          }
+
+          try {
+            const detail = await orderService.getOrderDetails(order.orderId);
+            const detailedName = String(detail?.customer?.fullName || '').trim();
+            if (!detailedName) {
+              return order;
+            }
+
+            return {
+              ...order,
+              customerName: detailedName,
+            };
+          } catch {
+            return order;
+          }
+        }),
+      );
+
+      setPaidPendingOrders(enriched);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Không thể tải đơn hàng đã thanh toán.';
+      setPaidPendingOrdersError(message);
+      setAllVendorOrders([]);
+      setPaidPendingOrders([]);
+    } finally {
+      setIsLoadingPaidPendingOrders(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPaidPendingOrders();
+  }, []);
+
+  const monthlyRevenue = allVendorOrders
+    .filter((order) => {
+      const date = new Date(order.createdAt);
+      if (Number.isNaN(date.getTime())) return false;
+
+      const now = new Date();
+      if (date.getMonth() !== now.getMonth() || date.getFullYear() !== now.getFullYear()) {
+        return false;
+      }
+
+      const status = normalizeStatus(order.orderStatus);
+      return status !== 'cancelled' && status !== 'paymentfailed';
+    })
+    .reduce((sum, order) => sum + Number(order.vendorNetAmount || order.totalAmount || 0), 0);
 
   const vendorStats = [
-    { label: 'Tổng đơn hàng', value: '284' },
-    { label: 'Đơn chờ xử lý', value: '12' },
-    { label: 'Doanh thu tháng', value: '15.2M' },
+    { label: 'Tổng đơn hàng', value: String(allVendorOrders.length) },
+    { label: 'Đơn chờ xử lý', value: String(paidPendingOrders.length) },
+    { label: 'Doanh thu tháng', value: formatRevenue(monthlyRevenue) },
     { label: 'Đánh giá trung bình', value: '4.8/5' }
-  ];
-
-  const pendingOrders = [
-    { id: '#MRT-8829-2024', customer: 'Nguyễn Văn An', product: 'Mâm Cúng Đầy Tháng', amount: 2500000, time: '2 phút trước' },
-    { id: '#MRT-8828-2024', customer: 'Trần Thị B', product: 'Gói Đại Phát - Khai Trương', amount: 4950000, time: '15 phút trước' },
-    { id: '#MRT-8827-2024', customer: 'Lê Văn C', product: 'Gói Bình An - Tân Gia', amount: 1850000, time: '1 giờ trước' }
   ];
 
   const products = [
@@ -77,21 +183,47 @@ const VendorDashboard: React.FC<VendorDashboardProps> = ({ onNavigate }) => {
             <div className="lg:col-span-2 bg-white rounded-[2rem] border border-gray-200 shadow-sm p-8">
               <div className="flex items-center justify-between mb-8">
                 <h2 className="text-2xl font-bold text-primary">
-                  Đơn hàng chờ xử lý
+                  Đơn hàng đã thanh toán chờ xử lý
                 </h2>
-                <span className="bg-red-100 text-red-700 text-xs font-bold px-3 py-1 rounded-lg">{pendingOrders.length}</span>
+                <span className="bg-red-100 text-red-700 text-xs font-bold px-3 py-1 rounded-lg">{paidPendingOrders.length}</span>
               </div>
               <div className="space-y-4">
-                {pendingOrders.map((order) => (
-                  <div key={order.id} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200 hover:border-primary transition-all">
+                {isLoadingPaidPendingOrders && (
+                  <div className="p-4 text-sm text-slate-500 bg-gray-50 rounded-xl border border-gray-200">Đang tải đơn hàng...</div>
+                )}
+
+                {!isLoadingPaidPendingOrders && paidPendingOrdersError && (
+                  <div className="p-4 bg-red-50 rounded-xl border border-red-100">
+                    <p className="text-sm text-red-600 font-semibold mb-3">{paidPendingOrdersError}</p>
+                    <button
+                      onClick={loadPaidPendingOrders}
+                      className="px-4 py-2 border border-red-300 text-red-600 rounded-lg text-xs font-bold uppercase hover:bg-red-100 transition-all"
+                    >
+                      Thử lại
+                    </button>
+                  </div>
+                )}
+
+                {!isLoadingPaidPendingOrders && !paidPendingOrdersError && paidPendingOrders.length === 0 && (
+                  <div className="p-4 text-sm text-slate-500 bg-gray-50 rounded-xl border border-gray-200">
+                    Chưa có đơn hàng đã thanh toán đang chờ xử lý.
+                  </div>
+                )}
+
+                {!isLoadingPaidPendingOrders && !paidPendingOrdersError && paidPendingOrders.map((order) => (
+                  <div
+                    key={order.orderId}
+                    onClick={() => onNavigate('/vendor/orders')}
+                    className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200 hover:border-primary transition-all cursor-pointer"
+                  >
                     <div>
-                      <p className="text-xs font-bold uppercase text-gray-400 tracking-widest mb-1">{order.id}</p>
-                      <p className="font-bold text-primary">{order.product}</p>
-                      <p className="text-xs text-slate-500 mt-1">{order.customer}</p>
+                      <p className="text-xs font-bold uppercase text-gray-400 tracking-widest mb-1">#{order.orderId}</p>
+                      <p className="font-bold text-primary">{getOrderTitle(order)}</p>
+                      <p className="text-xs text-slate-500 mt-1">Khách: {getDisplayCustomerName(order)}</p>
                     </div>
                     <div className="text-right">
-                      <p className="font-black text-primary tracking-tight mb-2">{order.amount.toLocaleString()}đ</p>
-                      <p className="text-xs text-slate-400">{order.time}</p>
+                      <p className="font-black text-primary tracking-tight mb-2">{Number(order.totalAmount || 0).toLocaleString('vi-VN')}đ</p>
+                      <p className="text-xs text-slate-400">{formatRelativeTime(order.createdAt)}</p>
                     </div>
                   </div>
                 ))}
@@ -201,16 +333,16 @@ const VendorDashboard: React.FC<VendorDashboardProps> = ({ onNavigate }) => {
           <div className="bg-white rounded-[2rem] border border-gray-200 shadow-sm p-8">
             <h2 className="text-2xl font-bold text-primary mb-8">Tất cả đơn hàng</h2>
             <div className="space-y-4">
-              {pendingOrders.map((order) => (
-                <div key={order.id} className="flex items-center justify-between p-6 bg-gray-50 rounded-xl border border-gray-200 hover:border-primary transition-all cursor-pointer group">
+              {paidPendingOrders.map((order) => (
+                <div key={order.orderId} className="flex items-center justify-between p-6 bg-gray-50 rounded-xl border border-gray-200 hover:border-primary transition-all cursor-pointer group">
                   <div className="flex-1">
-                    <p className="text-xs font-bold uppercase text-gray-400 tracking-widest mb-1">{order.id}</p>
-                    <p className="font-bold text-primary group-hover:text-primary transition-colors">{order.product}</p>
-                    <p className="text-xs text-slate-500 mt-1">Khách: {order.customer}</p>
+                    <p className="text-xs font-bold uppercase text-gray-400 tracking-widest mb-1">#{order.orderId}</p>
+                    <p className="font-bold text-primary group-hover:text-primary transition-colors">{getOrderTitle(order)}</p>
+                    <p className="text-xs text-slate-500 mt-1">Khách: {getDisplayCustomerName(order)}</p>
                   </div>
                   <div className="text-right">
-                    <p className="font-black text-primary tracking-tight mb-2">{order.amount.toLocaleString()}đ</p>
-                    <span className="inline-block bg-yellow-100 text-yellow-700 text-xs font-bold px-3 py-1 rounded-lg">Chờ xác nhận</span>
+                    <p className="font-black text-primary tracking-tight mb-2">{Number(order.totalAmount || 0).toLocaleString('vi-VN')}đ</p>
+                    <span className="inline-block bg-yellow-100 text-yellow-700 text-xs font-bold px-3 py-1 rounded-lg">Đã thanh toán</span>
                   </div>
                 </div>
               ))}
