@@ -102,8 +102,19 @@ interface VendorOrdersApiItem {
     vendorId?: string;
     shopName?: string;
     customerProfileId?: string;
+    CustomerProfileId?: string;
     customerName?: string;
+    CustomerName?: string;
     customerPhone?: string;
+    CustomerPhone?: string;
+    customer?: {
+        profileId?: string;
+        customerId?: string;
+        fullName?: string;
+        customerName?: string;
+        phoneNumber?: string;
+        customerPhone?: string;
+    };
     deliveryDate?: string;
     deliveryTime?: string;
     deliveryAddress?: string;
@@ -404,9 +415,9 @@ class OrderService {
                     return {
                         orderId: raw.orderId || '',
                         orderStatus: raw.orderStatus || 'Pending',
-                        customerProfileId: raw.customerProfileId || '',
-                        customerName: raw.customerName || 'Khách hàng',
-                        customerPhone: raw.customerPhone || '',
+                        customerProfileId: raw.customerProfileId || raw.CustomerProfileId || raw.customer?.profileId || raw.customer?.customerId || '',
+                        customerName: raw.customerName || raw.CustomerName || raw.customer?.fullName || raw.customer?.customerName || '',
+                        customerPhone: raw.customerPhone || raw.CustomerPhone || raw.customer?.phoneNumber || raw.customer?.customerPhone || '',
                         vendorProfileId: raw.vendorId || '',
                         vendorName: raw.shopName || 'Shop',
                         deliveryDate: raw.deliveryDate || '',

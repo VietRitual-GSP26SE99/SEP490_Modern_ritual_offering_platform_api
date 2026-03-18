@@ -4,7 +4,7 @@ import Swal from 'sweetalert2';
 import { UserRole, AppRoute, getPath } from '../types';
 import { getCurrentUser } from '../services/auth';
 import { cartService } from '../services/cartService';
-import { createTopupLink, getMyWallet, WalletType } from '../services/walletService';
+import { createTopupLink, createWithdrawal, getMyWallet, getMyWithdrawalRequests, WalletInfo, WalletType } from '../services/walletService';
 import CartDropdown from './CartDropdown';
 import toast from '../services/toast';
 
@@ -33,9 +33,11 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
   const [isCartDropdownOpen, setIsCartDropdownOpen] = useState<boolean>(false);
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState<boolean>(false);
   const [isWalletDropdownOpen, setIsWalletDropdownOpen] = useState<boolean>(false);
-  const [walletInfo, setWalletInfo] = useState<any>(null);
+  const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null);
   const [walletLoading, setWalletLoading] = useState<boolean>(false);
   const [topupLoading, setTopupLoading] = useState<boolean>(false);
+  const [withdrawLoading, setWithdrawLoading] = useState<boolean>(false);
+  const [withdrawalHistoryLoading, setWithdrawalHistoryLoading] = useState<boolean>(false);
   const [userName, setUserName] = useState<string>('');
   const cartDropdownTimeout = useRef<NodeJS.Timeout | null>(null);
   const accountDropdownTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -44,6 +46,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
   const isCustomer = userRole === 'customer' || userRole === 'guest';
   const isVendor = userRole === 'vendor';
   const isAdmin = userRole === 'admin';
+  const hideWalletAndProfileOnAdminDashboard = isAdmin && activeRoute.startsWith('/admin/dashboard');
   const currentUser = getCurrentUser();
   const hasVendorRole =
     currentUser?.role === 'vendor' ||
@@ -160,6 +163,43 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
     isTopupReturnHandled.current = true;
   }, []);
 
+  useEffect(() => {
+    const styleId = 'vendor-withdrawal-history-swal-style';
+    if (document.getElementById(styleId)) return;
+
+    const style = document.createElement('style');
+    style.id = styleId;
+    style.textContent = `
+      .vendor-withdrawal-history-popup { border-radius: 16px; }
+      .vendor-withdrawal-history-container { margin: 0; padding-top: 8px; }
+      .vendor-withdrawal-history-container .wdh-wrap { text-align:left; }
+      .vendor-withdrawal-history-container .wdh-summary { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:10px; margin-bottom:12px; }
+      .vendor-withdrawal-history-container .wdh-summary-item { background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:10px; }
+      .vendor-withdrawal-history-container .wdh-summary-label { font-size:11px; color:#64748b; text-transform:uppercase; letter-spacing:.05em; font-weight:700; margin-bottom:4px; }
+      .vendor-withdrawal-history-container .wdh-summary-value { font-size:16px; color:#0f172a; font-weight:800; }
+      .vendor-withdrawal-history-container .wdh-list { max-height:58vh; overflow:auto; padding-right:4px; }
+      .vendor-withdrawal-history-container .wdh-card { border:1px solid #e2e8f0; background:#fff; border-radius:14px; padding:12px; margin-bottom:10px; }
+      .vendor-withdrawal-history-container .wdh-top-row { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
+      .vendor-withdrawal-history-container .wdh-left-meta { display:flex; gap:10px; align-items:flex-start; min-width:0; }
+      .vendor-withdrawal-history-container .wdh-index { min-width:30px; height:30px; border-radius:999px; background:#f1f5f9; color:#334155; font-weight:800; display:flex; align-items:center; justify-content:center; font-size:12px; }
+      .vendor-withdrawal-history-container .wdh-holder { font-size:13px; font-weight:800; color:#0f172a; word-break:break-word; }
+      .vendor-withdrawal-history-container .wdh-bank { margin-top:3px; font-size:12px; color:#475569; }
+      .vendor-withdrawal-history-container .wdh-amount { font-size:20px; font-weight:900; color:#0f172a; white-space:nowrap; }
+      .vendor-withdrawal-history-container .wdh-status-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
+      .vendor-withdrawal-history-container .wdh-chip { display:inline-block; padding:5px 10px; border-radius:999px; font-size:12px; font-weight:700; }
+      .vendor-withdrawal-history-container .wdh-grid { margin-top:10px; display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; }
+      .vendor-withdrawal-history-container .wdh-label { font-size:11px; color:#64748b; text-transform:uppercase; letter-spacing:.04em; font-weight:700; margin-bottom:3px; }
+      .vendor-withdrawal-history-container .wdh-value { font-size:13px; color:#334155; font-weight:600; word-break:break-word; }
+      @media (max-width: 860px) {
+        .vendor-withdrawal-history-container .wdh-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .vendor-withdrawal-history-container .wdh-grid { grid-template-columns: 1fr; }
+        .vendor-withdrawal-history-container .wdh-amount { font-size:18px; }
+      }
+    `;
+
+    document.head.appendChild(style);
+  }, []);
+
   const getNavItems = (): NavItem[] => {
     if (isCustomer) {
       return [
@@ -175,14 +215,14 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
             { path: '/shop?category=Year End', label: 'Cúng Tết' }
           ]
         },
-        {
-          label: 'Dịch vụ',
-          submenu: [
-            { path: '/services/packages', label: 'Mâm cúng trọn gói' },
-            { path: '/services/consultation', label: 'Tư vấn lịch tốt' },
-            { path: '/services/delivery', label: 'Giao hàng nhanh' }
-          ]
-        },
+        // {
+        //   label: 'Dịch vụ',
+        //   submenu: [
+        //     { path: '/services/packages', label: 'Mâm cúng trọn gói' },
+        //     { path: '/services/consultation', label: 'Tư vấn lịch tốt' },
+        //     { path: '/services/delivery', label: 'Giao hàng nhanh' }
+        //   ]
+        // },
         { path: '/tracking', label: 'Theo dõi' },
       ];
     } else if (isVendor) {
@@ -220,16 +260,53 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
   };
 
   const resolveWalletType = (): WalletType => {
-    if (userRole === 'vendor') return 'Vendor';
-    if (userRole === 'admin') return 'System';
-    if (userRole === 'customer') return 'Customer';
     if (activeRoute.startsWith('/vendor')) return 'Vendor';
     if (activeRoute.startsWith('/admin')) return 'System';
+    if (userRole === 'vendor') return 'Vendor';
+    if (userRole === 'customer' || userRole === 'guest') return 'Customer';
+    if (userRole === 'admin') return 'System';
+
+    const normalizedRoles = (currentUser?.roles || []).map((role) => String(role).toLowerCase());
+    if (normalizedRoles.includes('vendor')) return 'Vendor';
+    if (normalizedRoles.includes('customer')) return 'Customer';
+
     return 'Customer';
   };
 
   const formatCurrency = (value: number): string => {
     return new Intl.NumberFormat('vi-VN').format(value);
+  };
+
+  const toSafeNumber = (value: unknown): number => {
+    if (typeof value === 'number' && Number.isFinite(value)) return value;
+    if (typeof value === 'string') {
+      const normalized = value.replace(/,/g, '').trim();
+      const parsed = Number(normalized);
+      if (Number.isFinite(parsed)) return parsed;
+    }
+    return 0;
+  };
+
+  const getWalletAmount = (
+    wallet: WalletInfo | null,
+    field: 'balance' | 'heldBalance' | 'debt'
+  ): number => {
+    if (!wallet) return 0;
+
+    const keyMap: Record<'balance' | 'heldBalance' | 'debt', string[]> = {
+      balance: ['Balance', 'balance', 'availableBalance', 'AvailableBalance'],
+      heldBalance: ['HeldBalance', 'heldBalance'],
+      debt: ['Debt', 'debt'],
+    };
+
+    for (const key of keyMap[field]) {
+      if (Object.prototype.hasOwnProperty.call(wallet, key)) {
+        const candidate = wallet[key as keyof WalletInfo];
+        return toSafeNumber(candidate);
+      }
+    }
+
+    return 0;
   };
 
   const parseAmountInput = (value: string): number => {
@@ -256,6 +333,50 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
     }).format(date);
   };
 
+  const escapeHtml = (value: unknown): string => {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  };
+
+  const getDisplayWithdrawalStatus = (status: string): string => {
+    const normalized = String(status || '').trim().toLowerCase();
+    if (normalized.includes('approved') || normalized.includes('đã duyệt') || normalized.includes('completed')) return 'Đã duyệt';
+    if (normalized.includes('pending') || normalized.includes('chờ duyệt')) return 'Chờ duyệt';
+    if (normalized.includes('rejected') || normalized.includes('từ chối')) return 'Đã từ chối';
+    if (normalized.includes('processing') || normalized.includes('đang xử lý')) return 'Đang xử lý';
+    return status || 'Không xác định';
+  };
+
+  const getWithdrawalStatusStyle = (status: string): string => {
+    const normalized = String(status || '').trim().toLowerCase();
+    if (normalized.includes('approved') || normalized.includes('đã duyệt') || normalized.includes('completed')) return 'background:#dcfce7;color:#166534;';
+    if (normalized.includes('rejected') || normalized.includes('từ chối')) return 'background:#fee2e2;color:#b91c1c;';
+    if (normalized.includes('processing') || normalized.includes('đang xử lý')) return 'background:#dbeafe;color:#1d4ed8;';
+    return 'background:#fef3c7;color:#a16207;';
+  };
+
+  const getTransactionStatusStyle = (status: string): string => {
+    const normalized = String(status || '').trim().toLowerCase();
+    if (normalized.includes('success') || normalized.includes('thành công')) return 'background:#dcfce7;color:#166534;';
+    if (normalized.includes('fail') || normalized.includes('error') || normalized.includes('thất bại')) return 'background:#fee2e2;color:#b91c1c;';
+    if (normalized.includes('pending') || normalized.includes('processing')) return 'background:#fef3c7;color:#a16207;';
+    return 'background:#e2e8f0;color:#334155;';
+  };
+
+  const getDisplayTransactionStatus = (status: string): string => {
+    const normalized = String(status || '').trim().toLowerCase();
+    if (normalized.includes('success')) return 'Thành công';
+    if (normalized.includes('fail') || normalized.includes('error')) return 'Thất bại';
+    if (normalized.includes('pending')) return 'Chờ xử lý';
+    if (normalized.includes('processing')) return 'Đang xử lý';
+    if (!normalized || normalized === 'n/a' || normalized === 'không có') return 'Không có';
+    return status;
+  };
+
   const mapWalletTypeLabel = (typeValue: WalletType | string | number | undefined): string => {
     if (typeValue === 0 || String(typeValue).toLowerCase() === 'customer') return 'Customer';
     if (typeValue === 1 || String(typeValue).toLowerCase() === 'vendor') return 'Vendor';
@@ -272,11 +393,41 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
   };
 
   const fetchWalletBalance = async () => {
+    const buildCandidateTypes = (primary: WalletType): WalletType[] => {
+      if (primary === 'System') return ['System', 'Vendor', 'Customer'];
+      return [primary];
+    };
+
+    const isNotFoundWalletError = (error: unknown): boolean => {
+      if (!(error instanceof Error)) return false;
+      const message = error.message.toLowerCase();
+      return message.includes('không tìm thấy ví') || message.includes('404');
+    };
+
     try {
       setWalletLoading(true);
-      const walletType = resolveWalletType();
-      const wallet = await getMyWallet(walletType);
-      setWalletInfo(wallet);
+      const primaryType = resolveWalletType();
+      const candidateTypes = buildCandidateTypes(primaryType);
+
+      let lastError: unknown = null;
+      for (let index = 0; index < candidateTypes.length; index += 1) {
+        const candidate = candidateTypes[index];
+        try {
+          const wallet = await getMyWallet(candidate);
+          setWalletInfo(wallet);
+          return;
+        } catch (error) {
+          lastError = error;
+          const shouldTryNext = isNotFoundWalletError(error) && index < candidateTypes.length - 1;
+          if (!shouldTryNext) {
+            throw error;
+          }
+        }
+      }
+
+      if (lastError) {
+        throw lastError;
+      }
     } catch (error) {
       console.error('❌ Failed to fetch wallet:', error);
     } finally {
@@ -379,6 +530,246 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
     }
   };
 
+  const handleWithdrawClick = async () => {
+    if (currentWalletType !== 'Vendor') {
+      toast.warning('Chức năng rút tiền chỉ áp dụng cho ví người bán.');
+      return;
+    }
+
+    const modalResult = await Swal.fire({
+      title: 'Yêu cầu rút tiền',
+      html: `
+        <div style="display:flex;flex-direction:column;gap:12px;text-align:left;">
+          <div>
+            <label for="withdraw-amount" style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">Số tiền rút (VND)</label>
+            <input id="withdraw-amount" class="swal2-input" style="margin:0;width:100%;" placeholder="Ví dụ: 100,000" inputmode="numeric" autocomplete="off" />
+          </div>
+          <div>
+            <label for="withdraw-bank-name" style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">Tên ngân hàng</label>
+            <input id="withdraw-bank-name" class="swal2-input" style="margin:0;width:100%;" placeholder="Ví dụ: Vietcombank" autocomplete="off" />
+          </div>
+          <div>
+            <label for="withdraw-account-number" style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">Số tài khoản</label>
+            <input id="withdraw-account-number" class="swal2-input" style="margin:0;width:100%;" placeholder="Nhập số tài khoản" autocomplete="off" />
+          </div>
+          <div>
+            <label for="withdraw-account-holder" style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">Chủ tài khoản</label>
+            <input id="withdraw-account-holder" class="swal2-input" style="margin:0;width:100%;" placeholder="Họ tên chủ tài khoản" autocomplete="off" />
+          </div>
+        </div>
+      `,
+      showCancelButton: true,
+      confirmButtonText: 'Gửi yêu cầu',
+      cancelButtonText: 'Hủy',
+      confirmButtonColor: '#b45309',
+      cancelButtonColor: '#64748b',
+      customClass: {
+        popup: 'rounded-2xl',
+        confirmButton: 'rounded-lg font-bold px-6 py-3',
+        cancelButton: 'rounded-lg font-bold px-6 py-3',
+      },
+      didOpen: () => {
+        const amountInput = document.getElementById('withdraw-amount') as HTMLInputElement | null;
+        if (!amountInput) return;
+
+        amountInput.addEventListener('input', () => {
+          amountInput.value = formatAmountInput(amountInput.value);
+        });
+      },
+      preConfirm: () => {
+        const amountInput = (document.getElementById('withdraw-amount') as HTMLInputElement | null)?.value || '';
+        const bankName = (document.getElementById('withdraw-bank-name') as HTMLInputElement | null)?.value?.trim() || '';
+        const accountNumberRaw = (document.getElementById('withdraw-account-number') as HTMLInputElement | null)?.value?.trim() || '';
+        const accountHolderRaw = (document.getElementById('withdraw-account-holder') as HTMLInputElement | null)?.value?.trim() || '';
+
+        const amount = parseAmountInput(amountInput);
+        const accountNumber = accountNumberRaw.replace(/\s+/g, '');
+        const accountHolder = accountHolderRaw.replace(/\s+/g, ' ').trim();
+
+        if (!Number.isFinite(amount) || amount <= 0) {
+          Swal.showValidationMessage('Vui lòng nhập số tiền rút hợp lệ.');
+          return null;
+        }
+
+        if (amount > availableBalance) {
+          Swal.showValidationMessage('Số tiền rút vượt quá số dư khả dụng.');
+          return null;
+        }
+
+        if (!bankName) {
+          Swal.showValidationMessage('Vui lòng nhập tên ngân hàng.');
+          return null;
+        }
+
+        if (!accountNumber) {
+          Swal.showValidationMessage('Vui lòng nhập số tài khoản.');
+          return null;
+        }
+
+        if (!accountHolder) {
+          Swal.showValidationMessage('Vui lòng nhập tên chủ tài khoản.');
+          return null;
+        }
+
+        return { amount, bankName, accountNumber, accountHolder };
+      },
+    });
+
+    if (!modalResult.isConfirmed || !modalResult.value) return;
+
+    try {
+      setWithdrawLoading(true);
+      await createWithdrawal(modalResult.value);
+      toast.success('Đã gửi yêu cầu rút tiền thành công.');
+      await fetchWalletBalance();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Không thể gửi yêu cầu rút tiền.';
+      toast.error(message);
+    } finally {
+      setWithdrawLoading(false);
+    }
+  };
+
+  const handleWithdrawalHistoryClick = async () => {
+    if (currentWalletType !== 'Vendor') {
+      toast.warning('Chức năng lịch sử rút tiền chỉ áp dụng cho ví người bán.');
+      return;
+    }
+
+    try {
+      setWithdrawalHistoryLoading(true);
+      const historyItems = await getMyWithdrawalRequests();
+
+      const toTimestamp = (value: string): number => {
+        const timestamp = new Date(value).getTime();
+        return Number.isNaN(timestamp) ? 0 : timestamp;
+      };
+
+      const sortedItems = [...historyItems].sort(
+        (a, b) => toTimestamp(b.requestedAt) - toTimestamp(a.requestedAt),
+      );
+
+      const summary = sortedItems.reduce(
+        (acc, item) => {
+          const status = String(item.status || '').toLowerCase();
+          acc.total += 1;
+          acc.amount += Number(item.amount || 0);
+
+          if (status.includes('approved') || status.includes('đã duyệt') || status.includes('completed')) {
+            acc.approved += 1;
+          } else if (status.includes('rejected') || status.includes('từ chối')) {
+            acc.rejected += 1;
+          } else {
+            acc.pending += 1;
+          }
+
+          return acc;
+        },
+        { total: 0, amount: 0, approved: 0, rejected: 0, pending: 0 },
+      );
+
+      const cardsHtml = sortedItems.map((item, index) => {
+        const raw = (item.raw || {}) as Record<string, unknown>;
+        const transaction = (raw.transaction || raw.Transaction || {}) as Record<string, unknown>;
+        const txId = String(transaction.transactionId || transaction.TransactionId || 'N/A');
+        const txStatusRaw = String(transaction.status || transaction.Status || 'N/A');
+        const txStatus = txStatusRaw === 'N/A' ? 'Không có' : txStatusRaw;
+        const txStatusDisplay = getDisplayTransactionStatus(txStatus);
+        const accountHolder = String(raw.accountHolder || raw.AccountHolder || 'Không có').trim();
+        const rejectionReason = String(raw.rejectionReason || raw.RejectionReason || '').trim();
+
+        const requestedAtText = formatDateTime(item.requestedAt);
+        const processedAtText = formatDateTime(String(raw.processedDate || raw.ProcessedDate || ''));
+
+        return `
+          <div class="wdh-card">
+            <div class="wdh-top-row">
+              <div class="wdh-left-meta">
+                <div class="wdh-index">#${index + 1}</div>
+                <div>
+                  <div class="wdh-holder">${escapeHtml(accountHolder || 'Không có')}</div>
+                  <div class="wdh-bank">${escapeHtml(item.bank)}</div>
+                </div>
+              </div>
+              <div class="wdh-amount">${escapeHtml(formatCurrency(item.amount))}đ</div>
+            </div>
+
+            <div class="wdh-status-row">
+              <span class="wdh-chip" style="${getWithdrawalStatusStyle(item.status)}">${escapeHtml(getDisplayWithdrawalStatus(item.status))}</span>
+              <span class="wdh-chip" style="${getTransactionStatusStyle(txStatusDisplay)}">GD: ${escapeHtml(txStatusDisplay)}</span>
+            </div>
+
+            <div class="wdh-grid">
+              <div>
+                <div class="wdh-label">Thời gian yêu cầu</div>
+                <div class="wdh-value">${escapeHtml(requestedAtText)}</div>
+              </div>
+              <div>
+                <div class="wdh-label">Thời gian xử lý</div>
+                <div class="wdh-value">${escapeHtml(processedAtText)}</div>
+              </div>
+              <div>
+                <div class="wdh-label">Mã giao dịch</div>
+                <div class="wdh-value">${escapeHtml(txId)}</div>
+              </div>
+              <div>
+                <div class="wdh-label">Lý do từ chối</div>
+                <div class="wdh-value">${escapeHtml(rejectionReason || 'Không có')}</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+
+      await Swal.fire({
+        title: 'Lịch sử rút tiền',
+        width: 980,
+        confirmButtonText: 'Đóng',
+        buttonsStyling: false,
+        customClass: {
+          popup: 'vendor-withdrawal-history-popup',
+          htmlContainer: 'vendor-withdrawal-history-container',
+          confirmButton: 'rounded-lg font-bold px-6 py-3 text-white bg-primary hover:opacity-90 transition-all',
+        },
+        html: sortedItems.length === 0
+          ? '<div style="padding:20px 8px;color:#64748b;font-weight:600;">Chưa có yêu cầu rút tiền nào.</div>'
+          : `
+            <div class="wdh-wrap">
+              <div class="wdh-summary">
+                <div class="wdh-summary-item">
+                  <div class="wdh-summary-label">Tổng yêu cầu</div>
+                  <div class="wdh-summary-value">${summary.total}</div>
+                </div>
+                <div class="wdh-summary-item">
+                  <div class="wdh-summary-label">Tổng tiền rút</div>
+                  <div class="wdh-summary-value">${escapeHtml(formatCurrency(summary.amount))}đ</div>
+                </div>
+                <div class="wdh-summary-item">
+                  <div class="wdh-summary-label">Đã duyệt</div>
+                  <div class="wdh-summary-value">${summary.approved}</div>
+                </div>
+                <div class="wdh-summary-item">
+                  <div class="wdh-summary-label">Chờ xử lý/Từ chối</div>
+                  <div class="wdh-summary-value">${summary.pending + summary.rejected}</div>
+                </div>
+              </div>
+              <div class="wdh-list">${cardsHtml}</div>
+            </div>
+          `,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Không thể tải lịch sử rút tiền.';
+      toast.error(message);
+    } finally {
+      setWithdrawalHistoryLoading(false);
+    }
+  };
+
+  const currentWalletType = resolveWalletType();
+  const availableBalance = getWalletAmount(walletInfo, 'balance');
+  const heldBalance = getWalletAmount(walletInfo, 'heldBalance');
+  const debtBalance = getWalletAmount(walletInfo, 'debt');
+
   return (
     <div className="min-h-screen flex flex-col font-sans">
       {!hideHeader && isCustomer && activeRoute === '/' && hasVendorRole && (
@@ -452,7 +843,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                 <span className="text-sm">1900 8888</span>
               </div>
 
-              {(userName || onLogout) && (
+              {(userName || onLogout) && !hideWalletAndProfileOnAdminDashboard && (
                 <div
                   className="relative hidden md:block"
                   onMouseEnter={() => {
@@ -469,7 +860,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                 >
                   <button
                     onClick={handleWalletClick}
-                    disabled={walletLoading || topupLoading}
+                    disabled={walletLoading || topupLoading || withdrawLoading || withdrawalHistoryLoading}
                     className="flex items-center justify-center px-3 py-2 rounded-lg border border-gray-300 text-primary hover:border-primary transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                     title="Ví của tôi"
                   >
@@ -513,32 +904,32 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                           ) : (
                             <div className="flex items-baseline gap-1.5">
                               <span className="text-3xl font-black text-primary tracking-tight">
-                                {formatCurrency(walletInfo?.balance || 0)}
+                                {formatCurrency(availableBalance)}
                               </span>
                               <span className="text-xs font-bold text-slate-400 mb-1">VND</span>
                             </div>
                           )}
 
                           {/* Extra info for Vendor/Admin */}
-                          {(resolveWalletType() === 'Vendor' && walletInfo?.heldBalance > 0) || (resolveWalletType() !== 'Customer' && walletInfo?.debt > 0) ? (
+                          {currentWalletType === 'Vendor' || (currentWalletType !== 'Customer' && debtBalance > 0) ? (
                             <div className="mt-4 space-y-2 pt-4 border-t border-dashed border-slate-100">
-                              {resolveWalletType() === 'Vendor' && walletInfo?.heldBalance > 0 && (
+                              {currentWalletType === 'Vendor' && (
                                 <div className="flex justify-between items-center text-xs">
-                                  <span className="text-slate-500">Đang giữ:</span>
-                                  <span className="font-bold text-amber-600">+{formatCurrency(walletInfo.heldBalance)}đ</span>
+                                  <span className="text-slate-500">Số dư đang giữ:</span>
+                                  <span className="font-bold text-amber-600">{formatCurrency(heldBalance)}đ</span>
                                 </div>
                               )}
-                              {resolveWalletType() !== 'Customer' && walletInfo?.debt > 0 && (
+                              {debtBalance > 0 && (
                                 <div className="flex justify-between items-center text-xs">
                                   <span className="text-slate-500">Công nợ:</span>
-                                  <span className="font-bold text-red-500">-{formatCurrency(walletInfo.debt)}đ</span>
+                                  <span className="font-bold text-red-500">-{formatCurrency(debtBalance)}đ</span>
                                 </div>
                               )}
                             </div>
                           ) : null}
                         </div>
 
-                        {resolveWalletType() === 'Customer' && (
+                        {currentWalletType === 'Customer' && (
                           <button
                             onClick={async () => {
                               await handleTopupClick();
@@ -553,6 +944,34 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                             </div>
                             <span className="font-bold text-sm tracking-wide">Nạp thêm tiền</span>
                           </button>
+                        )}
+
+                        {currentWalletType === 'Vendor' && (
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onClick={handleWithdrawalHistoryClick}
+                              disabled={walletLoading || withdrawLoading || withdrawalHistoryLoading}
+                              className="w-full border-2 border-amber-600 text-amber-700 p-3 rounded-xl transition-all flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none"
+                            >
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                              </svg>
+                              <span className="font-bold text-sm tracking-wide">{withdrawalHistoryLoading ? 'Đang tải...' : 'Lịch sử'}</span>
+                            </button>
+
+                            <button
+                              onClick={handleWithdrawClick}
+                              disabled={walletLoading || withdrawLoading || withdrawalHistoryLoading}
+                              className="w-full bg-amber-600 hover:bg-amber-700 text-white p-3 rounded-xl transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-3 group active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none"
+                            >
+                              <div className="size-7 rounded-lg bg-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 9l-5 5-5-5" />
+                                </svg>
+                              </div>
+                              <span className="font-bold text-sm tracking-wide">{withdrawLoading ? 'Đang gửi...' : 'Rút tiền'}</span>
+                            </button>
+                          </div>
                         )}
                       </div>
 
@@ -570,7 +989,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
               )}
 
               {/* Account Dropdown */}
-              {userName && (
+              {userName && !hideWalletAndProfileOnAdminDashboard && (
                 <div
                   className="relative hidden md:block"
                   onMouseEnter={() => {
@@ -665,6 +1084,18 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                     </div>
                   )}
                 </div>
+              )}
+              {hideWalletAndProfileOnAdminDashboard && onLogout && (
+                <button
+                  onClick={handleLogoutClick}
+                  className="hidden md:flex items-center gap-2 px-4 py-2 rounded-lg border border-red-200 text-red-600 font-bold text-sm hover:bg-red-50 transition-all"
+                  title="Đăng xuất"
+                >
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                    <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z" />
+                  </svg>
+                  <span className="hidden lg:inline">Đăng xuất</span>
+                </button>
               )}
               {isCustomer && (
                 <>
@@ -781,17 +1212,17 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                   <p>contact@ritual.vn</p>
                 </div>
               </div>
-              <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200">
+              {/* <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200">
                 <h5 className="font-bold text-primary mb-2 text-sm uppercase">Tư vấn miễn phí</h5>
                 <p className="text-xs text-gray-600 mb-4">Để lại số điện thoại để chuyên gia gọi lại ngay.</p>
                 <div className="flex gap-2">
                   <input type="text" placeholder="Số điện thoại" className="flex-1 bg-white border border-gray-300 rounded-lg text-xs px-2 py-1" />
                   <button className="bg-primary text-white px-3 py-1 rounded-lg text-xs font-bold">Gửi</button>
                 </div>
-              </div>
+              </div> */}
             </div>
             <div className="pt-8 border-t border-gray-200 text-center">
-              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">© 2024 Modern Ritual Service. Thành tâm - Tín trực.</p>
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">© 2026 Modern Ritual Service. Thành tâm - Tín trực.</p>
             </div>
           </div>
         </footer>

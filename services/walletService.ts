@@ -25,6 +25,121 @@ export interface TopupLinkResult {
   [key: string]: unknown;
 }
 
+export interface WithdrawalRequest {
+  amount: number;
+  bankName: string;
+  accountNumber: string;
+  accountHolder: string;
+}
+
+export interface WithdrawalResult {
+  [key: string]: unknown;
+}
+
+export interface WithdrawalListItem {
+  id: string;
+  vendor: string;
+  amount: number;
+  bank: string;
+  requestedAt: string;
+  status: string;
+  raw?: Record<string, unknown>;
+}
+
+function readField<T>(source: Record<string, unknown>, keys: string[], fallback: T): T {
+  for (const key of keys) {
+    const value = source[key];
+    if (value !== undefined && value !== null) {
+      return value as T;
+    }
+  }
+
+  return fallback;
+}
+
+function readNestedField<T>(
+  source: Record<string, unknown>,
+  parentKeys: string[],
+  childKeys: string[],
+  fallback: T
+): T {
+  for (const parentKey of parentKeys) {
+    const parentValue = source[parentKey];
+
+    if (parentValue && typeof parentValue === 'object') {
+      const parentObject = parentValue as Record<string, unknown>;
+      for (const childKey of childKeys) {
+        const childValue = parentObject[childKey];
+        if (childValue !== undefined && childValue !== null) {
+          return childValue as T;
+        }
+      }
+    }
+  }
+
+  return fallback;
+}
+
+function normalizeWithdrawalItem(item: unknown, index: number): WithdrawalListItem {
+  const source = item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
+
+  const id = String(readField(source, ['withdrawalId', 'WithdrawalId', 'id', 'Id'], `WD-${index + 1}`));
+  const vendor = String(
+    readField(source, ['vendorName', 'VendorName', 'shopName', 'ShopName', 'accountHolder', 'AccountHolder'], 'Không xác định')
+  );
+
+  const amountRaw = readField(source, ['amount', 'Amount'], 0);
+  const amount = typeof amountRaw === 'number' ? amountRaw : Number(amountRaw) || 0;
+
+  const bankName = String(readField(source, ['bankName', 'BankName'], ''));
+  const accountNumber = String(readField(source, ['accountNumber', 'AccountNumber'], ''));
+  const bank = [bankName, accountNumber].filter(Boolean).join(' - ') || 'Chưa có thông tin';
+
+  const requestedAt = String(
+    readField(
+      source,
+      ['requestedAt', 'RequestedAt', 'createdDate', 'CreatedDate', 'createdAt', 'CreatedAt'],
+      readNestedField(source, ['transaction', 'Transaction'], ['createdAt', 'CreatedAt', 'createdDate', 'CreatedDate'], 'Chưa xác định')
+    )
+  );
+  const status = String(readField(source, ['status', 'Status'], 'Chờ duyệt'));
+
+  return {
+    id,
+    vendor,
+    amount,
+    bank,
+    requestedAt,
+    status,
+    raw: source,
+  };
+}
+
+function unwrapResultArray(payload: unknown): unknown[] {
+  if (Array.isArray(payload)) {
+    return payload;
+  }
+
+  if (payload && typeof payload === 'object') {
+    const envelope = payload as Record<string, unknown>;
+    const result = envelope.result;
+
+    if (Array.isArray(result)) {
+      return result;
+    }
+
+    if (result && typeof result === 'object') {
+      const resultObject = result as Record<string, unknown>;
+      const nestedArray = resultObject.items ?? resultObject.data ?? resultObject.records;
+      if (Array.isArray(nestedArray)) {
+        return nestedArray;
+      }
+    }
+  }
+
+  return [];
+}
+
 export async function getMyWallet(type: WalletType): Promise<WalletInfo> {
   const token = getAuthToken();
   if (!token) {
@@ -98,4 +213,201 @@ export async function createTopupLink(amount: number, type: WalletType): Promise
   }
 
   return {};
+}
+
+export async function createWithdrawal(request: WithdrawalRequest): Promise<WithdrawalResult> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Bạn chưa đăng nhập.');
+  }
+
+  const response = await fetch('/api/withdrawals', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    // Send PascalCase keys for strict backend model binders.
+    body: JSON.stringify({
+      Amount: request.amount,
+      BankName: request.bankName,
+      AccountNumber: request.accountNumber,
+      AccountHolder: request.accountHolder,
+    }),
+  });
+
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok || payload?.isSuccess === false || payload?.isSucceeded === false) {
+    const errorMessages = Array.isArray(payload?.errorMessages)
+      ? payload.errorMessages.filter((item: unknown) => typeof item === 'string')
+      : [];
+
+    const modelErrors = payload?.errors && typeof payload.errors === 'object'
+      ? Object.values(payload.errors as Record<string, unknown>)
+          .flatMap((value) => (Array.isArray(value) ? value : [value]))
+          .filter((item): item is string => typeof item === 'string')
+      : [];
+
+    const message =
+      [...errorMessages, ...modelErrors].join(', ') ||
+      payload?.message ||
+      `Không thể tạo yêu cầu rút tiền (${response.status}).`;
+    throw new Error(message);
+  }
+
+  if (payload?.result && typeof payload.result === 'object') {
+    return payload.result as WithdrawalResult;
+  }
+
+  if (payload && typeof payload === 'object') {
+    return payload as WithdrawalResult;
+  }
+
+  return {};
+}
+
+export async function getWithdrawalRequests(): Promise<WithdrawalListItem[]> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Bạn chưa đăng nhập.');
+  }
+
+  const response = await fetch('/api/withdrawals', {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok || (payload && typeof payload === 'object' && (payload as { isSuccess?: boolean; isSucceeded?: boolean }).isSuccess === false) || (payload && typeof payload === 'object' && (payload as { isSuccess?: boolean; isSucceeded?: boolean }).isSucceeded === false)) {
+    const errorMessages = payload && typeof payload === 'object' && Array.isArray((payload as { errorMessages?: unknown[] }).errorMessages)
+      ? ((payload as { errorMessages?: unknown[] }).errorMessages as unknown[]).filter((item): item is string => typeof item === 'string')
+      : [];
+
+    const message =
+      errorMessages.join(', ') ||
+      (payload && typeof payload === 'object' && typeof (payload as { message?: unknown }).message === 'string'
+        ? ((payload as { message?: string }).message as string)
+        : '') ||
+      `Không thể lấy danh sách rút tiền (${response.status}).`;
+
+    throw new Error(message);
+  }
+
+  const items = unwrapResultArray(payload);
+  return items.map((item, index) => normalizeWithdrawalItem(item, index));
+}
+
+export async function getMyWithdrawalRequests(status?: string): Promise<WithdrawalListItem[]> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Bạn chưa đăng nhập.');
+  }
+
+  const query = status && status.trim().length > 0
+    ? `?status=${encodeURIComponent(status.trim())}`
+    : '';
+
+  const response = await fetch(`/api/withdrawals/me${query}`, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const payload = await response.json().catch(() => null);
+
+  if (
+    !response.ok ||
+    (payload && typeof payload === 'object' && (payload as { isSuccess?: boolean; isSucceeded?: boolean }).isSuccess === false) ||
+    (payload && typeof payload === 'object' && (payload as { isSuccess?: boolean; isSucceeded?: boolean }).isSucceeded === false)
+  ) {
+    const errorMessages = payload && typeof payload === 'object' && Array.isArray((payload as { errorMessages?: unknown[] }).errorMessages)
+      ? ((payload as { errorMessages?: unknown[] }).errorMessages as unknown[]).filter((item): item is string => typeof item === 'string')
+      : [];
+
+    const message =
+      errorMessages.join(', ') ||
+      (payload && typeof payload === 'object' && typeof (payload as { message?: unknown }).message === 'string'
+        ? ((payload as { message?: string }).message as string)
+        : '') ||
+      `Không thể lấy lịch sử rút tiền (${response.status}).`;
+
+    throw new Error(message);
+  }
+
+  const items = unwrapResultArray(payload);
+  return items.map((item, index) => normalizeWithdrawalItem(item, index));
+}
+
+export async function approveWithdrawal(id: string): Promise<void> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Bạn chưa đăng nhập.');
+  }
+
+  const response = await fetch(`/api/withdrawals/${encodeURIComponent(id)}/approve`, {
+    method: 'PUT',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok || (payload && typeof payload === 'object' && (payload as { isSuccess?: boolean; isSucceeded?: boolean }).isSuccess === false) || (payload && typeof payload === 'object' && (payload as { isSuccess?: boolean; isSucceeded?: boolean }).isSucceeded === false)) {
+    const errorMessages = payload && typeof payload === 'object' && Array.isArray((payload as { errorMessages?: unknown[] }).errorMessages)
+      ? ((payload as { errorMessages?: unknown[] }).errorMessages as unknown[]).filter((item): item is string => typeof item === 'string')
+      : [];
+
+    const message =
+      errorMessages.join(', ') ||
+      (payload && typeof payload === 'object' && typeof (payload as { message?: unknown }).message === 'string'
+        ? ((payload as { message?: string }).message as string)
+        : '') ||
+      `Không thể duyệt yêu cầu rút tiền (${response.status}).`;
+
+    throw new Error(message);
+  }
+}
+
+export async function rejectWithdrawal(id: string, reason: string): Promise<void> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Bạn chưa đăng nhập.');
+  }
+
+  const response = await fetch(`/api/withdrawals/${encodeURIComponent(id)}/reject`, {
+    method: 'PUT',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ reason }),
+  });
+
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok || (payload && typeof payload === 'object' && (payload as { isSuccess?: boolean; isSucceeded?: boolean }).isSuccess === false) || (payload && typeof payload === 'object' && (payload as { isSuccess?: boolean; isSucceeded?: boolean }).isSucceeded === false)) {
+    const errorMessages = payload && typeof payload === 'object' && Array.isArray((payload as { errorMessages?: unknown[] }).errorMessages)
+      ? ((payload as { errorMessages?: unknown[] }).errorMessages as unknown[]).filter((item): item is string => typeof item === 'string')
+      : [];
+
+    const message =
+      errorMessages.join(', ') ||
+      (payload && typeof payload === 'object' && typeof (payload as { message?: unknown }).message === 'string'
+        ? ((payload as { message?: string }).message as string)
+        : '') ||
+      `Không thể từ chối yêu cầu rút tiền (${response.status}).`;
+
+    throw new Error(message);
+  }
 }
