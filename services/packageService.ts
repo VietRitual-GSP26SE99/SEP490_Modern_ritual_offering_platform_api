@@ -1,10 +1,57 @@
 import { ApiPackage, ApiResponse, Product, PackageVariant } from '../types';
 import { vendorService, VendorProfile } from './vendorService';
+import { getAuthToken } from './auth';
 
 
 const API_BASE_URL = '/api'; // Use proxy instead of direct URL
 
 class PackageService {
+  /**
+   * Lấy danh sách packages theo trạng thái từ endpoint by-status
+   * @param status - Draft | Pending | Approved | Rejected | ''
+   * @returns Promise<ApiPackage[]>
+   */
+  async getPackagesByStatus(status?: string): Promise<ApiPackage[]> {
+    try {
+      const token = getAuthToken();
+      const query = new URLSearchParams();
+      const normalizedStatus = String(status || '').trim();
+      if (normalizedStatus) {
+        query.set('status', normalizedStatus);
+      }
+
+      const endpoint = query.toString()
+        ? `${API_BASE_URL}/packages/by-status?${query.toString()}`
+        : `${API_BASE_URL}/packages/by-status`;
+
+      const response = await fetch(endpoint, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json, text/plain, */*',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data: any = await response.json();
+      if (Array.isArray(data)) {
+        return data as ApiPackage[];
+      }
+
+      if (data?.isSuccess && Array.isArray(data.result)) {
+        return data.result as ApiPackage[];
+      }
+
+      return [];
+    } catch (error) {
+      console.error('Failed to fetch packages by status:', error);
+      return [];
+    }
+  }
+
   /**
    * Lấy danh sách tất cả packages
    * @returns Promise<ApiPackage[]>
@@ -51,13 +98,20 @@ class PackageService {
    * @param id - Package ID
    * @returns Promise<ApiPackage | null>
    */
-  async getPackageById(id: string): Promise<ApiPackage | null> {
+  async getPackageById(id: string | number): Promise<ApiPackage | null> {
     try {
-      console.log(' Fetching package detail for ID:', id);
-      const response = await fetch(`${API_BASE_URL}/packages/${id}`, {
+      const token = getAuthToken();
+      const normalizedId = Number(String(id).trim());
+      if (!Number.isInteger(normalizedId) || normalizedId <= 0) {
+        throw new Error(`Invalid package id: ${id}`);
+      }
+
+      console.log(' Fetching package detail for ID:', normalizedId);
+      const response = await fetch(`${API_BASE_URL}/packages/${normalizedId}`, {
         method: 'GET',
         headers: {
-          'Accept': 'text/plain',
+          Accept: 'application/json, text/plain, */*',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
       });
 

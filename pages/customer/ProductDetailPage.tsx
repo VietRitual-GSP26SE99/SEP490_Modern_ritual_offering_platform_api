@@ -27,26 +27,64 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
   const [quantity, setQuantity] = useState(1);
   const [addingToCart, setAddingToCart] = useState(false);
   const [buyingNow, setBuyingNow] = useState(false);
+  const [packageMeta, setPackageMeta] = useState<any | null>(null);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [id]);
+
+  const buildVendorFromPackage = (pkg: any): VendorProfile | null => {
+    const vendorId = String(pkg?.vendorProfileId || pkg?.vendorId || pkg?.vendor?.vendorProfileId || pkg?.vendor?.vendorId || '').trim();
+    const shopName = String(pkg?.shopName || pkg?.vendorName || pkg?.vendor?.shopName || pkg?.vendor?.vendorName || '').trim();
+    if (!vendorId || !shopName) return null;
+
+    return {
+      vendorProfileId: vendorId,
+      shopName,
+      description: pkg?.vendor?.description,
+      address: pkg?.vendor?.address || pkg?.vendor?.addressText,
+      phoneNumber: pkg?.vendor?.phoneNumber,
+      rating: typeof pkg?.vendor?.rating === 'number' ? pkg.vendor.rating : undefined,
+      isActive: typeof pkg?.vendor?.isActive === 'boolean' ? pkg.vendor.isActive : true,
+      responseRate: pkg?.vendor?.responseRate,
+      joinedDate: pkg?.vendor?.joinedDate || pkg?.vendor?.createdAt,
+      productCount: pkg?.vendor?.productCount,
+      responseTime: pkg?.vendor?.responseTime,
+      followerCount: pkg?.vendor?.followerCount,
+    };
+  };
 
   // Fetch product from API
   useEffect(() => {
     const fetchProduct = async () => {
       if (!id) return;
 
+      const numericId = Number(String(id).trim());
+      if (!Number.isInteger(numericId) || numericId <= 0) {
+        console.warn(' Invalid package id from route:', id);
+        setProduct(null);
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       try {
-        console.log(' Fetching product detail for ID:', id);
-        const apiPackage = await packageService.getPackageById(id);
+        console.log(' Fetching product detail for ID:', numericId);
+        const apiPackage = await packageService.getPackageById(numericId);
         console.log(' Received package:', apiPackage);
 
         if (apiPackage) {
+          setPackageMeta(apiPackage as any);
           // Fetch vendor info
           const vendorId = apiPackage.vendorProfileId || (apiPackage as any).vendorId;
-          const vendorInfo = vendorId ? await vendorService.getVendorCached(vendorId) : null;
+          const vendorFromPackage = buildVendorFromPackage(apiPackage as any);
+          const vendorInfo = vendorFromPackage || (vendorId ? await vendorService.getVendorCached(vendorId) : null);
           const vendorMap = new Map();
           if (vendorInfo && vendorId) {
             vendorMap.set(vendorId, vendorInfo);
             setVendor(vendorInfo);
+          } else {
+            setVendor(null);
           }
 
           const mappedProduct = packageService.mapToProduct(apiPackage, vendorMap);
@@ -57,11 +95,13 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
           }
           setProduct(mappedProduct);
         } else {
+          setPackageMeta(null);
           console.warn(' No package from API, using mock data');
           const mockProduct = MOCK_PRODUCTS.find(p => p.id === id);
           setProduct(mockProduct || null);
         }
       } catch (error) {
+        setPackageMeta(null);
         console.error(' Error fetching product:', error);
         const mockProduct = MOCK_PRODUCTS.find(p => p.id === id);
         setProduct(mockProduct || null);
@@ -89,6 +129,16 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
     product?.image || '',
     ...thumbnailImages
   ].filter(img => img);
+
+  const selectedVariantMeta = Array.isArray(packageMeta?.packageVariants)
+    ? packageMeta.packageVariants[selectedVariantIndex]
+    : null;
+  const selectedVariantDescription =
+    selectedVariantMeta?.description ||
+    product?.variants?.[selectedVariantIndex]?.description ||
+    packageMeta?.description ||
+    product?.description ||
+    '';
 
   const handleImageClick = (index: number) => {
     setSelectedImageIndex(index);
@@ -365,6 +415,9 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
 
             <div className="pt-6 border-t border-gold/10">
               <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-4">Lễ vật bao gồm</label>
+              {selectedVariantDescription && (
+                <p className="text-xs font-medium text-slate-600 mb-4 leading-6">{selectedVariantDescription}</p>
+              )}
               <div className="grid grid-cols-2 gap-y-3">
                 {product.variants && product.variants[selectedVariantIndex]?.items && product.variants[selectedVariantIndex].items.length > 0 ? (
                   product.variants[selectedVariantIndex].items.map((item, idx) => (
@@ -375,7 +428,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                   ))
                 ) : (
                   <div className="col-span-2 text-xs text-slate-400 italic">
-                    Đang cập nhật danh sách lễ vật...
+                    {selectedVariantDescription ? 'Chi tiết lễ vật nằm trong phần mô tả ở trên.' : 'Đang cập nhật danh sách lễ vật...'}
                   </div>
                 )}
               </div>
@@ -574,7 +627,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
         </div>
 
         {/* Write Review */}
-        <div className="bg-white rounded-3xl p-8 border border-gold/10 shadow-sm">
+        {/* <div className="bg-white rounded-3xl p-8 border border-gold/10 shadow-sm">
           <h3 className="text-xl font-bold text-primary mb-6">Viết đánh giá của bạn</h3>
           <div className="space-y-6">
             <div>
@@ -609,7 +662,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
               Gửi đánh giá
             </button>
           </div>
-        </div>
+        </div> */}
       </div>
 
       {/* Image Modal */}

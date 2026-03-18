@@ -24,6 +24,15 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
     r3: false, // 3 sao
   });
   const [sortBy, setSortBy] = useState('popular');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  const getProductDetailPath = (rawId: string): string => {
+    const numericId = Number(String(rawId).trim());
+    if (Number.isInteger(numericId) && numericId > 0) {
+      return `/product/${numericId}`;
+    }
+    return `/product/${encodeURIComponent(String(rawId).trim())}`;
+  };
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -61,6 +70,10 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
     }
   }, [searchParams]);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, [searchParams]);
+
   const filterByPrice = (price: number) => {
     if (!Object.values(priceRanges).some(v => v)) return true;
     if (priceRanges.p1 && price < 1000000) return true;
@@ -78,11 +91,30 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
     return false;
   };
 
+  const filterBySearch = (product: Product) => {
+    const keyword = searchQuery.trim().toLowerCase();
+    if (!keyword) return true;
+
+    const searchable = [
+      product.name,
+      product.description,
+      product.vendorName,
+      product.category,
+      product.tag,
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    return searchable.includes(keyword);
+  };
+
   const filteredProducts = products.filter(p => {
     const categoryMatch = activeFilter === 'All' || p.category === activeFilter;
     const priceMatch = filterByPrice(p.price);
     const ratingMatch = filterByRating(p.rating);
-    return categoryMatch && priceMatch && ratingMatch;
+    const searchMatch = filterBySearch(p);
+    return categoryMatch && priceMatch && ratingMatch && searchMatch;
   }).sort((a, b) => {
     if (sortBy === 'price-asc') return a.price - b.price;
     if (sortBy === 'price-desc') return b.price - a.price;
@@ -102,7 +134,7 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
 
     if (!product.variants || product.variants.length === 0) {
       toast.warning('Sản phẩm này chưa có chi tiết gói lễ. Vui lòng xem chi tiết.');
-      onNavigate(`/product/${product.id}`);
+      onNavigate(getProductDetailPath(product.id));
       return;
     }
 
@@ -125,6 +157,14 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
       console.error('Error quick add to cart:', error);
       toast.error('Đã xảy ra lỗi. Vui lòng thử lại.');
     }
+  };
+
+  const handleResetFilters = () => {
+    setActiveFilter('All');
+    setPriceRanges({ p1: false, p2: false, p3: false, p4: false });
+    setRatingFilters({ r5: false, r4: false, r3: false });
+    setSearchQuery('');
+    setSortBy('popular');
   };
 
   return (
@@ -266,7 +306,10 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
             </div>
           </div>
 
-          <button className="w-full border-2 border-primary text-primary py-2.5 rounded-lg font-bold text-sm uppercase tracking-wider hover:bg-primary/5 transition-all">
+          <button
+            onClick={handleResetFilters}
+            className="w-full border-2 border-primary text-primary py-2.5 rounded-lg font-bold text-sm uppercase tracking-wider hover:bg-primary/5 transition-all"
+          >
             Xóa bộ lọc
           </button>
         </div>
@@ -282,8 +325,20 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between mb-8 bg-white p-6 rounded-2xl border border-gold/10">
-              <h2 className="text-xl font-bold text-slate-900">Danh sách mâm cúng ({filteredProducts.length})</h2>
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8 bg-white p-6 rounded-2xl border border-gold/10">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
+                <h2 className="text-xl font-bold text-slate-900">Danh sách mâm cúng ({filteredProducts.length})</h2>
+                <div className="relative w-full sm:w-80">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Tìm theo tên, mô tả, tên shop..."
+                    className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-700 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                  />
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></span>
+                </div>
+              </div>
               <div className="flex items-center gap-4">
                 <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sắp xếp:</span>
                 <select
@@ -298,6 +353,12 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
               </div>
             </div>
 
+            {filteredProducts.length === 0 && (
+              <div className="bg-white border border-gold/10 rounded-2xl p-10 text-center text-slate-500">
+                Không tìm thấy sản phẩm phù hợp với từ khóa hoặc bộ lọc hiện tại.
+              </div>
+            )}
+
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
               {filteredProducts.map((p) => (
                 <div
@@ -306,7 +367,7 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
                 >
                   <div
                     className="relative aspect-square overflow-hidden cursor-pointer"
-                    onClick={() => onNavigate(`/product/${p.id}`)}
+                    onClick={() => onNavigate(getProductDetailPath(p.id))}
                   >
                     <img className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" src={p.image} alt={p.name} />
                     <div className="absolute top-4 left-4 flex flex-col gap-2">
@@ -319,7 +380,7 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
                   </div>
                   <div
                     className="p-6 cursor-pointer"
-                    onClick={() => onNavigate(`/product/${p.id}`)}
+                    onClick={() => onNavigate(getProductDetailPath(p.id))}
                   >
                     <div className="flex items-center gap-1 mb-2 text-gold">
                       <span className="text-sm" style={{ color: '#FFD700' }}>★</span>
@@ -333,7 +394,7 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
                         <span className="font-semibold text-primary">{p.vendorName}</span>
                       </p>
                     )}
-                    <p className="text-slate-500 text-xs line-clamp-2 mb-6">{p.description}</p>
+                    {/* <p className="text-slate-500 text-xs line-clamp-2 mb-6">{p.description}</p> */}
                     <div className="pt-4 border-t border-gold/10 flex items-center justify-between">
                       <p className="text-xl font-black text-primary tracking-tight">{p.price.toLocaleString()}đ</p>
                       <button
