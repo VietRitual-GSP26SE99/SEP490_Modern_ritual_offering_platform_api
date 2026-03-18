@@ -299,7 +299,7 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
                     className="w-full px-4 py-3 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none"
                   />
                   {shopInfo.avatarFile && (
-                    <p className="text-sm text-green-600 mt-1">✅ Đã chọn: {shopInfo.avatarFile.name}</p>
+                    <p className="text-sm text-green-600 mt-1">Đã chọn: {shopInfo.avatarFile.name}</p>
                   )}
                 </div>
               )}
@@ -311,7 +311,7 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
                 disabled={saveLoading}
                 className="mt-6 w-full px-6 py-2.5 border-2 border-primary text-primary rounded-lg font-bold transition-all hover:bg-primary/5 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {saveLoading ? '⏳ Đang lưu...' : 'Lưu Thay Đổi'}
+                {saveLoading ? ' Đang lưu...' : 'Lưu Thay Đổi'}
               </button>
             )}
           </div>

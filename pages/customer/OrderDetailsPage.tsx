@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { orderService, Order } from '../../services/orderService';
 import toast from '../../services/toast';
+import RefundModal from '../../components/customer/RefundModal';
 
 const OrderDetailsPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -9,6 +10,8 @@ const OrderDetailsPage: React.FC = () => {
     const [order, setOrder] = useState<Order | null>(null);
     const [loading, setLoading] = useState(true);
     const [cancelling, setCancelling] = useState(false);
+    const [completing, setCompleting] = useState(false);
+    const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
 
     const fetchOrder = async () => {
         if (!id) return;
@@ -54,6 +57,27 @@ const OrderDetailsPage: React.FC = () => {
         }
     };
 
+    const handleCompleteOrder = async () => {
+        if (!order || window.confirm('Bạn xác nhận đã nhận đủ hàng và hài lòng với dịch vụ? Thao tác này sẽ hoàn thành đơn hàng.') === false) {
+            return;
+        }
+
+        setCompleting(true);
+        try {
+            const success = await orderService.updateOrderStatus(order.orderId, 'Completed');
+            if (success) {
+                toast.success('Đơn hàng đã hoàn thành');
+                await fetchOrder();
+            } else {
+                toast.error('Không thể hoàn thành đơn hàng');
+            }
+        } catch (error: any) {
+            toast.error(error.message || 'Cập nhật thất bại. Vui lòng thử lại.');
+        } finally {
+            setCompleting(false);
+        }
+    };
+
     const getStatusText = (status: string) => {
         switch (status.toUpperCase()) {
             case 'PENDING': return 'Chờ thanh toán';
@@ -64,7 +88,7 @@ const OrderDetailsPage: React.FC = () => {
             case 'SHIPPING':
             case 'DELIVERING': return 'Đang giao hàng';
             case 'DELIVERED': return 'Đã giao hàng';
-            case 'COMPLETED': return 'Đã hoàn thành';
+            case 'COMPLETED': return 'Đã hoàn tiền';
             case 'CANCELLED': return 'Đã hủy';
             case 'REFUNDED': return 'Đã hoàn tiền';
             case 'PAYMENTFAILED': return 'Thanh toán lỗi';
@@ -146,6 +170,23 @@ const OrderDetailsPage: React.FC = () => {
                             >
                                 Theo dõi ngay
                             </button>
+                        )}
+                        {order.orderStatus.toUpperCase() === 'DELIVERED' && (
+                            <>
+                                <button
+                                    onClick={() => setIsRefundModalOpen(true)}
+                                    className="bg-white text-orange-600 border border-orange-200 px-6 py-2 rounded-xl font-bold text-sm shadow-sm hover:bg-orange-50 transition"
+                                >
+                                    Yêu cầu hoàn tiền
+                                </button>
+                                <button
+                                    onClick={handleCompleteOrder}
+                                    disabled={completing}
+                                    className="bg-green-600 text-white px-6 py-2 rounded-xl font-bold text-sm shadow-sm hover:bg-green-700 transition disabled:opacity-50"
+                                >
+                                    {completing ? 'Đang xử lý...' : 'Hoàn thành đơn'}
+                                </button>
+                            </>
                         )}
                     </div>
                 </div>
@@ -269,6 +310,14 @@ const OrderDetailsPage: React.FC = () => {
 
                 </div>
             </div>
+
+            {/* Refund Modal */}
+            <RefundModal 
+                isOpen={isRefundModalOpen}
+                onClose={() => setIsRefundModalOpen(false)}
+                onSuccess={fetchOrder}
+                order={order}
+            />
         </div>
     );
 };

@@ -101,7 +101,7 @@ const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose, onNavigate
             {displayItems.map((item) => {
               // Find matching item in checkout summary for correct pricing
               const summaryItem = checkoutSummary?.items?.find(i => i.cartItemId === item.cartItemId);
-              const displayPrice = summaryItem?.lineTotal ?? summaryItem?.totalPrice ?? (item.price * (item.quantity || 1)) ?? 0;
+              const displayPrice = summaryItem?.lineTotal ?? summaryItem?.totalPrice ?? (item.price * (item.quantity || 1));
               
               return (
               <div 

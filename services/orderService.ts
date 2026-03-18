@@ -43,6 +43,7 @@ export interface Order {
         subTotal: number;
         shippingFee: number;
         totalAmount: number;
+        finalAmount?: number;
         commissionRate: number;
         platformFee: number;
         vendorNetAmount: number;
@@ -278,7 +279,7 @@ class OrderService {
                         const lineTotal = Number(item.lineTotal) || (unitPrice * quantity);
 
                         return {
-                            itemId: item.itemId || `item-${Math.random().toString(36).slice(2, 10)}`,
+                            itemId: item.itemId || (item as any).orderItemId || (item as any).id || `item-${Math.random().toString(36).slice(2, 10)}`,
                             variantId: item.variantId ?? '',
                             variantName: item.variantName || 'N/A',
                             packageName: item.packageName || 'N/A',
@@ -326,6 +327,7 @@ class OrderService {
                         subTotal,
                         shippingFee,
                         totalAmount,
+                        finalAmount: Number(raw.pricing?.finalAmount) || totalAmount,
                         commissionRate,
                         platformFee,
                         vendorNetAmount,

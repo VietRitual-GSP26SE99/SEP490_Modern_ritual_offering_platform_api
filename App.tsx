@@ -33,6 +33,7 @@ import StaffDashboard from './pages/staff/StaffDashboard';
 import CustomerManagement from './pages/staff/CustomerManagement';
 import PostManagement from './pages/staff/PostManagement';
 import SystemSettings from './pages/staff/SystemSettings';
+import RefundManagement from './pages/staff/RefundManagement';
 
 // Assistant
 import Assistant from './components/Assistant';
@@ -150,6 +151,7 @@ const AppContent: React.FC<{
       <Route path="/staff-customers" element={isAuthenticated && userRole === 'staff' ? <CustomerManagement onNavigate={handleNavigate} onLogout={onLogout} /> : <Navigate to="/auth" />} />
       <Route path="/staff-posts" element={isAuthenticated && userRole === 'staff' ? <PostManagement onNavigate={handleNavigate} onLogout={onLogout} /> : <Navigate to="/auth" />} />
       <Route path="/staff-settings" element={isAuthenticated && userRole === 'staff' ? <SystemSettings onNavigate={handleNavigate} onLogout={onLogout} /> : <Navigate to="/auth" />} />
+      <Route path="/staff-refunds" element={isAuthenticated && userRole === 'staff' ? <RefundManagement /> : <Navigate to="/auth" />} />
 
       {/* Admin Routes */}
       <Route path="/admin/dashboard" element={isAuthenticated && userRole === 'admin' ? <Layout activeRoute="/admin/dashboard" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><AdminDashboard onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />

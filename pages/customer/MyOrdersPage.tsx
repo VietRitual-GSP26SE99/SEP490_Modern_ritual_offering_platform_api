@@ -85,7 +85,7 @@ const MyOrdersPage: React.FC = () => {
             case 'SHIPPING':
             case 'DELIVERING': return 'Đang giao hàng';
             case 'DELIVERED': return 'Đã giao hàng';
-            case 'COMPLETED': return 'Đã hoàn thành';
+            case 'COMPLETED': return 'Đã hoàn tiền';
             case 'CANCELLED': return 'Đã hủy';
             case 'REFUNDED': return 'Đã hoàn tiền';
             case 'PAYMENTFAILED': return 'Thanh toán lỗi';
@@ -102,7 +102,7 @@ const MyOrdersPage: React.FC = () => {
         { id: 'PENDING', label: 'Chờ thanh toán' },
         { id: 'PAID', label: 'Đang xử lý' },
         { id: 'DELIVERING', label: 'Đang giao' },
-        { id: 'COMPLETED', label: 'Hoàn thành' },
+        { id: 'COMPLETED', label: 'Đã hoàn tiền' },
         { id: 'CANCELLED', label: 'Đã hủy' }
     ];
 
