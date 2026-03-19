@@ -259,6 +259,35 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
     }
   };
 
+  const handleNavigateToCart = () => {
+    const user = getCurrentUser();
+    if (!user) {
+      toast.warning('Vui lòng đăng nhập để vào giỏ hàng');
+      return;
+    }
+
+    onNavigate('/cart');
+  };
+
+  const handleNavigateToTracking = () => {
+    const user = getCurrentUser();
+    if (!user) {
+      toast.warning('Vui lòng đăng nhập để theo dõi đơn hàng');
+      return;
+    }
+
+    onNavigate('/tracking');
+  };
+
+  const handleMainNavClick = (path: string) => {
+    if (path === '/tracking') {
+      handleNavigateToTracking();
+      return;
+    }
+
+    onNavigate(path);
+  };
+
   const resolveWalletType = (): WalletType => {
     if (activeRoute.startsWith('/vendor')) return 'Vendor';
     if (activeRoute.startsWith('/admin')) return 'System';
@@ -798,7 +827,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                   <img
                     src="/assets/logo1.png"
                     alt="Modern Ritual Offering"
-                    className="w-full h-full object-contain object-left origin-left scale-[1.36]"
+                    className="w-full h-full object-contain object-left origin-left scale-[1.34]"
                   />
                 </div>
               </div>
@@ -811,7 +840,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                     onMouseLeave={() => setOpenDropdown(null)}
                   >
                     <button
-                      onClick={() => item.path && onNavigate(item.path)}
+                      onClick={() => item.path && handleMainNavClick(item.path)}
                       className={`text-sm font-semibold transition-colors border-b-2 py-1 flex items-center gap-1 ${item.path === activeRoute ? 'text-primary border-primary' : 'text-slate-600 border-transparent hover:text-primary hover:border-primary'
                         }`}
                     >
@@ -1058,7 +1087,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                           </button>
                           <button
                             onClick={() => {
-                              onNavigate('/tracking');
+                              handleNavigateToTracking();
                               setIsAccountDropdownOpen(false);
                             }}
                             className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-3"
@@ -1106,6 +1135,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                   <div
                     className="relative hidden md:block"
                     onMouseEnter={() => {
+                      if (!getCurrentUser()) {
+                        return;
+                      }
                       if (cartDropdownTimeout.current) {
                         clearTimeout(cartDropdownTimeout.current);
                       }
@@ -1118,7 +1150,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                     }}
                   >
                     <button
-                      onClick={() => onNavigate('/cart')}
+                      onClick={handleNavigateToCart}
                       className="relative flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-primary font-bold text-sm hover:border-primary transition-all"
                       title="Giỏ hàng"
                     >
@@ -1139,7 +1171,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                     <CartDropdown
                       isOpen={isCartDropdownOpen}
                       onClose={() => setIsCartDropdownOpen(false)}
-                      onNavigateToCart={() => onNavigate('/cart')}
+                      onNavigateToCart={handleNavigateToCart}
                       onNavigateToShop={() => onNavigate('/shop')}
                     />
                   </div>

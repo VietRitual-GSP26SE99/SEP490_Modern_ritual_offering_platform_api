@@ -15,6 +15,10 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
   const [updating, setUpdating] = useState<number | null>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, []);
+
   // Check authentication
   useEffect(() => {
     const user = getCurrentUser();

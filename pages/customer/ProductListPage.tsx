@@ -34,6 +34,16 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
     return `/product/${encodeURIComponent(String(rawId).trim())}`;
   };
 
+  const handleNavigateToProductDetail = (rawId: string) => {
+    const user = getCurrentUser();
+    if (!user) {
+      toast.warning('Vui lòng đăng nhập để xem chi tiết sản phẩm');
+      return;
+    }
+
+    onNavigate(getProductDetailPath(rawId));
+  };
+
   useEffect(() => {
     const fetchProducts = async () => {
       setLoading(true);
@@ -134,7 +144,7 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
 
     if (!product.variants || product.variants.length === 0) {
       toast.warning('Sản phẩm này chưa có chi tiết gói lễ. Vui lòng xem chi tiết.');
-      onNavigate(getProductDetailPath(product.id));
+      handleNavigateToProductDetail(product.id);
       return;
     }
 
@@ -327,7 +337,7 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
           <>
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8 bg-white p-6 rounded-2xl border border-gold/10">
               <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                <h2 className="text-xl font-bold text-slate-900">Danh sách mâm cúng ({filteredProducts.length})</h2>
+                <h2 className="text-xl font-bold text-slate-900">Danh sách ({filteredProducts.length})</h2>
                 <div className="relative w-full sm:w-80">
                   <input
                     type="text"
@@ -367,7 +377,7 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
                 >
                   <div
                     className="relative aspect-square overflow-hidden cursor-pointer"
-                    onClick={() => onNavigate(getProductDetailPath(p.id))}
+                    onClick={() => handleNavigateToProductDetail(p.id)}
                   >
                     <img className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" src={p.image} alt={p.name} />
                     <div className="absolute top-4 left-4 flex flex-col gap-2">
@@ -380,7 +390,7 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
                   </div>
                   <div
                     className="p-6 cursor-pointer"
-                    onClick={() => onNavigate(getProductDetailPath(p.id))}
+                    onClick={() => handleNavigateToProductDetail(p.id)}
                   >
                     <div className="flex items-center gap-1 mb-2 text-gold">
                       <span className="text-sm" style={{ color: '#FFD700' }}>★</span>

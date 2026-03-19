@@ -4,12 +4,18 @@ import { MOCK_PRODUCTS } from '../../constants';
 import MOCK_DATA from '../../mockData';
 import Carousel from '../../components/Carousel';
 import { packageService } from '../../services/packageService';
+import { getCurrentUser } from '../../services/auth';
+import toast from '../../services/toast';
 
 const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate }) => {
   const [showAllServices, setShowAllServices] = useState(false);
   const [products, setProducts] = useState(MOCK_PRODUCTS);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const { heroSlides, services, trustStats } = MOCK_DATA;
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+  }, []);
 
   const getProductDetailPath = (rawId: string): string => {
     const numericId = Number(String(rawId).trim());
@@ -23,6 +29,16 @@ const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
     if (items.length <= count) return items;
     const shuffled = [...items].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, count);
+  };
+
+  const handleNavigateToProductDetail = (rawId: string) => {
+    const user = getCurrentUser();
+    if (!user) {
+      toast.warning('Vui lòng đăng nhập để xem chi tiết sản phẩm');
+      return;
+    }
+
+    onNavigate(getProductDetailPath(rawId));
   };
 
   // Fetch products from API
@@ -123,7 +139,7 @@ const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
             <div
               key={product.id}
               className="bg-white rounded-3xl overflow-hidden shadow-md hover:shadow-2xl transition-all border border-gray-200 group cursor-pointer"
-              onClick={() => onNavigate(getProductDetailPath(product.id))}
+              onClick={() => handleNavigateToProductDetail(product.id)}
             >
                     <div className="relative h-72 overflow-hidden">
                         <img alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src={product.image} />
@@ -147,7 +163,7 @@ const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
                           <button
                             onClick={(event) => {
                               event.stopPropagation();
-                              onNavigate(getProductDetailPath(product.id));
+                              handleNavigateToProductDetail(product.id);
                             }}
                             className="bg-gray-100 hover:bg-primary text-primary hover:text-white p-3 rounded-2xl transition-all font-bold"
                           >

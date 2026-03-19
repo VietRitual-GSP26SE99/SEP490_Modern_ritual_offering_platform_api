@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { getProfile, UserProfile, getCurrentUser, getAuthToken, updateProfile, UpdateProfileRequest, changePassword, logoutComplete } from '../../services/auth';
+import { getProfile, UserProfile, getCurrentUser, getAuthToken, updateProfile, UpdateProfileRequest, changePassword, logoutComplete, logoutApi, logout } from '../../services/auth';
 import toast from '../../services/toast';
+import Swal from 'sweetalert2';
 import {
   getProvinces,
   getDistrictsByProvince,
@@ -62,7 +63,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
     return genderMap[gender] || gender;
   };
 
-  const [activeTab, setActiveTab] = useState<'info' | 'orders' | 'reviews'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'reviews'>('info');
   const [isEditing, setIsEditing] = useState(false);
   const [isProfileSetupRequired, setIsProfileSetupRequired] = useState(isFirstTimeSetup);
   const [loading, setLoading] = useState(true);
@@ -114,9 +115,15 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
     newPassword: '',
     confirmPassword: ''
   });
+  const [passwordVisibility, setPasswordVisibility] = useState({
+    old: false,
+    next: false,
+    confirm: false,
+  });
   const [changingPassword, setChangingPassword] = useState(false);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
+  const [passwordLogoutPending, setPasswordLogoutPending] = useState(false);
 
   // Google Maps Geocoding states
   const [geoLoading, setGeoLoading] = useState(false);
@@ -1211,6 +1218,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
   // Handle change password
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (passwordLogoutPending) {
+      return;
+    }
+
     setPasswordError(null);
     setPasswordSuccess(null);
 
@@ -1234,20 +1246,52 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
         newPassword: passwordForm.newPassword
       });
 
-      setPasswordSuccess(response.message);
-
       // Reset form
       setPasswordForm({
         oldPassword: '',
         newPassword: '',
         confirmPassword: ''
       });
+      setPasswordVisibility({ old: false, next: false, confirm: false });
 
-      // Hide form after 2 seconds
-      setTimeout(() => {
-        setShowChangePassword(false);
-        setPasswordSuccess(null);
-      }, 2000);
+      setPasswordLogoutPending(true);
+
+      let timerInterval: ReturnType<typeof setInterval> | undefined;
+      await Swal.fire({
+        icon: 'success',
+        title: 'Đổi mật khẩu thành công',
+        html: 'Hệ thống sẽ tự đăng xuất sau <b>3</b> giây...',
+        timer: 3000,
+        timerProgressBar: true,
+        allowOutsideClick: false,
+        allowEscapeKey: false,
+        showConfirmButton: false,
+        didOpen: () => {
+          const countdownEl = Swal.getHtmlContainer()?.querySelector('b');
+          timerInterval = setInterval(() => {
+            const leftMs = Swal.getTimerLeft() || 0;
+            const leftSeconds = Math.max(1, Math.ceil(leftMs / 1000));
+            if (countdownEl) {
+              countdownEl.textContent = String(leftSeconds);
+            }
+          }, 100);
+        },
+        willClose: () => {
+          if (timerInterval) {
+            clearInterval(timerInterval);
+          }
+        }
+      });
+
+      try {
+        await logoutApi();
+      } catch (error) {
+        console.warn('Logout API failed after password change, continue local logout:', error);
+      } finally {
+        // Clear all auth/session data including access token.
+        logout();
+        window.location.href = '/auth';
+      }
 
       console.log('✅ Password changed successfully');
     } catch (err) {
@@ -1255,6 +1299,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
       setPasswordError(err instanceof Error ? err.message : 'Không thể đổi mật khẩu. Vui lòng thử lại.');
     } finally {
       setChangingPassword(false);
+      setPasswordLogoutPending(false);
     }
   };
 
@@ -1281,33 +1326,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
       setLoggingOut(false);
     }
   };
-
-  const mockOrders = [
-    {
-      id: '#MRT-8829-2024',
-      product: 'Mâm Cúng Đầy Tháng Đặc Biệt',
-      date: '2024-01-12',
-      total: 2500000,
-      status: 'Đang giao',
-      image: 'https://picsum.photos/100/100?random=1'
-    },
-    {
-      id: '#MRT-8828-2024',
-      product: 'Gói Đại Phát - Khai Trương',
-      date: '2024-01-10',
-      total: 4950000,
-      status: 'Hoàn tất',
-      image: 'https://picsum.photos/100/100?random=2'
-    },
-    {
-      id: '#MRT-8827-2024',
-      product: 'Gói Bình An - Tân Gia',
-      date: '2024-01-05',
-      total: 1850000,
-      status: 'Hoàn tát',
-      image: 'https://picsum.photos/100/100?random=3'
-    }
-  ];
 
   const mockReviews = [
     {
@@ -1462,7 +1480,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
             {/* Tabs */}
             <div className="-mx-6 md:-mx-10 px-6 md:px-10 mb-8 bg-white/98 backdrop-blur-sm py-4 border-y border-gray-200 shadow-md sticky top-[88px] z-[100]">
               <div className="flex gap-2 max-w-7xl mx-auto">
-                {['info', 'orders', 'reviews'].map((tab) => (
+                {['info', 'reviews'].map((tab) => (
                   <button
                     key={tab}
                     onClick={() => {
@@ -1481,7 +1499,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                       }`}
                   >
                     {tab === 'info' && 'Thông tin cá nhân'}
-                    {tab === 'orders' && `Đơn hàng (${mockOrders.length})`}
                     {tab === 'reviews' && `Đánh giá (${mockReviews.length})`}
                     {isProfileSetupRequired && tab !== 'info' && ' 🔒'}
                   </button>
@@ -2166,27 +2183,49 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                               <label className="text-xs font-bold uppercase text-slate-400 tracking-widest">
                                 Mật khẩu hiện tại <span className="text-red-500">*</span>
                               </label>
-                              <input
-                                type="password"
-                                value={passwordForm.oldPassword}
-                                onChange={(e) => setPasswordForm(prev => ({ ...prev, oldPassword: e.target.value }))}
-                                required
-                                className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                              />
+                              <div className="relative">
+                                <input
+                                  type={passwordVisibility.old ? 'text' : 'password'}
+                                  value={passwordForm.oldPassword}
+                                  onChange={(e) => setPasswordForm(prev => ({ ...prev, oldPassword: e.target.value }))}
+                                  required
+                                  disabled={passwordLogoutPending}
+                                  className="w-full px-4 pr-16 py-3 rounded-xl bg-white border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setPasswordVisibility((prev) => ({ ...prev, old: !prev.old }))}
+                                  disabled={passwordLogoutPending}
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-primary hover:underline disabled:text-slate-400 disabled:no-underline"
+                                >
+                                  {passwordVisibility.old ? 'Ẩn' : 'Hiện'}
+                                </button>
+                              </div>
                             </div>
 
                             <div className="space-y-2">
                               <label className="text-xs font-bold uppercase text-slate-400 tracking-widest">
                                 Mật khẩu mới <span className="text-red-500">*</span>
                               </label>
-                              <input
-                                type="password"
-                                value={passwordForm.newPassword}
-                                onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
-                                required
-                                minLength={6}
-                                className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                              />
+                              <div className="relative">
+                                <input
+                                  type={passwordVisibility.next ? 'text' : 'password'}
+                                  value={passwordForm.newPassword}
+                                  onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                                  required
+                                  minLength={6}
+                                  disabled={passwordLogoutPending}
+                                  className="w-full px-4 pr-16 py-3 rounded-xl bg-white border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setPasswordVisibility((prev) => ({ ...prev, next: !prev.next }))}
+                                  disabled={passwordLogoutPending}
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-primary hover:underline disabled:text-slate-400 disabled:no-underline"
+                                >
+                                  {passwordVisibility.next ? 'Ẩn' : 'Hiện'}
+                                </button>
+                              </div>
                               <p className="text-xs text-slate-500">Yêu cầu mật khẩu:
 
                                 •
@@ -2206,13 +2245,24 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                               <label className="text-xs font-bold uppercase text-slate-400 tracking-widest">
                                 Xác nhận mật khẩu mới <span className="text-red-500">*</span>
                               </label>
-                              <input
-                                type="password"
-                                value={passwordForm.confirmPassword}
-                                onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
-                                required
-                                className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                              />
+                              <div className="relative">
+                                <input
+                                  type={passwordVisibility.confirm ? 'text' : 'password'}
+                                  value={passwordForm.confirmPassword}
+                                  onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                                  required
+                                  disabled={passwordLogoutPending}
+                                  className="w-full px-4 pr-16 py-3 rounded-xl bg-white border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => setPasswordVisibility((prev) => ({ ...prev, confirm: !prev.confirm }))}
+                                  disabled={passwordLogoutPending}
+                                  className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-semibold text-primary hover:underline disabled:text-slate-400 disabled:no-underline"
+                                >
+                                  {passwordVisibility.confirm ? 'Ẩn' : 'Hiện'}
+                                </button>
+                              </div>
                             </div>
 
                             {passwordError && (
@@ -2230,20 +2280,24 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                             <div className="flex gap-4 pt-2">
                               <button
                                 type="submit"
-                                disabled={changingPassword}
+                                disabled={changingPassword || passwordLogoutPending}
                                 className="flex-1 bg-primary text-white py-3 rounded-xl font-bold uppercase tracking-widest hover:scale-105 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                               >
-                                {changingPassword ? 'Đang xử lý...' : 'Xác nhận đổi'}
+                                {changingPassword ? 'Đang xử lý...' : passwordLogoutPending ? 'Đang chuẩn bị đăng xuất...' : 'Xác nhận đổi'}
                               </button>
                               <button
                                 type="button"
                                 onClick={() => {
+                                  if (passwordLogoutPending) {
+                                    return;
+                                  }
                                   setShowChangePassword(false);
                                   setPasswordForm({ oldPassword: '', newPassword: '', confirmPassword: '' });
+                                  setPasswordVisibility({ old: false, next: false, confirm: false });
                                   setPasswordError(null);
                                   setPasswordSuccess(null);
                                 }}
-                                disabled={changingPassword}
+                                disabled={changingPassword || passwordLogoutPending}
                                 className="flex-1 bg-gray-300 text-gray-700 py-3 rounded-xl font-bold uppercase tracking-widest hover:bg-gray-400 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                               >
                                 Hủy
@@ -2258,38 +2312,6 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                       </div>
                     </div>
                   )}
-                </div>
-              )}
-
-              {activeTab === 'orders' && (
-                <div className="space-y-6 relative z-10">
-                  {mockOrders.map((order) => (
-                    <div key={order.id} className="bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-lg transition-all p-6 flex flex-col md:flex-row md:items-center gap-6">
-                      <div className="w-20 h-20 rounded-xl flex-shrink-0 bg-cover border-2 border-gray-200" style={{ backgroundImage: `url("${order.image}")` }} />
-                      <div className="flex-1">
-                        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                          <div>
-                            <p className="text-xs font-bold uppercase text-gray-400 tracking-widest mb-1">{order.id}</p>
-                            <h3 className="text-lg font-bold text-primary mb-1">{order.product}</h3>
-                            <p className="text-sm text-slate-500">{order.date}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-2xl font-black text-primary tracking-tight mb-2">{order.total.toLocaleString()}đ</p>
-                            <span className={`inline-flex px-3 py-1 rounded-lg text-xs font-bold uppercase tracking-widest ${order.status === 'Hoàn tát' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
-                              }`}>
-                              {order.status}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => onNavigate('/tracking')}
-                        className="md:self-start bg-primary text-white px-6 py-2 rounded-lg font-bold text-sm hover:scale-105 transition-all"
-                      >
-                        Xem chi tiết
-                      </button>
-                    </div>
-                  ))}
                 </div>
               )}
 
