@@ -697,9 +697,9 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
                 >
                   Xem Sản Phẩm
                 </button>
-                <button className="px-6 py-3 border-2 border-gold text-gold rounded-lg font-bold hover:bg-gold/5 transition-all whitespace-nowrap">
+                {/* <button className="px-6 py-3 border-2 border-gold text-gold rounded-lg font-bold hover:bg-gold/5 transition-all whitespace-nowrap">
                    Theo dõi
-                </button>
+                </button> */}
               </div>
             </div>
           </div>
@@ -728,10 +728,7 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
               </p>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-gold/10">
-                <div>
-                  <p className="text-xs font-bold uppercase text-gold tracking-widest mb-2"> Địa Chỉ</p>
-                  <p className="text-gray-700 font-semibold">{currentShopAddress || 'Chưa có địa chỉ'}</p>
-                </div>
+            
                 <div>
                   <p className="text-xs font-bold uppercase text-gold tracking-widest mb-2"> Liên Hệ</p>
                   <div className="space-y-2">
