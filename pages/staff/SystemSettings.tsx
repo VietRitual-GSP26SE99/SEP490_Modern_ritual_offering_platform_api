@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { logoutComplete } from '../../services/auth';
+import { logoutAndRedirect } from '../../services/auth';
+import StaffShell from './StaffShell';
 
 interface SystemSettingsProps {
   onNavigate: (path: string) => void;
@@ -53,7 +54,7 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onNavigate, onLogout })
       description: 'Bật/tắt chế độ bảo trì',
       editable: true
     },
-    
+
     // Payment Settings
     {
       id: 'PAY-001',
@@ -174,7 +175,7 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onNavigate, onLogout })
   const filteredConfigs = configs.filter(config => config.category === activeCategory);
 
   const handleSaveConfig = (config: SystemConfig, newValue: string | boolean | number) => {
-    setConfigs(configs.map(c => 
+    setConfigs(configs.map(c =>
       c.id === config.id ? { ...c, value: newValue } : c
     ));
     setEditingConfig(null);
@@ -202,7 +203,7 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onNavigate, onLogout })
           <input
             type={typeof config.value === 'number' ? 'number' : 'text'}
             defaultValue={config.value.toString()}
-            className="flex-1 px-3 py-2 border-2 border-gray-900 rounded-lg focus:outline-none"
+            className="flex-1 px-3 py-2 border border-slate-300 rounded-lg focus:outline-none"
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 const value = (e.target as HTMLInputElement).value;
@@ -216,13 +217,13 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onNavigate, onLogout })
               const value = input.value;
               handleSaveConfig(config, typeof config.value === 'number' ? parseFloat(value) : value);
             }}
-            className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 transition-all"
+            className="px-4 py-2 bg-slate-900 text-white rounded-lg hover:bg-slate-800 transition"
           >
             Lưu
           </button>
           <button
             onClick={() => setEditingConfig(null)}
-            className="px-4 py-2 border-2 border-gray-200 text-gray-600 rounded-lg hover:border-gray-900 transition-all"
+            className="px-4 py-2 border border-slate-200 text-slate-600 rounded-lg hover:border-slate-300 transition"
           >
             Hủy
           </button>
@@ -236,7 +237,7 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onNavigate, onLogout })
         {config.editable && (
           <button
             onClick={() => setEditingConfig(config)}
-            className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-all"
+            className="px-3 py-1 text-sm bg-slate-100 text-slate-700 rounded-lg hover:bg-slate-200 transition"
           >
             ✏️ Sửa
           </button>
@@ -246,52 +247,33 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onNavigate, onLogout })
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
-      {/* Header */}
-      <header className="bg-white border-b-2 border-gray-200 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => onNavigate('staff-dashboard')}
-                className="w-10 h-10 flex items-center justify-center border-2 border-gray-900 rounded-lg hover:bg-gray-900 hover:text-white transition-all"
-              >
-                ←
-              </button>
-              <div className="w-12 h-12 bg-gradient-to-br from-gray-900 to-gray-700 rounded-full flex items-center justify-center">
-                <span className="text-xl text-white font-playfair font-bold">M</span>
-              </div>
-              <div>
-                <h1 className="text-xl font-playfair font-bold text-gray-900">Cài đặt hệ thống</h1>
-                <p className="text-xs text-gray-600">Modern Ritual Staff Panel</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              <button className="px-4 py-2 bg-gray-900 text-white font-semibold rounded-lg hover:bg-gray-800 transition-all">
-                💾 Sao lưu dữ liệu
-              </button>
-              <button
-                onClick={async () => {
-                  console.log('🚪 Logging out...');
-                  await logoutComplete();
-                }}
-                className="px-4 py-2 border-2 border-gray-900 text-gray-900 font-semibold rounded-lg hover:bg-gray-900 hover:text-white transition-all"
-              >
-                Đăng xuất
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+    <StaffShell
+      title="Cài đặt hệ thống"
+      subtitle="Cấu hình vận hành và chính sách nền tảng"
+      onBack={() => onNavigate('/staff/dashboard')}
+      actions={
+        <>
+          <button className="px-4 py-2 rounded-full bg-slate-900 text-white text-sm font-semibold shadow-sm hover:bg-slate-800">
+            Lưu thay đổi
+          </button>
+          <button
+            onClick={() => {
+              console.log('🚪 Logging out...');
+              logoutAndRedirect();
+            }}
+            className="px-4 py-2 rounded-full border border-slate-200 text-sm font-semibold text-slate-700 hover:border-slate-300 hover:text-slate-900"
+          >
+            Đăng xuất
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {stats.map((stat, index) => (
             <div
               key={index}
-              className="bg-white rounded-2xl p-6 border-2 border-gray-200 shadow-sm hover:shadow-lg transition-all"
+              className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm hover:shadow-md transition"
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="text-3xl">{stat.icon}</div>
@@ -303,19 +285,18 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onNavigate, onLogout })
         </div>
 
         <div className="grid grid-cols-12 gap-6">
-          {/* Sidebar Categories */}
           <div className="col-span-12 lg:col-span-3">
-            <div className="bg-white rounded-2xl p-4 border-2 border-gray-200 shadow-sm sticky top-24">
+            <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm sticky top-24">
               <h3 className="text-sm font-bold text-gray-900 mb-4 px-2">Danh mục</h3>
               <div className="space-y-2">
                 {categories.map((category) => (
                   <button
                     key={category.id}
                     onClick={() => setActiveCategory(category.id as any)}
-                    className={`w-full text-left px-4 py-3 rounded-lg font-semibold transition-all flex items-center gap-3 ${
+                    className={`w-full text-left px-4 py-3 rounded-lg font-semibold transition flex items-center gap-3 ${
                       activeCategory === category.id
-                        ? 'bg-gray-900 text-white'
-                        : 'bg-gray-50 text-gray-600 hover:bg-gray-100'
+                        ? 'bg-slate-900 text-white'
+                        : 'bg-slate-50 text-gray-600 hover:bg-slate-100'
                     }`}
                   >
                     <span className="text-xl">{category.icon}</span>
@@ -324,18 +305,17 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onNavigate, onLogout })
                 ))}
               </div>
 
-              <div className="mt-6 p-4 bg-gradient-to-br from-gray-900 to-gray-700 rounded-lg text-white">
+              <div className="mt-6 p-4 bg-slate-900 rounded-lg text-white">
                 <h4 className="font-bold mb-2">⚠️ Cảnh báo</h4>
-                <p className="text-xs text-gray-200">
+                <p className="text-xs text-slate-200">
                   Thay đổi cài đặt hệ thống có thể ảnh hưởng đến hoạt động. Hãy thận trọng!
                 </p>
               </div>
             </div>
           </div>
 
-          {/* Main Content */}
-          <div className="col-span-12 lg:col-span-9">
-            <div className="bg-white rounded-2xl p-6 border-2 border-gray-200 shadow-sm">
+          <div className="col-span-12 lg:col-span-9 space-y-6">
+            <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm">
               <h2 className="text-2xl font-bold text-gray-900 mb-6">
                 {categories.find(c => c.id === activeCategory)?.label}
               </h2>
@@ -344,7 +324,7 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onNavigate, onLogout })
                 {filteredConfigs.map((config) => (
                   <div
                     key={config.id}
-                    className="p-5 border-2 border-gray-200 rounded-xl hover:border-gray-900 transition-all"
+                    className="p-5 border border-slate-200 rounded-xl hover:border-slate-300 transition"
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex-1">
@@ -355,7 +335,7 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onNavigate, onLogout })
                         </span>
                       </div>
                     </div>
-                    
+
                     <div className="mt-4">
                       {renderConfigValue(config)}
                     </div>
@@ -370,30 +350,29 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onNavigate, onLogout })
               </div>
             </div>
 
-            {/* System Actions */}
-            <div className="mt-6 bg-white rounded-2xl p-6 border-2 border-gray-200 shadow-sm">
+            <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Thao tác hệ thống</h2>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <button className="p-4 border-2 border-gray-900 text-gray-900 rounded-lg font-semibold hover:bg-gray-50 transition-all text-left">
+                <button className="p-4 border border-slate-900 text-slate-900 rounded-lg font-semibold hover:bg-slate-50 transition text-left">
                   <div className="text-2xl mb-2">🔄</div>
                   <h3 className="font-bold mb-1">Làm mới cache</h3>
                   <p className="text-sm text-gray-600">Xóa bộ nhớ cache hệ thống</p>
                 </button>
 
-                <button className="p-4 border-2 border-gray-900 text-gray-900 rounded-lg font-semibold hover:bg-gray-50 transition-all text-left">
+                <button className="p-4 border border-slate-900 text-slate-900 rounded-lg font-semibold hover:bg-slate-50 transition text-left">
                   <div className="text-2xl mb-2">📊</div>
                   <h3 className="font-bold mb-1">Xuất báo cáo</h3>
                   <p className="text-sm text-gray-600">Tải xuống báo cáo hệ thống</p>
                 </button>
 
-                <button className="p-4 border-2 border-gray-900 text-gray-900 rounded-lg font-semibold hover:bg-gray-50 transition-all text-left">
+                <button className="p-4 border border-slate-900 text-slate-900 rounded-lg font-semibold hover:bg-slate-50 transition text-left">
                   <div className="text-2xl mb-2">🗄️</div>
                   <h3 className="font-bold mb-1">Sao lưu database</h3>
                   <p className="text-sm text-gray-600">Tạo bản sao lưu dữ liệu</p>
                 </button>
 
-                <button className="p-4 border-2 border-red-600 text-red-600 rounded-lg font-semibold hover:bg-red-50 transition-all text-left">
+                <button className="p-4 border border-rose-600 text-rose-600 rounded-lg font-semibold hover:bg-rose-50 transition text-left">
                   <div className="text-2xl mb-2">🚨</div>
                   <h3 className="font-bold mb-1">Reset hệ thống</h3>
                   <p className="text-sm">Khôi phục cài đặt mặc định</p>
@@ -403,7 +382,7 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onNavigate, onLogout })
           </div>
         </div>
       </div>
-    </div>
+    </StaffShell>
   );
 };
 

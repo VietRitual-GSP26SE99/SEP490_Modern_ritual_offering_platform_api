@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { refundService, RefundRecord } from '../../services/refundService';
+import StaffShell from './StaffShell';
 
 const formatVnd = (value: unknown): string => {
   const amount = typeof value === 'number' ? value : Number(value);
@@ -37,7 +38,7 @@ interface Props {
   onNavigate?: (path: string) => void;
 }
 
-const RefundManagement: React.FC<Props> = () => {
+const RefundManagement: React.FC<Props> = ({ onNavigate }) => {
   const [refunds, setRefunds] = useState<RefundRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -47,7 +48,6 @@ const RefundManagement: React.FC<Props> = () => {
   const [actionNote, setActionNote] = useState('');
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
-  const [confirmAction, setConfirmAction] = useState<'approve' | 'reject' | null>(null);
   const [imageModal, setImageModal] = useState<string | null>(null);
   const [searchText, setSearchText] = useState('');
 
@@ -88,11 +88,10 @@ const RefundManagement: React.FC<Props> = () => {
     totalAmount: refunds.filter(r => r.status === 'Approved').reduce((s, r) => s + r.refundAmount, 0),
   };
 
-  const handleProcess = async () => {
-    if (!selected || !confirmAction) return;
-
-    if (confirmAction === 'reject' && !actionNote.trim()) {
-      setActionError('Vui lòng nhập lý do từ chối');
+  const handleSendReview = async () => {
+    if (!selected) return;
+    if (!actionNote.trim()) {
+      setActionError('Vui lòng nhập ghi chú cho admin.');
       return;
     }
 
@@ -101,24 +100,16 @@ const RefundManagement: React.FC<Props> = () => {
     setSuccessMsg(null);
 
     try {
-      let success = false;
-      if (confirmAction === 'approve') {
-        success = await refundService.approveRefund(selected.refundId, actionNote);
-      } else {
-        success = await refundService.rejectRefund(selected.refundId, actionNote);
-      }
+      const success = await refundService.reviewRefund(selected.refundId, actionNote.trim());
 
       if (success) {
-        const label = confirmAction === 'approve' ? 'Đã duyệt' : 'Đã từ chối';
-        setSuccessMsg(`${label} yêu cầu hoàn tiền thành công!`);
+        setSuccessMsg('Đã gửi ghi chú cho admin.');
         setActionNote('');
-        setConfirmAction(null);
         await fetchRefunds();
-        // Refresh the selected record
         const updated = await refundService.getRefundById(selected.refundId).catch(() => null);
         if (updated) setSelected(updated);
       } else {
-        setActionError('Thao tác thất bại. Vui lòng thử lại.');
+        setActionError('Gửi ghi chú thất bại. Vui lòng thử lại.');
       }
     } catch (err: any) {
       setActionError(err.message || 'Có lỗi xảy ra.');
@@ -130,7 +121,6 @@ const RefundManagement: React.FC<Props> = () => {
   const openDetail = (r: RefundRecord) => {
     setSelected(r);
     setActionNote('');
-    setConfirmAction(null);
     setActionError(null);
     setSuccessMsg(null);
   };
@@ -163,14 +153,11 @@ const RefundManagement: React.FC<Props> = () => {
   }
 
   return (
-    <div className="bg-gray-50 min-h-screen py-10">
-      <div className="max-w-7xl mx-auto px-4 md:px-8">
-
-        {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl font-black text-primary font-display italic">Quản Lý Hoàn Tiền</h1>
-          <p className="text-slate-500 mt-1">Xem xét và xử lý các yêu cầu hoàn tiền từ khách hàng.</p>
-        </div>
+    <StaffShell
+      title="Quản lý hoàn tiền"
+      subtitle="Ghi chú và chuyển tiếp yêu cầu cho admin"
+      onBack={onNavigate ? () => onNavigate('/staff/dashboard') : undefined}
+    >
 
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
@@ -281,22 +268,6 @@ const RefundManagement: React.FC<Props> = () => {
                       )}
                     </div>
                     <div className="flex gap-3 flex-shrink-0">
-                      {refund.status === 'Pending' && (
-                        <>
-                          <button
-                            onClick={() => { openDetail(refund); setConfirmAction('approve'); }}
-                            className="px-5 py-2.5 bg-green-600 text-white font-bold text-sm rounded-xl hover:bg-green-700 transition shadow-sm"
-                          >
-                            Duyệt
-                          </button>
-                          <button
-                            onClick={() => { openDetail(refund); setConfirmAction('reject'); }}
-                            className="px-5 py-2.5 bg-red-500 text-white font-bold text-sm rounded-xl hover:bg-red-600 transition shadow-sm"
-                          >
-                            Từ chối
-                          </button>
-                        </>
-                      )}
                       <button
                         onClick={() => openDetail(refund)}
                         className="px-5 py-2.5 bg-primary text-white font-bold text-sm rounded-xl hover:bg-primary/90 transition shadow-lg shadow-primary/20"
@@ -310,8 +281,6 @@ const RefundManagement: React.FC<Props> = () => {
             })}
           </div>
         )}
-      </div>
-
       {/* Detail Modal */}
       {selected && (
         <div
@@ -447,59 +416,24 @@ const RefundManagement: React.FC<Props> = () => {
                 {/* Action panel – only for Pending */}
                 {selected.status === 'Pending' && (
                   <div className="bg-white p-6 rounded-[1.5rem] border border-gray-200 shadow-sm">
-                    <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-4">Xử lý yêu cầu</h3>
-
-                    {/* Step 1: choose action */}
-                    {!confirmAction && (
-                      <div className="space-y-3">
-                        <button
-                          onClick={() => { setConfirmAction('approve'); setActionError(null); setSuccessMsg(null); }}
-                          className="w-full py-3 bg-green-600 text-white font-bold rounded-xl hover:bg-green-700 transition text-sm"
-                        >
-                          ✅ Duyệt hoàn tiền
-                        </button>
-                        <button
-                          onClick={() => { setConfirmAction('reject'); setActionError(null); setSuccessMsg(null); }}
-                          className="w-full py-3 bg-red-500 text-white font-bold rounded-xl hover:bg-red-600 transition text-sm"
-                        >
-                          ❌ Từ chối yêu cầu
-                        </button>
-                      </div>
-                    )}
-
-                    {/* Step 2: confirm */}
-                    {confirmAction && (
-                      <div className="space-y-3">
-                        <div className={`p-3 rounded-xl text-sm font-bold ${confirmAction === 'approve' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
-                          {confirmAction === 'approve' ? '✅ Xác nhận duyệt hoàn tiền' : '❌ Xác nhận từ chối yêu cầu'}
-                        </div>
-                        <textarea
-                          value={actionNote}
-                          onChange={e => { setActionNote(e.target.value); setActionError(null); }}
-                          placeholder={confirmAction === 'reject' ? 'Lý do từ chối (bắt buộc)...' : 'Ghi chú thêm (tùy chọn)...'}
-                          rows={3}
-                          className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
-                        />
-                        {actionError && <p className="text-xs text-red-500 font-medium">{actionError}</p>}
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => setConfirmAction(null)}
-                            className="flex-1 py-2.5 border border-gray-200 text-gray-600 rounded-xl text-sm font-bold hover:bg-gray-50 transition"
-                          >
-                            Quay lại
-                          </button>
-                          <button
-                            onClick={handleProcess}
-                            disabled={processing}
-                            className={`flex-1 py-2.5 text-white rounded-xl text-sm font-bold transition disabled:opacity-50 ${
-                              confirmAction === 'approve' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-500 hover:bg-red-600'
-                            }`}
-                          >
-                            {processing ? 'Đang xử lý...' : 'Xác nhận'}
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                    <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-4">Ghi chú cho admin</h3>
+                    <div className="space-y-3">
+                      <textarea
+                        value={actionNote}
+                        onChange={e => { setActionNote(e.target.value); setActionError(null); }}
+                        placeholder="Nhập ghi chú đánh giá của staff..."
+                        rows={4}
+                        className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
+                      />
+                      {actionError && <p className="text-xs text-red-500 font-medium">{actionError}</p>}
+                      <button
+                        onClick={handleSendReview}
+                        disabled={processing}
+                        className="w-full py-2.5 text-white rounded-xl text-sm font-bold transition disabled:opacity-50 bg-primary hover:bg-primary/90"
+                      >
+                        {processing ? 'Đang gửi...' : 'Gửi cho admin'}
+                      </button>
+                    </div>
 
                     {successMsg && (
                       <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700 font-medium">
@@ -536,7 +470,7 @@ const RefundManagement: React.FC<Props> = () => {
           />
         </div>
       )}
-    </div>
+    </StaffShell>
   );
 };
 

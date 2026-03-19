@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { approveWithdrawal, getWithdrawalRequests, rejectWithdrawal, WithdrawalListItem } from '../../services/walletService';
+import { refundService, RefundRecord } from '../../services/refundService';
 import toast from '../../services/toast';
 import Swal from 'sweetalert2';
 
@@ -13,6 +14,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
   const [isLoadingWithdrawals, setIsLoadingWithdrawals] = useState(false);
   const [withdrawalsError, setWithdrawalsError] = useState<string | null>(null);
   const [processingWithdrawalId, setProcessingWithdrawalId] = useState<string | null>(null);
+  const [refundRequests, setRefundRequests] = useState<RefundRecord[]>([]);
+  const [isLoadingRefunds, setIsLoadingRefunds] = useState(false);
+  const [refundsError, setRefundsError] = useState<string | null>(null);
+  const [processingRefundId, setProcessingRefundId] = useState<string | null>(null);
 
   const adminStats = [
     { label: 'Tổng doanh thu', value: '1.2B₫', icon: 'trending_up', color: 'text-green-600' },
@@ -57,6 +62,28 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
   useEffect(() => {
     if (activeTab === 'withdrawals' && withdrawalRequests.length === 0 && !isLoadingWithdrawals) {
       loadWithdrawalRequests();
+    }
+  }, [activeTab]);
+
+  const loadRefundRequests = async () => {
+    setIsLoadingRefunds(true);
+    setRefundsError(null);
+
+    try {
+      const data = await refundService.getAllRefunds();
+      setRefundRequests(data);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Không thể tải danh sách hoàn tiền.';
+      setRefundsError(message);
+      setRefundRequests([]);
+    } finally {
+      setIsLoadingRefunds(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'disputes' && refundRequests.length === 0 && !isLoadingRefunds) {
+      loadRefundRequests();
     }
   }, [activeTab]);
 
@@ -265,6 +292,83 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
       await toast.error(message);
     } finally {
       setProcessingWithdrawalId(null);
+    }
+  };
+
+  const handleApproveRefund = async (refundId: string) => {
+    const result = await Swal.fire({
+      title: 'Duyệt hoàn tiền?',
+      text: 'Xác nhận duyệt yêu cầu hoàn tiền này.',
+      input: 'text',
+      inputPlaceholder: 'Ghi chú (tuỳ chọn)',
+      showCancelButton: true,
+      confirmButtonText: 'Duyệt',
+      cancelButtonText: 'Hủy',
+      confirmButtonColor: '#16a34a',
+      cancelButtonColor: '#64748b',
+      customClass: {
+        popup: 'rounded-2xl',
+        confirmButton: 'rounded-lg font-bold px-6 py-3',
+        cancelButton: 'rounded-lg font-bold px-6 py-3'
+      }
+    });
+
+    if (!result.isConfirmed) {
+      return;
+    }
+
+    setProcessingRefundId(refundId);
+
+    try {
+      await refundService.approveRefund(refundId, String(result.value || ''));
+      toast.success('Đã duyệt hoàn tiền.');
+      await loadRefundRequests();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Không thể duyệt hoàn tiền.';
+      toast.error(message);
+    } finally {
+      setProcessingRefundId(null);
+    }
+  };
+
+  const handleRejectRefund = async (refundId: string) => {
+    const result = await Swal.fire({
+      title: 'Từ chối hoàn tiền?',
+      input: 'text',
+      inputPlaceholder: 'Lý do từ chối (bắt buộc)',
+      inputValidator: (value) => {
+        if (!value || !value.trim()) {
+          return 'Vui lòng nhập lý do từ chối.';
+        }
+        return null;
+      },
+      showCancelButton: true,
+      confirmButtonText: 'Từ chối',
+      cancelButtonText: 'Hủy',
+      confirmButtonColor: '#dc2626',
+      cancelButtonColor: '#64748b',
+      customClass: {
+        popup: 'rounded-2xl',
+        confirmButton: 'rounded-lg font-bold px-6 py-3',
+        cancelButton: 'rounded-lg font-bold px-6 py-3'
+      }
+    });
+
+    if (!result.isConfirmed) {
+      return;
+    }
+
+    setProcessingRefundId(refundId);
+
+    try {
+      await refundService.rejectRefund(refundId, String(result.value || ''));
+      toast.success('Đã từ chối hoàn tiền.');
+      await loadRefundRequests();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Không thể từ chối hoàn tiền.';
+      toast.error(message);
+    } finally {
+      setProcessingRefundId(null);
     }
   };
 
@@ -480,33 +584,73 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
 
         {activeTab === 'disputes' && (
           <div className="bg-white rounded-[2rem] border border-gold/10 shadow-sm p-8">
-            <h2 className="text-2xl font-bold text-primary mb-8">Xử Lý khiếu nại</h2>
+            <div className="flex items-center justify-between mb-8">
+              <div>
+                <h2 className="text-2xl font-bold text-primary">Xử lý hoàn tiền</h2>
+                <p className="text-sm text-slate-500 mt-1">Duyệt hoặc từ chối yêu cầu hoàn tiền của khách hàng.</p>
+              </div>
+              <button
+                onClick={loadRefundRequests}
+                className="px-4 py-2 border-2 border-primary text-primary rounded-lg font-bold text-sm hover:bg-primary/5 transition-all"
+              >
+                Tải lại
+              </button>
+            </div>
+
+            {isLoadingRefunds && (
+              <div className="text-center py-10 text-slate-500">Đang tải danh sách hoàn tiền...</div>
+            )}
+
+            {refundsError && (
+              <div className="text-center py-10 text-red-500">{refundsError}</div>
+            )}
+
+            {!isLoadingRefunds && !refundsError && refundRequests.length === 0 && (
+              <div className="text-center py-10 text-slate-500">Chưa có yêu cầu hoàn tiền.</div>
+            )}
+
             <div className="space-y-4">
-              {disputes.map((dispute) => (
-                <div key={dispute.id} className="p-6 bg-ritual-bg rounded-xl border border-gold/10 hover:border-primary transition-all">
+              {refundRequests.map((refund) => (
+                <div key={refund.refundId} className="p-6 bg-ritual-bg rounded-xl border border-gold/10 hover:border-primary transition-all">
                   <div className="flex items-start justify-between mb-4">
                     <div>
-                      <p className="text-xs font-bold uppercase text-gold tracking-widest mb-1">{dispute.id}</p>
-                      <h3 className="text-lg font-bold text-primary mb-2">{dispute.complaint}</h3>
+                      <p className="text-xs font-bold uppercase text-gold tracking-widest mb-1">#{refund.orderCode || refund.orderId.slice(0, 8)}</p>
+                      <h3 className="text-lg font-bold text-primary mb-2">{refund.customerName}</h3>
                       <div className="flex gap-4 text-sm text-slate-600">
-                        <span> {dispute.customer}</span>
-                        <span> {dispute.vendor}</span>
-                        <span> {dispute.date}</span>
+                        <span> {formatCurrencyVN(refund.refundAmount)}</span>
+                        <span> {formatDateTimeVN(refund.createdAt)}</span>
                       </div>
+                      <p className="text-sm text-slate-500 mt-2 line-clamp-2">{refund.reason || 'Không có lý do'}</p>
                     </div>
-                    <span className={`inline-block px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap ${
-                      dispute.status === 'Chờ xử lý' ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700'
-                    }`}>
-                      {dispute.status}
+                    <span className={`inline-block px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap ${getStatusTheme(refund.status)}`}>
+                      {getDisplayStatus(refund.status)}
                     </span>
                   </div>
+
                   <div className="flex gap-2 pt-4 border-t border-gold/10">
-                    <button className="flex-1 px-4 py-2 border-2 border-primary text-primary rounded-lg font-bold text-sm hover:bg-primary/5 transition-all">
+                    <button
+                      className="flex-1 px-4 py-2 border-2 border-primary text-primary rounded-lg font-bold text-sm hover:bg-primary/5 transition-all"
+                    >
                       Xem chi tiết
                     </button>
-                    <button className="px-4 py-2 border-2 border-orange-600 text-orange-600 rounded-lg font-bold text-sm hover:bg-orange-50 transition-all">
-                      Hoàn tiền
-                    </button>
+                    {refund.status === 'Pending' && (
+                      <>
+                        <button
+                          onClick={() => handleApproveRefund(refund.refundId)}
+                          disabled={processingRefundId === refund.refundId}
+                          className="px-4 py-2 border-2 border-green-600 text-green-600 rounded-lg font-bold text-sm hover:bg-green-50 transition-all disabled:opacity-50"
+                        >
+                          Duyệt
+                        </button>
+                        <button
+                          onClick={() => handleRejectRefund(refund.refundId)}
+                          disabled={processingRefundId === refund.refundId}
+                          className="px-4 py-2 border-2 border-red-600 text-red-600 rounded-lg font-bold text-sm hover:bg-red-50 transition-all disabled:opacity-50"
+                        >
+                          Từ chối
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}

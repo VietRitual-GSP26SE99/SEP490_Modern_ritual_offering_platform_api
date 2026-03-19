@@ -322,7 +322,7 @@ class RefundService {
             const response = await fetch(`${API_BASE_URL}/refunds/${refundId}/approve`, {
                 method: 'PUT',
                 headers: this.getJsonHeaders(),
-                body: JSON.stringify({ adminNote: note || '' }),
+                body: JSON.stringify(note || ''),
             });
 
             if (!response.ok) {
@@ -347,7 +347,7 @@ class RefundService {
             const response = await fetch(`${API_BASE_URL}/refunds/${refundId}/reject`, {
                 method: 'PUT',
                 headers: this.getJsonHeaders(),
-                body: JSON.stringify({ adminNote: reason }),
+                body: JSON.stringify({ isApprove: false, adminResponse: reason || '' }),
             });
 
             if (!response.ok) {
@@ -359,6 +359,31 @@ class RefundService {
             return data.isSuccess || data.statusCode === 'OK';
         } catch (error) {
             console.error('Failed to reject refund:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Staff review refund (send note to admin)
+     * PUT /api/refunds/{id}/review
+     */
+    async reviewRefund(refundId: string, staffNote: string): Promise<boolean> {
+        try {
+            const response = await fetch(`${API_BASE_URL}/refunds/${refundId}/review`, {
+                method: 'PUT',
+                headers: this.getJsonHeaders(),
+                body: JSON.stringify({ staffNote: staffNote || '' }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.errorMessages?.[0] || `HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json().catch(() => ({}));
+            return data.isSuccess || data.statusCode === 'OK' || response.ok;
+        } catch (error) {
+            console.error('Failed to review refund:', error);
             throw error;
         }
     }

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { logoutComplete } from '../../services/auth';
+import { logoutAndRedirect } from '../../services/auth';
+import StaffShell from './StaffShell';
 
 interface PostManagementProps {
   onNavigate: (path: string) => void;
@@ -24,7 +25,6 @@ const PostManagement: React.FC<PostManagementProps> = ({ onNavigate, onLogout })
   const [filterStatus, setFilterStatus] = useState<'all' | Post['status']>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Mock data
   const [posts, setPosts] = useState<Post[]>([
     {
       id: 'POST-001',
@@ -108,7 +108,7 @@ const PostManagement: React.FC<PostManagementProps> = ({ onNavigate, onLogout })
   const filteredPosts = posts.filter(post => {
     const matchesStatus = filterStatus === 'all' || post.status === filterStatus;
     const matchesSearch = post.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-                         post.author.toLowerCase().includes(searchQuery.toLowerCase());
+      post.author.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesStatus && matchesSearch;
   });
 
@@ -123,55 +123,36 @@ const PostManagement: React.FC<PostManagementProps> = ({ onNavigate, onLogout })
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
-      {/* Header */}
-      <header className="bg-white border-b-2 border-gray-200 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => onNavigate('staff-dashboard')}
-                className="w-10 h-10 flex items-center justify-center border-2 border-gray-900 rounded-lg hover:bg-gray-900 hover:text-white transition-all"
-              >
-                ←
-              </button>
-              <div className="w-12 h-12 bg-gradient-to-br from-gray-900 to-gray-700 rounded-full flex items-center justify-center">
-                <span className="text-xl text-white font-playfair font-bold">M</span>
-              </div>
-              <div>
-                <h1 className="text-xl font-playfair font-bold text-gray-900">Quản lý bài đăng</h1>
-                <p className="text-xs text-gray-600">Modern Ritual Staff Panel</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              <button
-                onClick={() => setIsCreating(true)}
-                className="px-4 py-2 bg-gray-900 text-white font-semibold rounded-lg hover:bg-gray-800 transition-all"
-              >
-                ➕ Tạo bài viết mới
-              </button>
-              <button
-                onClick={async () => {
-                  console.log('🚪 Logging out...');
-                  await logoutComplete();
-                }}
-                className="px-4 py-2 border-2 border-gray-900 text-gray-900 font-semibold rounded-lg hover:bg-gray-900 hover:text-white transition-all"
-              >
-                Đăng xuất
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+    <StaffShell
+      title="Quản lý bài đăng"
+      subtitle="Kiểm soát nội dung và xuất bản"
+      onBack={() => onNavigate('/staff/dashboard')}
+      actions={
+        <>
+          <button
+            onClick={() => setIsCreating(true)}
+            className="px-4 py-2 rounded-full bg-slate-900 text-white text-sm font-semibold shadow-sm hover:bg-slate-800"
+          >
+            Tạo bài viết mới
+          </button>
+          <button
+            onClick={() => {
+              console.log('🚪 Logging out...');
+              logoutAndRedirect();
+            }}
+            className="px-4 py-2 rounded-full border border-slate-200 text-sm font-semibold text-slate-700 hover:border-slate-300 hover:text-slate-900"
+          >
+            Đăng xuất
+          </button>
+        </>
+      }
+    >
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {stats.map((stat, index) => (
             <div
               key={index}
-              className="bg-white rounded-2xl p-6 border-2 border-gray-200 shadow-sm hover:shadow-lg transition-all"
+              className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm hover:shadow-md transition"
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="text-3xl">{stat.icon}</div>
@@ -182,40 +163,22 @@ const PostManagement: React.FC<PostManagementProps> = ({ onNavigate, onLogout })
           ))}
         </div>
 
-        {/* Filters and Search */}
-        <div className="bg-white rounded-2xl p-6 border-2 border-gray-200 shadow-sm mb-6">
+        <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm">
           <div className="flex flex-col md:flex-row gap-4 items-start md:items-center justify-between">
             <div className="flex gap-2">
-              <button
-                onClick={() => setFilterStatus('all')}
-                className={`px-4 py-2 rounded-lg font-semibold transition-all ${
-                  filterStatus === 'all'
-                    ? 'bg-gray-900 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                Tất cả
-              </button>
-              <button
-                onClick={() => setFilterStatus('published')}
-                className={`px-4 py-2 rounded-lg font-semibold transition-all ${
-                  filterStatus === 'published'
-                    ? 'bg-gray-900 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                Đã xuất bản
-              </button>
-              <button
-                onClick={() => setFilterStatus('draft')}
-                className={`px-4 py-2 rounded-lg font-semibold transition-all ${
-                  filterStatus === 'draft'
-                    ? 'bg-gray-900 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                Bản nháp
-              </button>
+              {(['all', 'published', 'draft'] as const).map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setFilterStatus(tab)}
+                  className={`px-4 py-2 rounded-full text-sm font-semibold transition ${
+                    filterStatus === tab
+                      ? 'bg-slate-900 text-white'
+                      : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                  }`}
+                >
+                  {tab === 'all' ? 'Tất cả' : tab === 'published' ? 'Đã xuất bản' : 'Bản nháp'}
+                </button>
+              ))}
             </div>
 
             <div className="flex-1 max-w-md">
@@ -223,14 +186,13 @@ const PostManagement: React.FC<PostManagementProps> = ({ onNavigate, onLogout })
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="🔍 Tìm kiếm bài viết..."
-                className="w-full px-4 py-2 border-2 border-gray-200 rounded-lg focus:border-gray-900 focus:outline-none"
+                placeholder="Tìm kiếm bài viết..."
+                className="w-full px-4 py-2 rounded-full border border-slate-200 focus:border-slate-400 focus:outline-none"
               />
             </div>
           </div>
         </div>
 
-        {/* Posts Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {filteredPosts.map((post) => {
             const categoryBadge = getCategoryBadge(post.category);
@@ -239,7 +201,7 @@ const PostManagement: React.FC<PostManagementProps> = ({ onNavigate, onLogout })
             return (
               <div
                 key={post.id}
-                className="bg-white rounded-2xl p-6 border-2 border-gray-200 shadow-sm hover:shadow-lg transition-all cursor-pointer"
+                className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm hover:shadow-md transition cursor-pointer"
                 onClick={() => setSelectedPost(post)}
               >
                 <div className="flex items-start justify-between mb-4">
@@ -266,7 +228,7 @@ const PostManagement: React.FC<PostManagementProps> = ({ onNavigate, onLogout })
                     <span>👁️ {post.views}</span>
                     <span>❤️ {post.likes}</span>
                   </div>
-                  
+
                   <div className="flex gap-2">
                     {post.status === 'draft' && (
                       <button
@@ -274,7 +236,7 @@ const PostManagement: React.FC<PostManagementProps> = ({ onNavigate, onLogout })
                           e.stopPropagation();
                           handlePublishPost(post.id);
                         }}
-                        className="px-3 py-1 bg-green-100 text-green-800 rounded-lg text-xs font-semibold hover:bg-green-200 transition-all"
+                        className="px-3 py-1 bg-emerald-100 text-emerald-800 rounded-full text-xs font-semibold hover:bg-emerald-200 transition"
                       >
                         Xuất bản
                       </button>
@@ -284,7 +246,7 @@ const PostManagement: React.FC<PostManagementProps> = ({ onNavigate, onLogout })
                         e.stopPropagation();
                         handleDeletePost(post.id);
                       }}
-                      className="px-3 py-1 bg-red-100 text-red-800 rounded-lg text-xs font-semibold hover:bg-red-200 transition-all"
+                      className="px-3 py-1 bg-rose-100 text-rose-800 rounded-full text-xs font-semibold hover:bg-rose-200 transition"
                     >
                       Xóa
                     </button>
@@ -296,22 +258,21 @@ const PostManagement: React.FC<PostManagementProps> = ({ onNavigate, onLogout })
         </div>
 
         {filteredPosts.length === 0 && (
-          <div className="bg-white rounded-2xl p-12 border-2 border-gray-200 text-center">
-            <div className="text-6xl mb-4">📝</div>
-            <h3 className="text-xl font-bold text-gray-900 mb-2">Không tìm thấy bài viết</h3>
+          <div className="bg-white rounded-2xl p-12 border border-slate-200/80 text-center">
+            <div className="text-5xl mb-3">📝</div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Không tìm thấy bài viết</h3>
             <p className="text-gray-600">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
           </div>
         )}
       </div>
 
-      {/* Post Detail Modal */}
       {selectedPost && (
         <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto"
           onClick={() => setSelectedPost(null)}
         >
           <div
-            className="bg-white rounded-2xl p-8 max-w-3xl w-full border-2 border-gray-200 my-8"
+            className="bg-white rounded-2xl p-8 max-w-3xl w-full border border-slate-200 my-8"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-start mb-6">
@@ -346,24 +307,24 @@ const PostManagement: React.FC<PostManagementProps> = ({ onNavigate, onLogout })
               </div>
 
               <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                   <p className="text-sm text-gray-600 mb-1">Tác giả</p>
                   <p className="font-semibold text-gray-900">{selectedPost.author}</p>
                 </div>
 
-                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                   <p className="text-sm text-gray-600 mb-1">Ngày tạo</p>
                   <p className="font-semibold text-gray-900">
                     {new Date(selectedPost.createdAt).toLocaleDateString('vi-VN')}
                   </p>
                 </div>
 
-                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                   <p className="text-sm text-gray-600 mb-1">Lượt xem</p>
                   <p className="font-semibold text-gray-900">{selectedPost.views.toLocaleString()}</p>
                 </div>
 
-                <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
                   <p className="text-sm text-gray-600 mb-1">Lượt thích</p>
                   <p className="font-semibold text-gray-900">{selectedPost.likes.toLocaleString()}</p>
                 </div>
@@ -371,21 +332,21 @@ const PostManagement: React.FC<PostManagementProps> = ({ onNavigate, onLogout })
             </div>
 
             <div className="flex gap-3">
-              <button className="flex-1 py-3 bg-gray-900 text-white rounded-lg font-semibold hover:bg-gray-800 transition-all">
-                ✏️ Chỉnh sửa
+              <button className="flex-1 py-3 bg-slate-900 text-white rounded-lg font-semibold hover:bg-slate-800 transition">
+                Chỉnh sửa
               </button>
-              <button className="flex-1 py-3 border-2 border-gray-900 text-gray-900 rounded-lg font-semibold hover:bg-gray-50 transition-all">
-                👁️ Xem trước
+              <button className="flex-1 py-3 border border-slate-900 text-slate-900 rounded-lg font-semibold hover:bg-slate-50 transition">
+                Xem trước
               </button>
               {selectedPost.status === 'draft' && (
-                <button 
+                <button
                   onClick={() => {
                     handlePublishPost(selectedPost.id);
                     setSelectedPost(null);
                   }}
-                  className="flex-1 py-3 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 transition-all"
+                  className="flex-1 py-3 bg-emerald-600 text-white rounded-lg font-semibold hover:bg-emerald-700 transition"
                 >
-                  ✅ Xuất bản
+                  Xuất bản
                 </button>
               )}
             </div>
@@ -393,14 +354,13 @@ const PostManagement: React.FC<PostManagementProps> = ({ onNavigate, onLogout })
         </div>
       )}
 
-      {/* Create Post Modal */}
       {isCreating && (
         <div
           className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto"
           onClick={() => setIsCreating(false)}
         >
           <div
-            className="bg-white rounded-2xl p-8 max-w-3xl w-full border-2 border-gray-200 my-8"
+            className="bg-white rounded-2xl p-8 max-w-3xl w-full border border-slate-200 my-8"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex justify-between items-start mb-6">
@@ -422,14 +382,14 @@ const PostManagement: React.FC<PostManagementProps> = ({ onNavigate, onLogout })
                 <input
                   type="text"
                   placeholder="Nhập tiêu đề bài viết..."
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-gray-900 focus:outline-none"
+                  className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:border-slate-400 focus:outline-none"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Danh mục</label>
-                  <select className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-gray-900 focus:outline-none">
+                  <select className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:border-slate-400 focus:outline-none">
                     <option value="guide">Cẩm nang</option>
                     <option value="tutorial">Hướng dẫn</option>
                     <option value="news">Tin tức</option>
@@ -439,7 +399,7 @@ const PostManagement: React.FC<PostManagementProps> = ({ onNavigate, onLogout })
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Trạng thái</label>
-                  <select className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-gray-900 focus:outline-none">
+                  <select className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:border-slate-400 focus:outline-none">
                     <option value="draft">Bản nháp</option>
                     <option value="published">Xuất bản</option>
                   </select>
@@ -451,7 +411,7 @@ const PostManagement: React.FC<PostManagementProps> = ({ onNavigate, onLogout })
                 <textarea
                   rows={8}
                   placeholder="Nhập nội dung bài viết..."
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-gray-900 focus:outline-none resize-none"
+                  className="w-full px-4 py-3 border border-slate-200 rounded-lg focus:border-slate-400 focus:outline-none resize-none"
                 />
               </div>
 
@@ -459,13 +419,13 @@ const PostManagement: React.FC<PostManagementProps> = ({ onNavigate, onLogout })
                 <button
                   type="button"
                   onClick={() => setIsCreating(false)}
-                  className="flex-1 py-3 border-2 border-gray-900 text-gray-900 rounded-lg font-semibold hover:bg-gray-50 transition-all"
+                  className="flex-1 py-3 border border-slate-900 text-slate-900 rounded-lg font-semibold hover:bg-slate-50 transition"
                 >
                   Hủy
                 </button>
                 <button
                   type="submit"
-                  className="flex-1 py-3 bg-gray-900 text-white rounded-lg font-semibold hover:bg-gray-800 transition-all"
+                  className="flex-1 py-3 bg-slate-900 text-white rounded-lg font-semibold hover:bg-slate-800 transition"
                 >
                   Tạo bài viết
                 </button>
@@ -474,7 +434,7 @@ const PostManagement: React.FC<PostManagementProps> = ({ onNavigate, onLogout })
           </div>
         </div>
       )}
-    </div>
+    </StaffShell>
   );
 };
 

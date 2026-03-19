@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { logoutComplete } from '../../services/auth';
+import { logoutAndRedirect } from '../../services/auth';
+import StaffShell from './StaffShell';
 
 interface StaffDashboardProps {
   onNavigate: (path: string) => void;
@@ -61,10 +62,10 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
   ];
 
   const stats = [
-    { label: 'Đơn hàng chờ xử lý', value: '12', change: '+3', icon: '📋' },
-    { label: 'Đơn hàng đang xử lý', value: '8', change: '+2', icon: '⚙️' },
-    { label: 'Đơn hàng hoàn thành', value: '45', change: '+5', icon: '✅' },
-    { label: 'Yêu cầu hỗ trợ', value: '3', change: '0', icon: '💬' },
+    { label: 'Đơn hàng chờ xử lý', value: '12', change: '+3', icon: '' },
+    { label: 'Đơn hàng đang xử lý', value: '8', change: '+2', icon: '' },
+    { label: 'Đơn hàng hoàn thành', value: '45', change: '+5', icon: '' },
+    { label: 'Yêu cầu hỗ trợ', value: '3', change: '0', icon: '' },
   ];
 
   const getStatusColor = (status: Order['status']) => {
@@ -99,41 +100,21 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-gray-100">
-      {/* Header */}
-      <header className="bg-white border-b-2 border-gray-200 sticky top-0 z-50 shadow-sm">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 bg-gradient-to-br from-gray-900 to-gray-700 rounded-full flex items-center justify-center">
-                <span className="text-xl text-white font-playfair font-bold">M</span>
-              </div>
-              <div>
-                <h1 className="text-xl font-playfair font-bold text-gray-900">Modern Ritual</h1>
-                <p className="text-xs text-gray-600">Bảng điều khiển nhân viên</p>
-              </div>
-            </div>
-            
-            <div className="flex items-center gap-4">
-              <div className="text-right hidden md:block">
-                <p className="text-sm font-semibold text-gray-900">Nhân Viên Hỗ Trợ</p>
-                <p className="text-xs text-gray-600">nhanvien@demo.com</p>
-              </div>
-              <button
-                onClick={() => {
-                  console.log('🚪 Logging out from Staff Dashboard...');
-                  logoutAndRedirect();
-                }}
-                className="px-4 py-2 border-2 border-gray-900 text-gray-900 font-semibold rounded-lg hover:bg-gray-900 hover:text-white transition-all"
-              >
-                Đăng xuất
-              </button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <StaffShell
+      title="Bảng điều khiển"
+      subtitle="Theo dõi vận hành và xử lý yêu cầu hỗ trợ"
+      actions={
+        <button
+          onClick={() => {
+            console.log('🚪 Logging out from Staff Dashboard...');
+            logoutAndRedirect();
+          }}
+          className="px-4 py-2 rounded-full border border-slate-200 text-sm font-semibold text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
+        >
+          Đăng xuất
+        </button>
+      }
+    >
         {/* Tabs */}
         <div className="flex gap-2 mb-8 bg-white p-2 rounded-xl border-2 border-gray-200 shadow-sm">
           <button
@@ -144,7 +125,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
             }`}
           >
-            📊 Tổng quan
+             Tổng quan
           </button>
           <button
             onClick={() => setActiveTab('orders')}
@@ -154,7 +135,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
             }`}
           >
-            📦 Đơn hàng
+             Đơn hàng
           </button>
           <button
             onClick={() => setActiveTab('support')}
@@ -164,7 +145,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
                 : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
             }`}
           >
-            💬 Hỗ trợ
+             Hỗ trợ
           </button>
         </div>
 
@@ -209,7 +190,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
                           {getStatusText(order.status)}
                         </span>
                         {order.priority === 'high' && (
-                          <span className="text-red-600 text-xs font-bold">⚠️ Ưu tiên cao</span>
+                          <span className="text-red-600 text-xs font-bold"> Ưu tiên cao</span>
                         )}
                       </div>
                       <p className="text-sm text-gray-600">{order.customer} - {order.items}</p>
@@ -228,28 +209,36 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
             {/* Quick Actions */}
             <div className="bg-white rounded-2xl p-6 border-2 border-gray-200 shadow-sm">
               <h2 className="text-xl font-bold text-gray-900 mb-4">Quản lý nâng cao</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <button 
-                  onClick={() => onNavigate('staff-posts')}
+                  onClick={() => onNavigate('/staff-refunds')}
+                  className="p-4 bg-orange-600 text-white rounded-lg font-semibold hover:bg-orange-700 transition-all text-left"
+                >
+                  <div className="text-2xl mb-2"></div>
+                  <h3 className="font-bold mb-1">Xử lý hoàn tiền</h3>
+                  <p className="text-sm text-orange-100">Duyệt hoặc từ chối yêu cầu</p>
+                </button>
+                <button 
+                  onClick={() => onNavigate('/staff-posts')}
                   className="p-4 bg-gray-900 text-white rounded-lg font-semibold hover:bg-gray-800 transition-all text-left"
                 >
-                  <div className="text-2xl mb-2">📝</div>
+                  <div className="text-2xl mb-2"></div>
                   <h3 className="font-bold mb-1">Quản lý bài đăng</h3>
                   <p className="text-sm text-gray-300">Tạo và chỉnh sửa nội dung</p>
                 </button>
                 <button 
-                  onClick={() => onNavigate('staff-customers')}
+                  onClick={() => onNavigate('/staff-customers')}
                   className="p-4 border-2 border-gray-900 text-gray-900 rounded-lg font-semibold hover:bg-gray-50 transition-all text-left"
                 >
-                  <div className="text-2xl mb-2">👥</div>
+                  <div className="text-2xl mb-2"></div>
                   <h3 className="font-bold mb-1">Quản lý khách hàng</h3>
                   <p className="text-sm text-gray-600">Xem thông tin khách hàng</p>
                 </button>
                 <button 
-                  onClick={() => onNavigate('staff-settings')}
+                  onClick={() => onNavigate('/staff-settings')}
                   className="p-4 border-2 border-gray-900 text-gray-900 rounded-lg font-semibold hover:bg-gray-50 transition-all text-left"
                 >
-                  <div className="text-2xl mb-2">⚙️</div>
+                  <div className="text-2xl mb-2"></div>
                   <h3 className="font-bold mb-1">Cài đặt hệ thống</h3>
                   <p className="text-sm text-gray-600">Cấu hình nền tảng</p>
                 </button>
@@ -265,10 +254,10 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
               <h2 className="text-2xl font-bold text-gray-900">Quản lý đơn hàng</h2>
               <div className="flex gap-2">
                 <button className="px-4 py-2 border-2 border-gray-200 text-gray-600 rounded-lg hover:border-gray-900 hover:text-gray-900 transition-all">
-                  🔍 Tìm kiếm
+                   Tìm kiếm
                 </button>
                 <button className="px-4 py-2 border-2 border-gray-200 text-gray-600 rounded-lg hover:border-gray-900 hover:text-gray-900 transition-all">
-                  🔄 Lọc
+                  Lọc
                 </button>
               </div>
             </div>
@@ -293,7 +282,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
                       <td className="py-4 px-4">
                         <span className="font-semibold text-gray-900">{order.id}</span>
                         {order.priority === 'high' && (
-                          <span className="ml-2 text-red-600">⚠️</span>
+                          <span className="ml-2 text-red-600"></span>
                         )}
                       </td>
                       <td className="py-4 px-4 text-gray-700">{order.customer}</td>
@@ -393,8 +382,6 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
             </div>
           </div>
         )}
-      </div>
-
       {/* Order Detail Modal */}
       {selectedOrder && (
         <div
@@ -457,7 +444,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
           </div>
         </div>
       )}
-    </div>
+    </StaffShell>
   );
 };
 
