@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { getPath } from '../../types';
 import { MOCK_PRODUCTS } from '../../constants';
 import MOCK_DATA from '../../mockData';
 import Carousel from '../../components/Carousel';

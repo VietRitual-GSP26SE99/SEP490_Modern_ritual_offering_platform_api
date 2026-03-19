@@ -1,7 +1,6 @@
 import { ApiResponse } from '../types';
 import { getAuthToken } from './auth';
-
-const API_BASE_URL = '/api';
+import { API_BASE_URL } from './api';
 
 export interface CheckoutItem {
   cartItemId: number;

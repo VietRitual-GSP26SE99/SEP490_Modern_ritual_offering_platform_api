@@ -215,14 +215,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
             { path: '/shop?category=Year End', label: 'Cúng Tết' }
           ]
         },
-        // {
-        //   label: 'Dịch vụ',
-        //   submenu: [
-        //     { path: '/services/packages', label: 'Mâm cúng trọn gói' },
-        //     { path: '/services/consultation', label: 'Tư vấn lịch tốt' },
-        //     { path: '/services/delivery', label: 'Giao hàng nhanh' }
-        //   ]
-        // },
+       
         { path: '/tracking', label: 'Theo dõi' },
       ];
     } else if (isVendor) {
@@ -794,7 +787,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
           <div className="max-w-[92rem] mx-auto px-6 md:px-10 py-4 flex items-center justify-between">
             <div className="flex items-center gap-12">
               <div className="cursor-pointer" onClick={() => onNavigate('/')}>
-                <div className="w-[240px] h-[72px] md:w-[288px] md:h-[84px] lg:w-[312px] lg:h-[96px]">
+                <div className="w-[240px] h-[72px] md:w-[288px] md:h-[84px] lg:w-[312px] lg:h-[96px] -ml-16">
                   <img
                     src="/assets/logo1.png"
                     alt="Modern Ritual Offering"
