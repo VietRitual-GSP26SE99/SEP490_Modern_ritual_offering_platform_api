@@ -9,6 +9,10 @@ const TrackingPage: React.FC = () => {
     const orderIdParam = searchParams.get('orderId') || 'MRT-8829-2024';
     const [loading, setLoading] = useState(true);
 
+    useEffect(() => {
+        window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }, [orderIdParam]);
+
     const getStatusText = (status: string) => {
         if (!status) return 'Đang xử lý';
         switch (status.toUpperCase()) {

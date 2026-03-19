@@ -799,6 +799,14 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
                   <span className="relative z-10">Đăng Nhập</span>
                   <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => onNavigate('/')}
+                  className="w-full mt-3 border-2 border-gray-300 text-gray-700 font-semibold py-3 rounded-xl hover:border-gray-900 hover:text-gray-900 hover:bg-white transition-all duration-300"
+                >
+                  ← Quay lại trang chủ
+                </button>
               </form>
 
               {/* Social Login */}
