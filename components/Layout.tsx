@@ -791,12 +791,15 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
       {/* Header - Hidden during first-time setup */}
       {!hideHeader && (
         <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
-          <div className="max-w-7xl mx-auto px-6 md:px-10 py-4 flex items-center justify-between">
+          <div className="max-w-[92rem] mx-auto px-6 md:px-10 py-4 flex items-center justify-between">
             <div className="flex items-center gap-12">
               <div className="cursor-pointer" onClick={() => onNavigate('/')}>
-                <div className="flex flex-col">
-                  <span className="text-lg font-black tracking-widest text-primary uppercase leading-none">Modern</span>
-                  <span className="text-[10px] font-bold tracking-[0.3em] text-gray-400 uppercase">Ritual</span>
+                <div className="w-[240px] h-[72px] md:w-[288px] md:h-[84px] lg:w-[312px] lg:h-[96px]">
+                  <img
+                    src="/assets/logo1.png"
+                    alt="Modern Ritual Offering"
+                    className="w-full h-full object-contain object-left origin-left scale-[1.36]"
+                  />
                 </div>
               </div>
               <nav className="hidden lg:flex items-center gap-8">
@@ -1189,9 +1192,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
           <div className="max-w-7xl mx-auto px-6 md:px-10">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
               <div className="flex flex-col gap-6">
-                <div className="flex flex-col">
-                  <span className="text-base font-black tracking-widest text-primary uppercase leading-none">Modern</span>
-                  <span className="text-[8px] font-bold tracking-[0.3em] text-gray-400 uppercase">Ritual</span>
+                <div className="w-[312px] h-[96px] md:w-[360px] md:h-[120px]">
+                  <img
+                    src="/assets/logo1.png"
+                    alt="Modern Ritual Offering"
+                    className="w-full h-full object-contain object-left"
+                  />
                 </div>
                 <p className="text-gray-500 text-sm leading-relaxed">
                   Dịch vụ cung cấp mâm cúng trọn gói. Chúng tôi gìn giữ nét văn hóa tâm linh Việt qua sự tinh tế và chuyên nghiệp.
@@ -1222,7 +1228,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
               </div> */}
             </div>
             <div className="pt-8 border-t border-gray-200 text-center">
-              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">© 2026 Modern Ritual Service. Thành tâm - Tín trực.</p>
+              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">© 2026 Modern Ritual Offering  Service. Thành tâm - Tín trực.</p>
             </div>
           </div>
         </footer>

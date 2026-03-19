@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { UserRole } from '../../types';
 import { login, register, LoginRequest, RegisterRequest } from '../../services/auth';
 import toast from '../../services/toast';
+import logoImage from '../../assets/logo.png';
 
 interface AuthPageProps {
   onNavigate: (path: string) => void;
@@ -9,19 +10,87 @@ interface AuthPageProps {
 }
 
 const PROFILE_SETUP_REQUIRED_KEY = 'modern-ritual-profile-setup-required';
+const REMEMBER_LOGIN_KEY = 'modern-ritual-remember-login';
+
+interface AuthFormData {
+  email: string;
+  password: string;
+  confirmPassword: string;
+  name: string;
+  phone: string;
+  userType: UserRole;
+  agreeTerms: boolean;
+}
+
+const createInitialFormData = (): AuthFormData => ({
+  email: '',
+  password: '',
+  confirmPassword: '',
+  name: '',
+  phone: '',
+  userType: 'customer',
+  agreeTerms: false,
+});
 
 const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
   const [isLogin, setIsLogin] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-    confirmPassword: '',
-    name: '',
-    phone: '',
-    userType: 'customer' as UserRole,
-    agreeTerms: false,
-  });
+  const [formData, setFormData] = useState<AuthFormData>(createInitialFormData());
+  const [rememberLogin, setRememberLogin] = useState(false);
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+  const [showRegisterConfirmPassword, setShowRegisterConfirmPassword] = useState(false);
+
+  useEffect(() => {
+    try {
+      const rememberedRaw = localStorage.getItem(REMEMBER_LOGIN_KEY);
+      if (!rememberedRaw) return;
+
+      const remembered = JSON.parse(rememberedRaw) as { email?: string; password?: string };
+      const email = String(remembered.email || '').trim();
+      const password = String(remembered.password || '');
+      if (!email || !password) return;
+
+      setRememberLogin(true);
+      setFormData((prev) => ({
+        ...prev,
+        email,
+        password,
+      }));
+    } catch (e) {
+      localStorage.removeItem(REMEMBER_LOGIN_KEY);
+    }
+  }, []);
+
+  const switchToRegister = () => {
+    setIsLogin(false);
+    setError(null);
+    setFormData(createInitialFormData());
+    setShowRegisterPassword(false);
+    setShowRegisterConfirmPassword(false);
+  };
+
+  const switchToLogin = () => {
+    setIsLogin(true);
+    setError(null);
+    setShowLoginPassword(false);
+
+    const next = createInitialFormData();
+    if (rememberLogin) {
+      try {
+        const rememberedRaw = localStorage.getItem(REMEMBER_LOGIN_KEY);
+        const remembered = rememberedRaw ? JSON.parse(rememberedRaw) as { email?: string; password?: string } : null;
+        if (remembered?.email && remembered?.password) {
+          next.email = String(remembered.email);
+          next.password = String(remembered.password);
+        }
+      } catch {
+        // Ignore parse errors and fall back to blank login form.
+      }
+    }
+
+    setFormData(next);
+  };
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value, type } = e.target;
@@ -118,6 +187,15 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
 
         const normalizedRole = String(response.role || '').toLowerCase();
 
+        if (rememberLogin) {
+          localStorage.setItem(REMEMBER_LOGIN_KEY, JSON.stringify({
+            email: formData.email,
+            password: formData.password,
+          }));
+        } else {
+          localStorage.removeItem(REMEMBER_LOGIN_KEY);
+        }
+
         // First-time profile setup only applies to customers.
         if (normalizedRole === 'customer') {
           try {
@@ -177,7 +255,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
               console.log('⚠️ Customer profile incomplete - redirecting to profile setup');
               localStorage.setItem(PROFILE_SETUP_REQUIRED_KEY, 'true');
               toast.message({
-                title: 'Chào mừng bạn đến với Modern Ritual!',
+                title: 'Chào mừng bạn đến với Modern Ritual Offering !',
                 text: 'Để tiếp tục, vui lòng hoàn thành thông tin cá nhân của bạn.',
                 icon: 'info',
                 confirmButtonText: 'Hoàn thành hồ sơ'
@@ -248,8 +326,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
         });
 
         // Chuyển về form đăng nhập
-        setIsLogin(true);
-        setError(null);
+        switchToLogin();
       } catch (error) {
         console.error('❌ Registration failed:', error);
         const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
@@ -277,13 +354,17 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
             <div className="text-center mb-8 animate-scale-in">
               <div className="relative inline-block mb-6">
                 <div className="absolute inset-0 bg-gradient-to-br from-gray-900/20 via-gray-700/20 to-gray-500/20 rounded-full blur-2xl animate-pulse"></div>
-                <div className="relative w-20 h-20 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700 rounded-full flex items-center justify-center mx-auto shadow-[0_10px_40px_-10px_rgba(0,0,0,0.4)] hover:shadow-[0_15px_50px_-10px_rgba(0,0,0,0.5)] transition-all duration-500 hover:scale-110 group">
-                  <span className="text-3xl text-white font-playfair font-bold group-hover:scale-110 transition-transform duration-300">M</span>
+                <div className="relative w-[106px] h-[106px] bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700 rounded-full flex items-center justify-center mx-auto shadow-[0_10px_40px_-10px_rgba(0,0,0,0.4)] hover:shadow-[0_15px_50px_-10px_rgba(0,0,0,0.5)] transition-all duration-500 hover:scale-110 group overflow-hidden">
+                  <img
+                    src={logoImage}
+                    alt="Modern Ritual Logo"
+                    className="w-full h-full object-cover object-center group-hover:scale-110 transition-transform duration-300"
+                  />
                   <div className="absolute inset-0 rounded-full border-2 border-white/20 group-hover:border-white/40 transition-colors duration-300"></div>
                 </div>
               </div>
               <div className="text-center mb-8">
-                <h1 className="text-3xl font-playfair font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-2">Modern Ritual</h1>
+                <h1 className="text-3xl font-playfair font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-2">Modern Ritual Offering</h1>
                 <p className="text-sm text-gray-600 font-semibold tracking-wide">Nền tảng mâm cúng hiện đại</p>
               </div>
               <h2 className="text-3xl font-playfair font-bold text-gray-900 mb-2">
@@ -360,31 +441,75 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
                   <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
                     <span>Mật khẩu</span>
                   </label>
-                  <input
-                    type="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    placeholder="••••••••"
-                    required
-                    minLength={6}
-                    className="w-full px-5 py-4 border-2 border-gray-200 rounded-xl focus:border-gray-900 focus:ring-4 focus:ring-gray-100 focus:outline-none bg-white transition-all shadow-sm hover:shadow-md"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showRegisterPassword ? 'text' : 'password'}
+                      name="password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      placeholder="••••••••"
+                      required
+                      minLength={6}
+                      className="w-full px-5 py-4 pr-12 border-2 border-gray-200 rounded-xl focus:border-gray-900 focus:ring-4 focus:ring-gray-100 focus:outline-none bg-white transition-all shadow-sm hover:shadow-md"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowRegisterPassword((prev) => !prev)}
+                      className="absolute inset-y-0 right-0 px-3 text-gray-500 hover:text-gray-800"
+                      aria-label={showRegisterPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                    >
+                      {showRegisterPassword ? (
+                        <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20C7 20 2.73 16.11 1 12c.73-1.73 1.79-3.23 3.08-4.4" />
+                          <path d="M10.58 10.58a2 2 0 0 0 2.83 2.83" />
+                          <path d="M9.88 5.09A10.94 10.94 0 0 1 12 4c5 0 9.27 3.89 11 8a10.95 10.95 0 0 1-1.64 2.71" />
+                          <path d="M1 1l22 22" />
+                        </svg>
+                      ) : (
+                        <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="space-y-2">
                   <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
                     <span>Xác nhận</span>
                   </label>
-                  <input
-                    type="password"
-                    name="confirmPassword"
-                    value={formData.confirmPassword}
-                    onChange={handleInputChange}
-                    placeholder="••••••••"
-                    required
-                    className="w-full px-5 py-4 border-2 border-gray-200 rounded-xl focus:border-gray-900 focus:ring-4 focus:ring-gray-100 focus:outline-none bg-white transition-all shadow-sm hover:shadow-md"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showRegisterConfirmPassword ? 'text' : 'password'}
+                      name="confirmPassword"
+                      value={formData.confirmPassword}
+                      onChange={handleInputChange}
+                      placeholder="••••••••"
+                      required
+                      className="w-full px-5 py-4 pr-12 border-2 border-gray-200 rounded-xl focus:border-gray-900 focus:ring-4 focus:ring-gray-100 focus:outline-none bg-white transition-all shadow-sm hover:shadow-md"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowRegisterConfirmPassword((prev) => !prev)}
+                      className="absolute inset-y-0 right-0 px-3 text-gray-500 hover:text-gray-800"
+                      aria-label={showRegisterConfirmPassword ? 'Ẩn mật khẩu xác nhận' : 'Hiện mật khẩu xác nhận'}
+                    >
+                      {showRegisterConfirmPassword ? (
+                        <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20C7 20 2.73 16.11 1 12c.73-1.73 1.79-3.23 3.08-4.4" />
+                          <path d="M10.58 10.58a2 2 0 0 0 2.83 2.83" />
+                          <path d="M9.88 5.09A10.94 10.94 0 0 1 12 4c5 0 9.27 3.89 11 8a10.95 10.95 0 0 1-1.64 2.71" />
+                          <path d="M1 1l22 22" />
+                        </svg>
+                      ) : (
+                        <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
               <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
@@ -428,7 +553,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
                   className="w-5 h-5 text-gray-900 rounded-md mt-0.5 cursor-pointer accent-gray-900"
                 />
                 <span className="text-sm text-gray-600 leading-relaxed">
-                  Tôi đồng ý với <a href="#" className="text-gray-900 font-semibold hover:underline decoration-2">điều khoản sử dụng</a> và <a href="#" className="text-gray-900 font-semibold hover:underline decoration-2">chính sách bảo mật</a> của Modern Ritual
+                  Tôi đồng ý với <a href="#" className="text-gray-900 font-semibold hover:underline decoration-2">điều khoản sử dụng</a> và <a href="#" className="text-gray-900 font-semibold hover:underline decoration-2">chính sách bảo mật</a> của Modern Ritual Offering
                 </span>
               </label>
 
@@ -473,7 +598,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
           </div>
 
           <p className="text-center text-gray-700 text-sm mt-8 font-medium">
-            © 2025 Modern Ritual. Thành tâm - Tín trực.
+            © 2026 Modern Ritual Offering. Thành tâm - Tín trực.
           </p>
         </div>
 
@@ -542,19 +667,23 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
               <div className="text-center mb-8">
                 <div className="relative inline-block mb-4">
                   <div className="absolute inset-0 bg-gradient-to-br from-gray-900/20 to-gray-700/20 rounded-full blur-2xl animate-pulse"></div>
-                  <div className="relative w-20 h-20 bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700 rounded-full flex items-center justify-center shadow-[0_10px_40px_-10px_rgba(0,0,0,0.4)] hover:shadow-[0_15px_50px_-10px_rgba(0,0,0,0.5)] transition-all duration-500 hover:scale-110 group cursor-pointer">
-                    <span className="text-3xl text-white font-playfair font-bold group-hover:scale-110 transition-transform duration-300">M</span>
+                  <div className="relative w-[106px] h-[106px] bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700 rounded-full flex items-center justify-center shadow-[0_10px_40px_-10px_rgba(0,0,0,0.4)] hover:shadow-[0_15px_50px_-10px_rgba(0,0,0,0.5)] transition-all duration-500 hover:scale-110 group cursor-pointer overflow-hidden">
+                    <img
+                      src={logoImage}
+                      alt="Modern Ritual Logo"
+                      className="w-full h-full object-cover object-center group-hover:scale-110 transition-transform duration-300"
+                    />
                     <div className="absolute inset-0 rounded-full border-2 border-white/20 group-hover:border-white/40 transition-colors duration-300"></div>
                   </div>
                 </div>
-                <h1 className="text-3xl font-playfair font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-2">Modern Ritual</h1>
+                <h1 className="text-3xl font-playfair font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-2">Modern Ritual Offering</h1>
                 <p className="text-sm text-gray-600 font-semibold tracking-wide">Nền tảng mâm cúng hiện đại</p>
               </div>
 
               {/* Tabs */}
               <div className="flex gap-2 mb-8 bg-gray-100/80 backdrop-blur-sm p-1.5 rounded-xl shadow-inner">
                 <button
-                  onClick={() => { setIsLogin(true); setError(null); }}
+                  onClick={switchToLogin}
                   className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all duration-300 ${
                     isLogin
                       ? 'bg-white text-gray-900 shadow-lg scale-105'
@@ -564,7 +693,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
                   Đăng Nhập
                 </button>
                 <button
-                  onClick={() => { setIsLogin(false); setError(null); }}
+                  onClick={switchToRegister}
                   className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all duration-300 ${
                     !isLogin
                       ? 'bg-white text-gray-900 shadow-lg scale-105'
@@ -605,20 +734,53 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
 
                 <div>
                   <label className="block text-sm font-semibold text-gray-700 mb-2">Mật khẩu</label>
-                  <input
-                    type="password"
-                    name="password"
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    placeholder="••••••••"
-                    required
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-gray-900 focus:ring-4 focus:ring-gray-900/10 focus:outline-none bg-white/50 backdrop-blur-sm transition-all duration-300 shadow-sm hover:shadow-md hover:border-gray-400 hover:bg-white"
-                  />
+                  <div className="relative">
+                    <input
+                      type={showLoginPassword ? 'text' : 'password'}
+                      name="password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      placeholder="••••••••"
+                      required
+                      className="w-full px-4 py-3 pr-12 border-2 border-gray-200 rounded-lg focus:border-gray-900 focus:ring-4 focus:ring-gray-900/10 focus:outline-none bg-white/50 backdrop-blur-sm transition-all duration-300 shadow-sm hover:shadow-md hover:border-gray-400 hover:bg-white"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowLoginPassword((prev) => !prev)}
+                      className="absolute inset-y-0 right-0 px-3 text-gray-500 hover:text-gray-800"
+                      aria-label={showLoginPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                    >
+                      {showLoginPassword ? (
+                        <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20C7 20 2.73 16.11 1 12c.73-1.73 1.79-3.23 3.08-4.4" />
+                          <path d="M10.58 10.58a2 2 0 0 0 2.83 2.83" />
+                          <path d="M9.88 5.09A10.94 10.94 0 0 1 12 4c5 0 9.27 3.89 11 8a10.95 10.95 0 0 1-1.64 2.71" />
+                          <path d="M1 1l22 22" />
+                        </svg>
+                      ) : (
+                        <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
+                          <circle cx="12" cy="12" r="3" />
+                        </svg>
+                      )}
+                    </button>
+                  </div>
                 </div>
 
                 <div className="flex items-center justify-between text-sm">
                   <label className="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" className="w-4 h-4 text-gray-900 rounded" />
+                    <input
+                      type="checkbox"
+                      checked={rememberLogin}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        setRememberLogin(checked);
+                        if (!checked) {
+                          localStorage.removeItem(REMEMBER_LOGIN_KEY);
+                        }
+                      }}
+                      className="w-4 h-4 text-gray-900 rounded"
+                    />
                     <span className="text-gray-600">Ghi nhớ đăng nhập</span>
                   </label>
                   <button
@@ -674,7 +836,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
             </div>
 
         <p className="text-center text-gray-700 text-sm mt-6">
-          © 2025 Modern Ritual. Thành tâm - Tín trực.
+          © 2026 Modern Ritual Offering . Thành tâm - Tín trực.
         </p>
       </div>
     </div>
