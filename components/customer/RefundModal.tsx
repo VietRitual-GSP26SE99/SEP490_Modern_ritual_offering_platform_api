@@ -84,14 +84,17 @@ const RefundModal: React.FC<RefundModalProps> = ({ isOpen, onClose, onSuccess, o
 
         setSubmitting(true);
         try {
-            const success = await refundService.createRefund({
+            const result = await refundService.createRefund({
                 orderId: order.orderId,
                 reason,
                 proofImages: images,
                 createRefundItems: selectedItems.map(id => ({ orderItemId: id }))
             });
 
-            if (success) {
+            if (result.success) {
+                if (result.refundId) {
+                    localStorage.setItem(`refundId:${order.orderId}`, result.refundId);
+                }
                 toast.success('Gửi yêu cầu hoàn tiền thành công');
                 onSuccess();
                 onClose();

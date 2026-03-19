@@ -12,6 +12,11 @@ export interface RefundRequest {
     createRefundItems: CreateRefundItem[];
 }
 
+export interface CreateRefundResult {
+    success: boolean;
+    refundId?: string;
+}
+
 export interface RefundItem {
     refundItemId: string;
     orderItemId: string;
@@ -72,7 +77,8 @@ class RefundService {
             'rejected',
             'reject',
             'declined',
-            'denied'
+            'denied',
+            'vendorrejected'
         ].includes(status)) {
             return 'Rejected';
         }
@@ -146,7 +152,7 @@ class RefundService {
      * Tạo yêu cầu hoàn tiền (customer)
      * POST /api/refunds
      */
-    async createRefund(request: RefundRequest): Promise<boolean> {
+    async createRefund(request: RefundRequest): Promise<CreateRefundResult> {
         try {
             const formData = new FormData();
             formData.append('OrderId', request.orderId);
@@ -177,10 +183,44 @@ class RefundService {
                 throw new Error(errorData.errorMessages?.[0] || `HTTP error! status: ${response.status}`);
             }
 
-            const data = await response.json();
-            return data.isSuccess || data.statusCode === 'OK';
+            const data = await response.json().catch(() => ({}));
+            const success = data.isSuccess || data.statusCode === 'OK' || response.ok;
+            const refundId =
+                data?.result?.refundId
+                || data?.result?.id
+                || data?.refundId
+                || data?.id;
+            return {
+                success,
+                refundId: typeof refundId === 'string' ? refundId : undefined,
+            };
         } catch (error) {
             console.error('Failed to create refund:', error);
+            throw error;
+        }
+    }
+
+    /**
+     * Customer báo cáo khiếu nại lên staff/admin
+     * PUT /api/refunds/{id}/escalate
+     */
+    async escalateRefund(refundId: string, isEscalate: boolean = true): Promise<boolean> {
+        try {
+            const response = await fetch(`${API_BASE_URL}/refunds/${refundId}/escalate`, {
+                method: 'PUT',
+                headers: this.getJsonHeaders(),
+                body: JSON.stringify({ isEscalate }),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.errorMessages?.[0] || `HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json().catch(() => ({}));
+            return data.isSuccess || data.statusCode === 'OK' || response.ok;
+        } catch (error) {
+            console.error('Failed to escalate refund:', error);
             throw error;
         }
     }
@@ -254,6 +294,22 @@ class RefundService {
         } catch (error) {
             console.error('Failed to fetch refund detail:', error);
             throw error;
+        }
+    }
+
+    /**
+     * Customer tra refund theo orderId
+     * GET /api/refunds (filter client-side)
+     */
+    async getRefundByOrderId(orderId: string): Promise<RefundRecord | null> {
+        if (!orderId) return null;
+        try {
+            const list = await this.getAllRefunds();
+            const matches = list.filter(item => item.orderId === orderId);
+            if (matches.length === 0) return null;
+            return matches.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
+        } catch {
+            return null;
         }
     }
 

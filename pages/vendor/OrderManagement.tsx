@@ -143,6 +143,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
   const [newStatus, setNewStatus]         = useState('');
   const [statusReason, setStatusReason]   = useState('');
   const [statusSuccess, setStatusSuccess] = useState<string | null>(null);
+  const [deliveryProofImages, setDeliveryProofImages] = useState<File[]>([]);
 
   // ── tab state ───────────────────────────────────────────────────────────────
   const [mainTab, setMainTab]             = useState<'orders' | 'refunds'>('orders');
@@ -264,6 +265,10 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
   // ── update order status ─────────────────────────────────────────────────────
   const handleUpdateStatus = async () => {
     if (!selectedOrder || !newStatus) return;
+    if (newStatus === 'Delivered' && deliveryProofImages.length === 0) {
+      setStatusError('Vui lòng cung cấp ít nhất 1 ảnh chứng minh giao hàng.');
+      return;
+    }
     setStatusUpdating(true);
     setStatusError(null);
     setStatusSuccess(null);
@@ -271,7 +276,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
       if (newStatus === 'Cancelled') {
         await orderService.cancelOrder(selectedOrder.orderId, statusReason);
       } else {
-        await orderService.updateOrderStatus(selectedOrder.orderId, newStatus, statusReason);
+        await orderService.updateOrderStatus(selectedOrder.orderId, newStatus, statusReason, deliveryProofImages);
       }
       const [detail, list] = await Promise.all([
         orderService.getOrderDetails(selectedOrder.orderId),
@@ -281,6 +286,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
       setOrders(list);
       setNewStatus('');
       setStatusReason('');
+      setDeliveryProofImages([]);
       setStatusSuccess(
         newStatus === 'Delivered'  ? 'Đơn hàng đã giao thành công. Khách hàng sẽ xác nhận để hoàn thành đơn.' :
         newStatus === 'Cancelled'  ? 'Đơn hàng đã được hủy thành công.' :
@@ -707,7 +713,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
       {selectedOrder && (
         <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start justify-center z-50 p-4 overflow-y-auto"
-          onClick={() => { setSelectedOrder(null); setNewStatus(''); setStatusReason(''); setStatusError(null); setStatusSuccess(null); }}
+                        onClick={() => { setSelectedOrder(null); setNewStatus(''); setStatusReason(''); setStatusError(null); setStatusSuccess(null); setDeliveryProofImages([]); }}
         >
           <div
             className="bg-gray-50 w-full max-w-3xl my-8 rounded-[2rem] shadow-2xl overflow-hidden"
@@ -716,7 +722,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
             {/* Modal header */}
             <div className="bg-white px-8 py-6 flex items-center gap-4 border-b border-gray-100">
               <button
-                onClick={() => { setSelectedOrder(null); setNewStatus(''); setStatusReason(''); setStatusError(null); setStatusSuccess(null); }}
+                onClick={() => { setSelectedOrder(null); setNewStatus(''); setStatusReason(''); setStatusError(null); setStatusSuccess(null); setDeliveryProofImages([]); }}
                 className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-200 hover:bg-gray-50 transition flex-shrink-0"
               >
                 <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -824,7 +830,14 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                     <div className="space-y-3">
                       <select
                         value={newStatus}
-                        onChange={e => setNewStatus(e.target.value)}
+                        onChange={e => {
+                          const nextValue = e.target.value;
+                          setNewStatus(nextValue);
+                          if (nextValue !== 'Delivered') {
+                            setDeliveryProofImages([]);
+                          }
+                          setStatusError(null);
+                        }}
                         className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-white"
                       >
                         <option value="">-- Chọn trạng thái --</option>
@@ -840,6 +853,21 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                           rows={3}
                           className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
                         />
+                      )}
+                      {newStatus === 'Delivered' && (
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Ảnh chứng minh giao hàng</label>
+                          <input
+                            type="file"
+                            accept="image/*"
+                            multiple
+                            onChange={(e) => setDeliveryProofImages(Array.from(e.target.files || []))}
+                            className="w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
+                          />
+                          {deliveryProofImages.length > 0 && (
+                            <p className="text-xs text-slate-500">Đã chọn {deliveryProofImages.length} ảnh</p>
+                          )}
+                        </div>
                       )}
                       {statusError   && <p className="text-xs text-red-500 font-medium">{statusError}</p>}
                       {statusSuccess && <p className="text-xs text-green-600 font-medium">{statusSuccess}</p>}

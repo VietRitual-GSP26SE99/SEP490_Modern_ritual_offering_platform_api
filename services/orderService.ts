@@ -446,18 +446,27 @@ class OrderService {
     }
 
     // Update order status (vendor)
-    async updateOrderStatus(orderId: string, newStatus: string, reason?: string): Promise<boolean> {
+    async updateOrderStatus(orderId: string, newStatus: string, reason?: string, deliveryProofImages?: File[]): Promise<boolean> {
         try {
             const normalizedReason = typeof reason === 'string' ? reason.trim() : '';
-            const payload: { newStatus: string; reason?: string } = { newStatus };
+            const formData = new FormData();
+            formData.append('NewStatus', newStatus);
             if (normalizedReason) {
-                payload.reason = normalizedReason;
+                formData.append('Reason', normalizedReason);
+            }
+            if (deliveryProofImages?.length) {
+                deliveryProofImages.forEach((file) => {
+                    formData.append('DeliveryProofImages', file);
+                });
             }
 
             const response = await fetch(`${API_BASE_URL}/orders/${orderId}/status`, {
                 method: 'PUT',
-                headers: this.getHeaders(),
-                body: JSON.stringify(payload),
+                headers: {
+                    'Accept': 'application/json',
+                    ...(getAuthToken() ? { 'Authorization': `Bearer ${getAuthToken()}` } : {})
+                },
+                body: formData,
             });
 
             if (!response.ok) {

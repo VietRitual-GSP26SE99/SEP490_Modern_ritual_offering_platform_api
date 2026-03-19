@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { orderService, Order } from '../../services/orderService';
+import { refundService, RefundRecord } from '../../services/refundService';
 import toast from '../../services/toast';
 import RefundModal from '../../components/customer/RefundModal';
 
@@ -12,6 +13,9 @@ const OrderDetailsPage: React.FC = () => {
     const [cancelling, setCancelling] = useState(false);
     const [completing, setCompleting] = useState(false);
     const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
+    const [refundInfo, setRefundInfo] = useState<RefundRecord | null>(null);
+    const [escalating, setEscalating] = useState(false);
+    const [refundDismissed, setRefundDismissed] = useState(false);
 
     const fetchOrder = async () => {
         if (!id) return;
@@ -19,6 +23,7 @@ const OrderDetailsPage: React.FC = () => {
             const data = await orderService.getOrderDetails(id);
             if (data) {
                 setOrder(data);
+                await loadRefundInfo(data.orderId);
             } else {
                 toast.error('Không tìm thấy đơn hàng!');
                 navigate('/profile/orders');
@@ -34,6 +39,54 @@ const OrderDetailsPage: React.FC = () => {
     useEffect(() => {
         fetchOrder();
     }, [id, navigate]);
+
+    const loadRefundInfo = async (orderId: string) => {
+        try {
+            const refundId = localStorage.getItem(`refundId:${orderId}`);
+            if (refundId) {
+                const data = await refundService.getRefundById(refundId);
+                setRefundInfo(data);
+                if (data?.refundId) {
+                    setRefundDismissed(Boolean(localStorage.getItem(`refundEscalateDismissed:${data.refundId}`)));
+                }
+                return;
+            }
+
+            const fallback = await refundService.getRefundByOrderId(orderId);
+            if (fallback?.refundId) {
+                localStorage.setItem(`refundId:${orderId}`, fallback.refundId);
+                setRefundDismissed(Boolean(localStorage.getItem(`refundEscalateDismissed:${fallback.refundId}`)));
+            }
+            setRefundInfo(fallback);
+        } catch {
+            setRefundInfo(null);
+        }
+    };
+
+    const handleEscalateRefund = async () => {
+        if (!refundInfo) return;
+        setEscalating(true);
+        try {
+            const ok = await refundService.escalateRefund(refundInfo.refundId, true);
+            if (ok) {
+                toast.success('Đã gửi khiếu nại lên quản trị. Vui lòng chờ phản hồi.');
+                localStorage.setItem(`refundEscalateDismissed:${refundInfo.refundId}`, '1');
+                setRefundDismissed(true);
+            } else {
+                toast.error('Không thể gửi khiếu nại. Vui lòng thử lại.');
+            }
+        } catch (error: any) {
+            toast.error(error.message || 'Không thể gửi khiếu nại.');
+        } finally {
+            setEscalating(false);
+        }
+    };
+
+    const handleDismissRefundNotice = () => {
+        if (!refundInfo) return;
+        localStorage.setItem(`refundEscalateDismissed:${refundInfo.refundId}`, '1');
+        setRefundDismissed(true);
+    };
 
     const handleCancelOrder = async () => {
         if (!order || window.confirm('Bạn có chắc chắn muốn hủy đơn hàng này không? Không thể hoàn tác!') === false) {
@@ -191,7 +244,36 @@ const OrderDetailsPage: React.FC = () => {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {(refundInfo?.status === 'Rejected' || order.orderStatus.toUpperCase() === 'VENDORREJECTED') && !refundDismissed && (
+                    <div className="bg-white border border-orange-200 rounded-[1.5rem] p-5 mb-6 shadow-sm">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                            <div>
+                                <p className="text-xs font-bold uppercase tracking-widest text-orange-500">Hoàn tiền bị từ chối</p>
+                                <p className="text-sm text-gray-700 mt-1">Bạn muốn khiếu nại lên quản trị không?</p>
+                                {refundInfo.adminNote && (
+                                    <p className="text-xs text-gray-500 mt-1">Ghi chú: {refundInfo.adminNote}</p>
+                                )}
+                            </div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={handleDismissRefundNotice}
+                                    className="px-4 py-2 rounded-xl text-sm font-bold border border-gray-200 text-gray-600 hover:bg-gray-50"
+                                >
+                                    Không khiếu nại
+                                </button>
+                                <button
+                                    onClick={handleEscalateRefund}
+                                    disabled={escalating || !refundInfo?.refundId}
+                                    className="px-4 py-2 rounded-xl text-sm font-bold bg-orange-600 text-white hover:bg-orange-700 disabled:opacity-50"
+                                >
+                                    {escalating ? 'Đang gửi...' : 'Khiếu nại'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
                     {/* Main Info */}
                     <div className="md:col-span-2 space-y-6">
