@@ -15,7 +15,7 @@ const OrderDetailsPage: React.FC = () => {
     const [completing, setCompleting] = useState(false);
     const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
     const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
-    const [selectedItemForReview, setSelectedItemForReview] = useState<{itemId: string, packageName: string} | null>(null);
+    const [selectedItemForReview, setSelectedItemForReview] = useState<{ itemId: string, packageName: string } | null>(null);
     const [refundInfo, setRefundInfo] = useState<RefundRecord | null>(null);
     const [escalating, setEscalating] = useState(false);
     const [refundDismissed, setRefundDismissed] = useState(false);
@@ -325,7 +325,7 @@ const OrderDetailsPage: React.FC = () => {
                                         </div>
                                         <div className="pt-1 text-right">
                                             <p className="font-bold text-primary">{(item.lineTotal || (item.price || (item as any).unitPrice || 0) * item.quantity).toLocaleString('vi-VN')}đ</p>
-                                            
+
                                             {order.orderStatus.toUpperCase() === 'COMPLETED' && (
                                                 <button
                                                     onClick={() => {

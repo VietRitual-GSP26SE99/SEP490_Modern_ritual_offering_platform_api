@@ -85,7 +85,7 @@ const MyOrdersPage: React.FC = () => {
             case 'SHIPPING':
             case 'DELIVERING': return 'Đang giao hàng';
             case 'DELIVERED': return 'Đã giao hàng';
-            case 'COMPLETED': return 'Đã hoàn thành';
+            case 'COMPLETED': return 'Đã hoàn tiền';
             case 'CANCELLED': return 'Đã hủy';
             case 'REFUNDED': return 'Đã hoàn tiền';
             case 'PAYMENTFAILED': return 'Thanh toán lỗi';
@@ -166,10 +166,10 @@ const MyOrdersPage: React.FC = () => {
                             <div key={order.orderId} className="bg-white rounded-[2rem] border border-gray-200 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300">
                                 <div className="p-6 md:p-8 flex flex-col md:flex-row gap-6 justify-between border-b border-gray-100 bg-gray-50/50">
                                     <div className="flex flex-col md:flex-row gap-4 md:items-center">
-                                        <div>
+                                        {/* <div>
                                             <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-1">Mã đơn hàng</span>
                                             <span className="font-mono text-gray-900 font-bold">#{order.orderId.substring(0, 8).toUpperCase()}</span>
-                                        </div>
+                                        </div> */}
                                         <div className="hidden md:block w-px h-8 bg-gray-300"></div>
                                         <div>
                                             <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-1">Ngày đặt</span>

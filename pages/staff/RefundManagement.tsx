@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { refundService, RefundRecord } from '../../services/refundService';
-import StaffShell from './StaffShell';
 
 const formatVnd = (value: unknown): string => {
   const amount = typeof value === 'number' ? value : Number(value);
@@ -153,12 +152,11 @@ const RefundManagement: React.FC<Props> = ({ onNavigate }) => {
   }
 
   return (
-    <StaffShell
-      title="Quản lý hoàn tiền"
-      subtitle="Ghi chú và chuyển tiếp yêu cầu cho admin"
-      onBack={onNavigate ? () => onNavigate('/staff/dashboard') : undefined}
-    >
-
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold text-gray-900">Quản lý hoàn tiền</h1>
+        <p className="text-gray-600 mt-1">Ghi chú và chuyển tiếp yêu cầu cho admin</p>
+      </div>
         {/* Stats */}
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
           {[
@@ -470,7 +468,7 @@ const RefundManagement: React.FC<Props> = ({ onNavigate }) => {
           />
         </div>
       )}
-    </StaffShell>
+    </div>
   );
 };
 

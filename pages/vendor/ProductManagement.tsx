@@ -342,7 +342,6 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
                       <th className="px-6 py-4 text-left text-sm font-bold text-slate-800 whitespace-nowrap">Sản Phẩm</th>
                       <th className="px-6 py-4 text-left text-sm font-bold text-slate-800 whitespace-nowrap">Danh Mục</th>
                       <th className="px-6 py-4 text-left text-sm font-bold text-slate-800 whitespace-nowrap">Giá</th>
-                      <th className="px-6 py-4 text-left text-sm font-bold text-slate-800 whitespace-nowrap">Tồn Kho</th>
                       <th className="px-6 py-4 text-left text-sm font-bold text-slate-800 whitespace-nowrap">Đơn Hàng</th>
                       <th className="px-6 py-4 text-left text-sm font-bold text-slate-800 whitespace-nowrap">Đánh Giá</th>
                       <th className="px-6 py-4 text-left text-sm font-bold text-slate-800 whitespace-nowrap">Trạng Thái</th>
@@ -373,11 +372,6 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
                         </td>
                         <td className="px-6 py-4 font-bold text-primary">
                           {product.price.toLocaleString('vi-VN')}
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`font-bold ${product.stock > 10 ? 'text-green-600' : 'text-orange-600'}`}>
-                            {product.stock}
-                          </span>
                         </td>
                         <td className="px-6 py-4 font-semibold text-gray-800">{product.orders}</td>
                         <td className="px-6 py-4">

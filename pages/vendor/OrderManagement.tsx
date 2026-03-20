@@ -166,7 +166,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
   const [deliveryProofImages, setDeliveryProofImages] = useState<File[]>([]);
 
   // ── tab state ───────────────────────────────────────────────────────────────
-  const [mainTab, setMainTab] = useState<'orders' | 'refunds' | 'reviews'>('orders');
+  const [mainTab, setMainTab] = useState<'orders' | 'refunds'>('orders');
   const [pendingRefunds, setPendingRefunds] = useState(0);
 
   const getTodayYmd = (): string => toYmd(new Date());
@@ -637,12 +637,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                             <span className="text-sm text-gray-500">Tổng tiền:</span>
                             <span className="text-2xl font-black text-primary">{formatVnd(order.totalAmount)}</span>
                           </div>
-                          <p className="text-sm text-green-600 font-semibold mt-0.5">
-                            Thực nhận: {formatVnd(order.vendorNetAmount)}
-                            <span className="text-gray-400 font-normal ml-1">
-                              (sau {((Number(order.commissionRate) || 0) * 100).toFixed(0)}% phí)
-                            </span>
-                          </p>
+
                         </div>
                         <button
                           onClick={() => openDetail(order.orderId)}

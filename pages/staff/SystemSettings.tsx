@@ -1,6 +1,4 @@
 import React, { useState } from 'react';
-import { logoutAndRedirect } from '../../services/auth';
-import StaffShell from './StaffShell';
 
 interface SystemSettingsProps {
   onNavigate: (path: string) => void;
@@ -247,27 +245,18 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onNavigate, onLogout })
   };
 
   return (
-    <StaffShell
-      title="Cài đặt hệ thống"
-      subtitle="Cấu hình vận hành và chính sách nền tảng"
-      onBack={() => onNavigate('/staff/dashboard')}
-      actions={
-        <>
-          <button className="px-4 py-2 rounded-full bg-slate-900 text-white text-sm font-semibold shadow-sm hover:bg-slate-800">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Cài đặt hệ thống</h1>
+          <p className="text-gray-600 mt-1">Cấu hình vận hành và chính sách nền tảng</p>
+        </div>
+        <div>
+          <button className="px-4 py-2 rounded-xl bg-gray-900 text-white text-sm font-semibold shadow-sm hover:bg-gray-800">
             Lưu thay đổi
           </button>
-          <button
-            onClick={() => {
-              console.log('🚪 Logging out...');
-              logoutAndRedirect();
-            }}
-            className="px-4 py-2 rounded-full border border-slate-200 text-sm font-semibold text-slate-700 hover:border-slate-300 hover:text-slate-900"
-          >
-            Đăng xuất
-          </button>
-        </>
-      }
-    >
+        </div>
+      </div>
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {stats.map((stat, index) => (
@@ -382,7 +371,7 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onNavigate, onLogout })
           </div>
         </div>
       </div>
-    </StaffShell>
+    </div>
   );
 };
 
