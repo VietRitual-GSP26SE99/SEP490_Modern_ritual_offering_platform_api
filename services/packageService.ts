@@ -359,6 +359,67 @@ class PackageService {
       `https://picsum.photos/400/400?random=${packageId}4`,
     ];
   }
+
+  /**
+   * Cập nhật package (Vendor) - PUT /api/packages/{id}
+   */
+  async updatePackage(
+    id: string | number,
+    payload: {
+      packageName: string;
+      description: string;
+      categoryId: number;
+      packageImageUrl: string;
+      action: string;
+      variants: { variantName: string; description: string; price: number }[];
+    }
+  ): Promise<any> {
+    const token = getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/packages/${id}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/plain, */*',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(errText || `HTTP error! status: ${response.status}`);
+    }
+    const data: any = await response.json().catch(() => ({}));
+    return data;
+  }
+
+  /**
+   * Tạo package mới (Draft hoặc Submit) - POST /api/packages
+   */
+  async createPackage(payload: {
+    packageName: string;
+    description: string;
+    categoryId: number;
+    packageImageUrl: string;
+    action: string;
+    variants: { variantName: string; description: string; price: number }[];
+  }): Promise<any> {
+    const token = getAuthToken();
+    const response = await fetch(`${API_BASE_URL}/packages`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json, text/plain, */*',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      const errText = await response.text();
+      throw new Error(errText || `HTTP error! status: ${response.status}`);
+    }
+    const data: any = await response.json().catch(() => ({}));
+    return data;
+  }
 }
 
 // Export singleton instance

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import Swal from 'sweetalert2';
 import toast from '../../services/toast';
 import { packageService } from '../../services/packageService';
 import { getCurrentUser } from '../../services/auth';
@@ -31,15 +32,31 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<PackageStatusFilter>('Approved');
+  const [viewProductDetails, setViewProductDetails] = useState<any | null>(null);
+  const [editProductOpen, setEditProductOpen] = useState(false);
+  const [editSaving, setEditSaving] = useState(false);
+  const [editForm, setEditForm] = useState<{
+    packageName: string;
+    description: string;
+    categoryId: number;
+    packageImageUrl: string;
+    variants: { variantName: string; description: string; price: number }[];
+  } | null>(null);
 
   const [showAddForm, setShowAddForm] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [newProduct, setNewProduct] = useState({
-    name: '',
-    category: 'Đầy Tháng',
-    price: '',
-    stock: '',
+  const [createSaving, setCreateSaving] = useState(false);
+  const [createForm, setCreateForm] = useState<{
+    packageName: string;
+    description: string;
+    categoryId: number;
+    packageImageUrl: string;
+    variants: { variantName: string; description: string; price: number }[];
+  }>({
+    packageName: '',
     description: '',
+    categoryId: 1,
+    packageImageUrl: '',
+    variants: [{ variantName: '', description: '', price: 0 }],
   });
 
   const fallbackProductImage = `data:image/svg+xml;utf8,${encodeURIComponent(
@@ -66,6 +83,76 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
   };
 
   const mapCategory = (categoryId: number): string => categoryLabelMap[categoryId] || 'Khác';
+
+  const getCategoryId = (label: string) => {
+    const entry = Object.entries(categoryLabelMap).find(([k, v]) => v === label);
+    return entry ? parseInt(entry[0]) : 5;
+  };
+
+  const handleViewDetails = async (product: Product) => {
+    try {
+      Swal.fire({
+        title: 'Đang tải...',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      const pkgDetails: any = await packageService.getPackageById(product.id);
+
+      Swal.close();
+
+      if (!pkgDetails) {
+        throw new Error('Không tìm thấy thông tin chi tiết sản phẩm');
+      }
+
+      setViewProductDetails(pkgDetails);
+      setEditProductOpen(false);
+    } catch (error) {
+      Swal.close();
+      const message = error instanceof Error ? error.message : 'Lỗi khi lấy thông tin sản phẩm';
+      Swal.fire({ icon: 'error', title: 'Lỗi', text: message });
+    }
+  };
+
+  const openEditForm = () => {
+    if (!viewProductDetails) return;
+    setEditForm({
+      packageName: viewProductDetails.packageName || '',
+      description: viewProductDetails.description || '',
+      categoryId: viewProductDetails.categoryId || 1,
+      packageImageUrl: viewProductDetails.imageUrl || '',
+      variants: (viewProductDetails.packageVariants || []).map((v: any) => ({
+        variantName: v.variantName || '',
+        description: v.description || '',
+        price: Number(v.price) || 0,
+      })),
+    });
+    setEditProductOpen(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!viewProductDetails || !editForm) return;
+    setEditSaving(true);
+    try {
+      await packageService.updatePackage(viewProductDetails.packageId || viewProductDetails.id, {
+        ...editForm,
+        action: 'update',
+      });
+      toast.success('Cập nhật sản phẩm thành công!');
+      // Reload details
+      const updated = await packageService.getPackageById(viewProductDetails.packageId || viewProductDetails.id);
+      setViewProductDetails(updated);
+      setEditProductOpen(false);
+      loadPackages();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Lỗi khi cập nhật sản phẩm';
+      toast.error(msg);
+    } finally {
+      setEditSaving(false);
+    }
+  };
 
   const loadPackages = async () => {
     setLoadingProducts(true);
@@ -146,14 +233,27 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
     setCurrentPage(1);
   }, [selectedCategory, selectedStatus]);
 
-  const handleAddProduct = () => {
-    if (newProduct.name && newProduct.price && newProduct.stock) {
-      console.log('Add product:', newProduct);
-      setNewProduct({ name: '', category: 'Đầy Tháng', price: '', stock: '', description: '' });
+  const handleCreatePackage = async (action: 'Draft' | 'Submit') => {
+    if (!createForm.packageName.trim()) {
+      toast.warning('Vui lòng nhập tên sản phẩm!');
+      return;
+    }
+    if (createForm.variants.some(v => !v.variantName.trim() || v.price <= 0)) {
+      toast.warning('Vui lòng điền đầy đủ tên và giá cho từng biến thể!');
+      return;
+    }
+    setCreateSaving(true);
+    try {
+      await packageService.createPackage({ ...createForm, action });
+      toast.success(action === 'Draft' ? 'Lưu nháp thành công!' : 'Gửi phê duyệt thành công!');
       setShowAddForm(false);
-      toast.success('Sản phẩm thêm thành công!');
-    } else {
-      toast.warning('Vui lòng điền đầy đủ thông tin');
+      setCreateForm({ packageName: '', description: '', categoryId: 1, packageImageUrl: '', variants: [{ variantName: '', description: '', price: 0 }] });
+      loadPackages();
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Lỗi khi tạo sản phẩm';
+      toast.error(msg);
+    } finally {
+      setCreateSaving(false);
     }
   };
 
@@ -174,79 +274,166 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
           </button>
         </div>
 
-        {/* Add Product Form */}
+
+        {/* Create Product Modal */}
         {showAddForm && (
-          <div className="bg-white rounded-2xl shadow-xl p-8 mb-8 border-2 border-gold/20">
-            <h2 className="text-xl font-bold text-primary mb-6">Thêm Sản Phẩm Mới</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Tên Sản Phẩm</label>
-                <input
-                  type="text"
-                  value={newProduct.name}
-                  onChange={(e) => setNewProduct({ ...newProduct, name: e.target.value })}
-                  placeholder="Ví dụ: Mâm Cúng Đầy Tháng..."
-                  className="w-full px-4 py-2 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none"
-                />
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm"
+            onClick={(e) => { if (e.target === e.currentTarget) setShowAddForm(false); }}
+          >
+            <div className="w-full max-w-2xl max-h-[90vh] bg-gray-50 rounded-[2rem] shadow-2xl flex flex-col overflow-hidden">
+              {/* Modal Header */}
+              <div className="flex items-center gap-3 px-6 py-5 border-b border-gray-200 bg-white rounded-t-[2rem] flex-shrink-0">
+                <div className="flex-1">
+                  <h2 className="text-xl font-black text-gray-900">Thêm Sản Phẩm Mới</h2>
+                  <p className="text-sm text-gray-500 mt-0.5">Nhập thông tin và chọn lưu nháp hoặc gửi phê duyệt</p>
+                </div>
+                <button
+                  onClick={() => setShowAddForm(false)}
+                  className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 bg-white hover:bg-gray-50 transition text-gray-500 flex-shrink-0"
+                >×</button>
               </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Danh Mục</label>
-                <select
-                  value={newProduct.category}
-                  onChange={(e) => setNewProduct({ ...newProduct, category: e.target.value })}
-                  className="w-full px-4 py-2 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none"
+
+              {/* Modal Body */}
+              <div className="overflow-y-auto flex-1 p-6 space-y-5">
+                {/* Name */}
+                <div>
+                  <label className="text-xs font-black text-gray-400 uppercase tracking-widest block mb-1.5">Tên sản phẩm <span className="text-red-500">*</span></label>
+                  <input
+                    type="text"
+                    value={createForm.packageName}
+                    onChange={e => setCreateForm({ ...createForm, packageName: e.target.value })}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl text-sm text-gray-900 focus:border-primary focus:outline-none transition font-semibold"
+                    placeholder="Ví dụ: Mâm Cúng Đầy Tháng Truyền Thống..."
+                  />
+                </div>
+
+                {/* Category */}
+                <div>
+                  <label className="text-xs font-black text-gray-400 uppercase tracking-widest block mb-1.5">Danh mục</label>
+                  <select
+                    value={createForm.categoryId}
+                    onChange={e => setCreateForm({ ...createForm, categoryId: Number(e.target.value) })}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl text-sm text-sky-700 font-bold bg-sky-50 focus:border-primary focus:outline-none transition"
+                  >
+                    <option value={1}>Đầy Tháng</option>
+                    <option value={2}>Tân Gia</option>
+                    <option value={3}>Khai Trương</option>
+                    <option value={4}>Tổ Tiên</option>
+                    <option value={5}>Khác</option>
+                  </select>
+                </div>
+
+                {/* Image URL */}
+                <div>
+                  <label className="text-xs font-black text-gray-400 uppercase tracking-widest block mb-1.5">URL ảnh sản phẩm</label>
+                  <input
+                    type="text"
+                    value={createForm.packageImageUrl}
+                    onChange={e => setCreateForm({ ...createForm, packageImageUrl: e.target.value })}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl text-sm text-gray-700 focus:border-primary focus:outline-none transition"
+                    placeholder="https://..."
+                  />
+                  {createForm.packageImageUrl && (
+                    <img
+                      src={createForm.packageImageUrl}
+                      alt="preview"
+                      className="mt-3 w-24 h-24 object-cover rounded-2xl border border-gray-200 shadow-sm"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  )}
+                </div>
+
+                {/* Description */}
+                <div>
+                  <label className="text-xs font-black text-gray-400 uppercase tracking-widest block mb-1.5">Mô tả sản phẩm</label>
+                  <textarea
+                    value={createForm.description}
+                    onChange={e => setCreateForm({ ...createForm, description: e.target.value })}
+                    rows={3}
+                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl text-sm text-gray-700 focus:border-primary focus:outline-none transition resize-none"
+                    placeholder="Mô tả chi tiết sản phẩm..."
+                  />
+                </div>
+
+                {/* Variants */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Biến thể gói <span className="text-red-500">*</span></label>
+                    <button
+                      onClick={() => setCreateForm({ ...createForm, variants: [...createForm.variants, { variantName: '', description: '', price: 0 }] })}
+                      className="text-xs font-bold text-primary hover:text-primary/70 transition px-3 py-1 border border-primary/30 rounded-full bg-primary/5"
+                    >
+                      + Thêm biến thể
+                    </button>
+                  </div>
+                  <div className="space-y-3">
+                    {createForm.variants.map((v, idx) => (
+                      <div key={idx} className="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="text-[10px] font-black text-gray-400 uppercase tracking-widest bg-gray-100 rounded-full px-2 py-0.5">Gói #{idx + 1}</span>
+                          {createForm.variants.length > 1 && (
+                            <button
+                              onClick={() => { const vars = createForm.variants.filter((_, i) => i !== idx); setCreateForm({ ...createForm, variants: vars }); }}
+                              className="ml-auto text-red-400 hover:text-red-600 text-xs font-bold px-2 py-0.5 rounded-lg border border-red-200 hover:bg-red-50 transition"
+                            >× Xóa</button>
+                          )}
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 mb-2">
+                          <div>
+                            <label className="text-[10px] font-bold text-gray-400 block mb-1">Tên gói <span className="text-red-400">*</span></label>
+                            <input
+                              type="text"
+                              value={v.variantName}
+                              onChange={e => { const vars = [...createForm.variants]; vars[idx] = { ...vars[idx], variantName: e.target.value }; setCreateForm({ ...createForm, variants: vars }); }}
+                              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:border-primary focus:outline-none"
+                              placeholder="Gói Cơ Bản, Gói VIP..."
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[10px] font-bold text-gray-400 block mb-1">Giá (VNĐ) <span className="text-red-400">*</span></label>
+                            <input
+                              type="number"
+                              value={v.price || ''}
+                              onChange={e => { const vars = [...createForm.variants]; vars[idx] = { ...vars[idx], price: Number(e.target.value) }; setCreateForm({ ...createForm, variants: vars }); }}
+                              className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:border-primary focus:outline-none"
+                              placeholder="500000"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-gray-400 block mb-1">Mô tả gói</label>
+                          <input
+                            type="text"
+                            value={v.description}
+                            onChange={e => { const vars = [...createForm.variants]; vars[idx] = { ...vars[idx], description: e.target.value }; setCreateForm({ ...createForm, variants: vars }); }}
+                            className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:border-primary focus:outline-none"
+                            placeholder="Mô tả gói..."
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="flex gap-3 px-6 py-5 border-t border-gray-200 bg-white rounded-b-[2rem] flex-shrink-0">
+                <button
+                  onClick={() => handleCreatePackage('Draft')}
+                  disabled={createSaving}
+                  className="flex-1 py-3 border-2 border-gray-300 text-gray-700 rounded-2xl font-black text-sm hover:bg-gray-50 transition-all disabled:opacity-50"
                 >
-                  <option>Đầy Tháng</option>
-                  <option>Tân Gia</option>
-                  <option>Khai Trương</option>
-                  <option>Tổ Tiên</option>
-                  <option>Khác</option>
-                </select>
+                  {createSaving ? '...' : ' Lưu Nháp'}
+                </button>
+                <button
+                  onClick={() => handleCreatePackage('Submit')}
+                  disabled={createSaving}
+                  className="flex-1 py-3 bg-primary text-white rounded-2xl font-black text-sm hover:bg-primary/90 transition-all disabled:opacity-50 shadow-md"
+                >
+                  {createSaving ? ' Đang gửi...' : 'Gửi Phê Duyệt'}
+                </button>
               </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Giá (VNĐ)</label>
-                <input
-                  type="number"
-                  value={newProduct.price}
-                  onChange={(e) => setNewProduct({ ...newProduct, price: e.target.value })}
-                  placeholder="1000000"
-                  className="w-full px-4 py-2 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Tồn Kho</label>
-                <input
-                  type="number"
-                  value={newProduct.stock}
-                  onChange={(e) => setNewProduct({ ...newProduct, stock: e.target.value })}
-                  placeholder="10"
-                  className="w-full px-4 py-2 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none"
-                />
-              </div>
-              <div className="md:col-span-2">
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Mô Tả Chi Tiết</label>
-                <textarea
-                  value={newProduct.description}
-                  onChange={(e) => setNewProduct({ ...newProduct, description: e.target.value })}
-                  placeholder="Mô tả sản phẩm..."
-                  rows={4}
-                  className="w-full px-4 py-2 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none"
-                />
-              </div>
-            </div>
-            <div className="flex gap-4 mt-6">
-              <button
-                onClick={handleAddProduct}
-                className="flex-1 px-6 py-2 border-2 border-primary text-primary rounded-lg font-bold transition-all hover:bg-primary/5"
-              >
-                Thêm Sản Phẩm
-              </button>
-              <button
-                onClick={() => setShowAddForm(false)}
-                className="flex-1 px-6 py-2 border-2 border-slate-300 text-slate-600 rounded-lg font-bold hover:bg-slate-50 transition-all"
-              >
-                Hủy
-              </button>
             </div>
           </div>
         )}
@@ -379,10 +566,10 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
                         </td>
                         <td className="px-6 py-4">
                           <span className={`inline-flex px-3 py-1 rounded-full text-sm font-bold whitespace-nowrap ${product.status === 'active'
-                              ? 'bg-green-100 text-green-700'
-                              : product.status === 'inactive'
-                                ? 'bg-gray-100 text-gray-700'
-                                : 'bg-yellow-100 text-yellow-700'
+                            ? 'bg-green-100 text-green-700'
+                            : product.status === 'inactive'
+                              ? 'bg-gray-100 text-gray-700'
+                              : 'bg-yellow-100 text-yellow-700'
                             }`}>
                             {product.status === 'active' ? 'Hoạt Động' : product.status === 'inactive' ? 'Ngừng' : 'Nháp'}
                           </span>
@@ -390,12 +577,13 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
                         <td className="px-6 py-4">
                           <div className="flex gap-2">
                             <button
-                              onClick={() => setEditingId(product.id)}
-                              className="px-3 py-2 text-slate-700 border border-slate-300 hover:bg-slate-100 rounded-lg transition-colors text-sm font-semibold"
-                              title="Chỉnh sửa"
+                              onClick={() => handleViewDetails(product)}
+                              className="px-3 py-2 text-blue-600 border border-blue-300 hover:bg-blue-100 rounded-lg transition-colors text-sm font-semibold whitespace-nowrap"
+                              title="Xem chi tiết"
                             >
-                              Sửa
+                              Chi Tiết
                             </button>
+
                             <button
                               className="px-3 py-2 text-red-600 border border-red-300 hover:bg-red-100 rounded-lg transition-colors text-sm font-semibold"
                               title="Xóa"
@@ -448,8 +636,8 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
                         key={page}
                         onClick={() => setCurrentPage(page)}
                         className={`min-w-9 h-9 px-2 rounded-lg text-sm font-bold transition-all ${safeCurrentPage === page
-                            ? 'bg-primary text-white'
-                            : 'border border-slate-300 text-slate-700 hover:bg-slate-100'
+                          ? 'bg-primary text-white'
+                          : 'border border-slate-300 text-slate-700 hover:bg-slate-100'
                           }`}
                       >
                         {page}
@@ -470,6 +658,271 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
           )}
         </div>
 
+        {/* Product Details Modal (like Order Details) */}
+        {viewProductDetails && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm"
+            onClick={() => setViewProductDetails(null)}
+          >
+            <div
+              className="bg-gray-50 w-full max-w-5xl my-4 rounded-[2rem] shadow-2xl overflow-hidden max-h-[calc(100vh-2rem)] flex flex-col"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="bg-white px-6 md:px-8 py-5 flex flex-wrap items-center gap-4 border-b border-gray-100">
+                <button
+                  onClick={() => setViewProductDetails(null)}
+                  className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-200 hover:bg-gray-50 transition flex-shrink-0"
+                  title="Đóng"
+                >
+                  <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                {/* <div className="flex-1 min-w-[200px]">
+                  <h2 className="text-2xl font-black text-gray-900 font-display">Chi tiết sản phẩm</h2>
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    Mã sản phẩm: #{String(viewProductDetails.packageId || viewProductDetails.id || '').padStart(5, '0')}
+                  </p>
+                </div> */}
+                <div className="flex gap-2 items-center">
+                  <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest flex-shrink-0 ${viewProductDetails.approvalStatus === 'Approved' ? 'bg-green-100 text-green-700 border border-green-200' :
+                    viewProductDetails.approvalStatus === 'Rejected' ? 'bg-red-100 text-red-700 border border-red-200' :
+                      'bg-yellow-100 text-yellow-700 border border-yellow-200'
+                    }`}>
+                    {viewProductDetails.approvalStatus === 'Approved' ? 'Đã Duyệt' : viewProductDetails.approvalStatus === 'Rejected' ? 'Từ Chối' : 'Chờ Duyệt'}
+                  </span>
+                  <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest flex-shrink-0 ${viewProductDetails.isActive ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-gray-100 text-gray-700 border border-gray-200'
+                    }`}>
+                    {viewProductDetails.isActive ? 'Đang Bán' : 'Tạm Ngừng'}
+                  </span>
+                  <button
+                    onClick={editProductOpen ? handleSaveEdit : openEditForm}
+                    disabled={editSaving}
+                    className={`px-5 py-2 rounded-full text-xs font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-sm flex-shrink-0 disabled:opacity-50 ${editProductOpen ? 'bg-green-600 text-white' : 'bg-primary text-white'
+                      }`}
+                  >
+                    {editProductOpen ? (editSaving ? ' Đang lưu...' : 'Lưu') : ' Chỉnh sửa'}
+                  </button>
+                  {editProductOpen && (
+                    <button
+                      onClick={() => setEditProductOpen(false)}
+                      className="px-5 py-2 bg-gray-100 text-gray-700 rounded-full text-xs font-black uppercase tracking-widest hover:bg-gray-200 transition-all flex-shrink-0"
+                    >
+                      Hủy
+                    </button>
+                  )}
+                </div>
+              </div>
+
+              {/* Body */}
+              <div className="p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 overflow-y-auto custom-scrollbar">
+
+                {/* Left column */}
+                <div className="lg:col-span-7 space-y-6">
+                  {/* Main Info Card */}
+                  <div className="bg-white rounded-[2rem] border border-gray-200 p-6 shadow-sm group">
+                    <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-5 pb-3 border-b border-gray-100 flex items-center gap-2">
+                      <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                      </svg>
+                      Thông tin cơ bản
+                    </h3>
+                    {editProductOpen && editForm ? (
+                      <div className="space-y-3">
+                        <div>
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Tên sản phẩm</label>
+                          <input
+                            type="text"
+                            value={editForm.packageName}
+                            onChange={e => setEditForm({ ...editForm, packageName: e.target.value })}
+                            className="w-full px-4 py-2.5 border-2 border-primary/30 rounded-xl text-base font-bold text-gray-900 focus:border-primary focus:outline-none transition bg-primary/5"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Danh mục</label>
+                          <select
+                            value={editForm.categoryId}
+                            onChange={e => setEditForm({ ...editForm, categoryId: Number(e.target.value) })}
+                            className="w-full px-4 py-2 border-2 border-primary/30 rounded-xl text-sm font-bold text-sky-700 bg-sky-50 focus:border-primary focus:outline-none transition"
+                          >
+                            <option value={1}>Đầy Tháng</option>
+                            <option value={2}>Tân Gia</option>
+                            <option value={3}>Khai Trương</option>
+                            <option value={4}>Tổ Tiên</option>
+                            <option value={5}>Khác</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Mô tả sản phẩm</label>
+                          <textarea
+                            value={editForm.description}
+                            onChange={e => setEditForm({ ...editForm, description: e.target.value })}
+                            rows={5}
+                            className="w-full px-4 py-2.5 border-2 border-primary/30 rounded-xl text-sm text-gray-700 focus:border-primary focus:outline-none transition resize-none bg-primary/5"
+                          />
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <h4 className="text-xl font-bold text-gray-900 mb-2 leading-tight">{viewProductDetails.packageName}</h4>
+                        <div className="inline-block px-4 py-1.5 bg-sky-50 text-sky-700 font-bold text-xs rounded-xl mb-4 border border-sky-100">
+                          {mapCategory(viewProductDetails.categoryId)}
+                        </div>
+                        <div>
+                          <p className="text-[11px] text-gray-500 font-bold uppercase tracking-widest mb-2">Mô tả sản phẩm</p>
+                          <p className="text-sm text-gray-700 leading-relaxed bg-gray-50/80 p-4 rounded-[1.25rem] border border-gray-100">
+                            {viewProductDetails.description || 'Không có mô tả chi tiết cho sản phẩm này.'}
+                          </p>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {/* Variants Card */}
+                  <div className="bg-white rounded-[2rem] border border-gray-200 p-6 shadow-sm">
+                    <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-5 pb-3 border-b border-gray-100 flex items-center gap-2">
+                      <i className="fas fa-layer-group text-primary"></i>
+                      Danh sách gói biến thể ({(viewProductDetails.packageVariants || []).length})
+                    </h3>
+                    <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
+                      {(viewProductDetails.packageVariants && viewProductDetails.packageVariants.length > 0) ? (
+                        viewProductDetails.packageVariants.map((v: any, idx: number) => (
+                          <div key={v.variantId || v.id || idx} className={`rounded-[1.5rem] border p-5 transition-all ${editProductOpen && editForm ? 'border-primary/30 bg-primary/5' : 'border-gray-100 bg-gray-50 hover:bg-white hover:shadow-md hover:border-gray-200'
+                            }`}>
+                            <div className="flex items-start justify-between gap-4 mb-3 border-b border-gray-100 pb-3">
+                              <div className="flex-1">
+                                {editProductOpen && editForm ? (
+                                  <input
+                                    type="text"
+                                    value={editForm.variants[idx]?.variantName ?? v.variantName}
+                                    onChange={e => { const vars = [...editForm.variants]; if (!vars[idx]) vars[idx] = { variantName: v.variantName, description: v.description || '', price: Number(v.price) }; vars[idx] = { ...vars[idx], variantName: e.target.value }; setEditForm({ ...editForm, variants: vars }); }}
+                                    className="w-full px-3 py-2 border-2 border-primary/30 rounded-xl text-sm font-bold text-gray-800 focus:border-primary focus:outline-none bg-white"
+                                  />
+                                ) : (
+                                  <p className="font-bold text-gray-800 text-base group-hover:text-primary transition-colors">{v.variantName}</p>
+                                )}
+                              </div>
+                              <div className="text-right flex flex-col items-end shrink-0">
+                                {editProductOpen && editForm ? (
+                                  <div className="flex items-center gap-1">
+                                    <input
+                                      type="number"
+                                      value={editForm.variants[idx]?.price ?? Number(v.price)}
+                                      onChange={e => { const vars = [...editForm.variants]; if (!vars[idx]) vars[idx] = { variantName: v.variantName, description: v.description || '', price: Number(v.price) }; vars[idx] = { ...vars[idx], price: Number(e.target.value) }; setEditForm({ ...editForm, variants: vars }); }}
+                                      className="w-28 px-3 py-2 border-2 border-primary/30 rounded-xl text-sm font-bold text-primary focus:border-primary focus:outline-none bg-white text-right"
+                                    />
+                                    <span className="text-gray-500 text-sm font-bold">đ</span>
+                                  </div>
+                                ) : (
+                                  <p className="font-black text-primary text-lg">{Number(v.price).toLocaleString('vi-VN')}đ</p>
+                                )}
+                                <span className={`inline-block mt-1.5 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${v.isActive ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-gray-200 text-gray-600 border border-gray-300'}`}>
+                                  {v.isActive ? 'Hoạt động' : 'Tạm ngừng'}
+                                </span>
+                              </div>
+                            </div>
+                            {editProductOpen && editForm ? (
+                              <input
+                                type="text"
+                                value={editForm.variants[idx]?.description ?? (v.description || '')}
+                                onChange={e => { const vars = [...editForm.variants]; if (!vars[idx]) vars[idx] = { variantName: v.variantName, description: v.description || '', price: Number(v.price) }; vars[idx] = { ...vars[idx], description: e.target.value }; setEditForm({ ...editForm, variants: vars }); }}
+                                className="w-full px-3 py-2 border-2 border-primary/30 rounded-xl text-sm text-gray-700 focus:border-primary focus:outline-none bg-white"
+                                placeholder="Mô tả biến thể..."
+                              />
+                            ) : (
+                              v.description && (
+                                <p className="text-sm text-slate-600 bg-white p-3.5 rounded-xl border border-gray-100 italic leading-relaxed shadow-sm">{v.description}</p>
+                              )
+                            )}
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-center py-8 bg-gray-50 rounded-[1.5rem] border border-dashed border-gray-200">
+                          <p className="text-xl mb-2 opacity-30">📦</p>
+                          <p className="text-slate-500 text-sm font-medium">Sản phẩm này chưa có biến thể nào.</p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Right column */}
+                <div className="lg:col-span-5 space-y-6">
+                  {/* Product Image Card */}
+                  <div className="bg-white rounded-[2rem] border border-gray-200 overflow-hidden shadow-sm">
+                    <div className="w-full aspect-square relative">
+                      {(editProductOpen && editForm ? editForm.packageImageUrl : viewProductDetails.imageUrl) ? (
+                        <img
+                          src={editProductOpen && editForm ? editForm.packageImageUrl : viewProductDetails.imageUrl}
+                          alt={viewProductDetails.packageName}
+                          className="w-full h-full object-cover"
+                          onError={(e) => { (e.target as HTMLImageElement).onerror = null; (e.target as HTMLImageElement).src = fallbackProductImage; }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-gray-300 bg-gray-50">
+                          <i className="fas fa-image text-5xl mb-3 opacity-40"></i>
+                          <span className="text-sm font-medium text-gray-400">Chưa có ảnh sản phẩm</span>
+                        </div>
+                      )}
+                    </div>
+                    {editProductOpen && editForm && (
+                      <div className="p-4 border-t border-gray-100">
+                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">URL ảnh</label>
+                        <input
+                          type="text"
+                          value={editForm.packageImageUrl}
+                          onChange={e => setEditForm({ ...editForm, packageImageUrl: e.target.value })}
+                          className="w-full px-3 py-2 border-2 border-primary/30 rounded-xl text-xs text-gray-700 focus:border-primary focus:outline-none bg-primary/5"
+                          placeholder="https://..."
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Summary Details */}
+                  <div className="bg-white rounded-[2rem] border border-gray-200 p-6 shadow-sm relative overflow-hidden group">
+                    <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none">
+                      <svg className="w-32 h-32" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                    </div>
+                    <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-5 pb-3 border-b border-gray-100 flex items-center gap-2">
+                      <i className="fas fa-info-circle text-primary"></i> Tóm tắt thông tin
+                    </h3>
+                    <div className="space-y-4 text-sm relative z-10">
+                      <div className="flex justify-between items-center border-b border-gray-50 pb-3">
+                        <span className="text-gray-500 font-semibold">Ngày khởi tạo</span>
+                        <span className="font-bold text-gray-800 bg-gray-50 px-3 py-1.5 rounded-xl">{viewProductDetails.createdAt ? new Date(viewProductDetails.createdAt).toLocaleString('vi-VN') : 'N/A'}</span>
+                      </div>
+                      {/* <div className="flex justify-between items-center pb-1">
+                        <span className="text-gray-500 font-semibold">Người xét duyệt</span>
+                        <span className="font-bold text-gray-800">{viewProductDetails.approvedBy || 'Hệ thống tự động'}</span>
+                      </div> */}
+                    </div>
+                  </div>
+
+                  {/* Rejection Notice if applicable */}
+                  {viewProductDetails.rejectionReason && (
+                    <div className="bg-white rounded-[2rem] border-2 border-red-200 p-6 shadow-sm overflow-hidden relative">
+                      <div className="absolute top-0 right-0 w-16 h-16 bg-red-100 rounded-bl-full shadow-inner flex justify-end items-start p-3">
+                        <i className="fas fa-times text-red-500 opacity-60"></i>
+                      </div>
+                      <h3 className="text-sm font-bold uppercase tracking-widest text-red-600 mb-4 pb-3 border-b border-red-100">
+                        Ý kiến phản hồi từ quản trị
+                      </h3>
+                      <div className="bg-red-50 p-4 rounded-[1.25rem] border border-red-100 relative z-10">
+                        <p className="text-[11px] text-red-500 font-black uppercase tracking-widest mb-1.5 opacity-80">Lý do từ chối:</p>
+                        <p className="text-sm text-red-800 font-semibold leading-relaxed">{viewProductDetails.rejectionReason}</p>
+                      </div>
+                      <p className="text-[11px] text-gray-400 mt-4 italic">Vui lòng điều chỉnh thông tin sản phẩm và gửi yêu cầu phê duyệt lại.</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
     </div>
