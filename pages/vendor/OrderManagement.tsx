@@ -166,7 +166,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
   const [deliveryProofImages, setDeliveryProofImages] = useState<File[]>([]);
 
   // ── tab state ───────────────────────────────────────────────────────────────
-  const [mainTab, setMainTab] = useState<'orders' | 'refunds'>('orders');
+  const [mainTab, setMainTab] = useState<'orders' | 'refunds' | 'reviews'>('orders');
   const [pendingRefunds, setPendingRefunds] = useState(0);
 
   const getTodayYmd = (): string => toYmd(new Date());
@@ -423,8 +423,8 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
               key={id}
               onClick={() => setMainTab(id)}
               className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${mainTab === id
-                  ? 'bg-primary text-white shadow-md shadow-primary/20'
-                  : 'text-slate-500 hover:text-slate-800 hover:bg-gray-50'
+                ? 'bg-primary text-white shadow-md shadow-primary/20'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-gray-50'
                 }`}
             >
               {id === 'refunds' && pendingRefunds > 0 && (
@@ -550,8 +550,8 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
               {ORDER_STATUS_TABS.map(tab => (
                 <button key={tab.id} onClick={() => setFilterStatus(tab.id)}
                   className={`whitespace-nowrap px-5 py-3 rounded-t-xl font-bold text-sm transition-all border-b-2 ${filterStatus === tab.id
-                      ? 'border-primary text-primary bg-primary/5'
-                      : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-gray-100'
+                    ? 'border-primary text-primary bg-primary/5'
+                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-gray-100'
                     }`}>
                   {tab.label}
                 </button>
@@ -679,8 +679,8 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                       key={page}
                       onClick={() => setCurrentPage(page)}
                       className={`min-w-9 h-9 px-2 rounded-lg text-sm font-bold transition-all ${safeCurrentPage === page
-                          ? 'bg-primary text-white'
-                          : 'border border-slate-300 text-slate-700 hover:bg-slate-100'
+                        ? 'bg-primary text-white'
+                        : 'border border-slate-300 text-slate-700 hover:bg-slate-100'
                         }`}
                     >
                       {page}
@@ -700,9 +700,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
           </>
         )}
 
-        {/* ══════════════════════════════════════════════════════════════════
-            REFUNDS TAB  –  delegated to VendorRefundTab
-        ══════════════════════════════════════════════════════════════════ */}
+
         {mainTab === 'refunds' && (
           <VendorRefundTab onPendingCount={setPendingRefunds} />
         )}
@@ -713,7 +711,6 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
 
       </div>
 
-      {/* ── Loading overlay (detail fetch) ───────────────────────────────────── */}
       {detailLoading && (
         <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
           <div className="bg-white rounded-2xl p-8 shadow-2xl text-center">
@@ -722,10 +719,6 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
           </div>
         </div>
       )}
-
-      {/* ══════════════════════════════════════════════════════════════════════
-          ORDER DETAIL MODAL
-      ══════════════════════════════════════════════════════════════════════ */}
       {selectedOrder && (
         <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start justify-center z-50 p-4 overflow-y-auto"
