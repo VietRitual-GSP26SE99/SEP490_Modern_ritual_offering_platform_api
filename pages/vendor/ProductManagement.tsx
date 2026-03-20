@@ -81,9 +81,9 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
       // On vendor management page, prioritize showing current vendor packages.
       const ownedPackages = currentVendorId
         ? packages.filter((item) => {
-            const vendorId = String((item as any).vendorProfileId || (item as any).vendorId || '').trim();
-            return vendorId === currentVendorId;
-          })
+          const vendorId = String((item as any).vendorProfileId || (item as any).vendorId || '').trim();
+          return vendorId === currentVendorId;
+        })
         : [];
 
       const source = ownedPackages.length > 0 ? ownedPackages : packages;
@@ -250,9 +250,9 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
             </div>
           </div>
         )}
-        
-            {/* Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8 mb-8">
+
+        {/* Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8 mb-8">
           <div className="bg-white rounded-2xl shadow-lg p-6 border-l-4 border-primary">
             <p className="text-gray-600 text-sm font-semibold mb-2">Tổng Sản Phẩm</p>
             <p className="text-3xl font-black text-primary">{products.length}</p>
@@ -384,13 +384,12 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
                           <span className="font-bold text-gray-800">{product.rating > 0 ? product.rating.toFixed(1) : 'N/A'}</span>
                         </td>
                         <td className="px-6 py-4">
-                          <span className={`inline-flex px-3 py-1 rounded-full text-sm font-bold whitespace-nowrap ${
-                            product.status === 'active'
+                          <span className={`inline-flex px-3 py-1 rounded-full text-sm font-bold whitespace-nowrap ${product.status === 'active'
                               ? 'bg-green-100 text-green-700'
                               : product.status === 'inactive'
-                              ? 'bg-gray-100 text-gray-700'
-                              : 'bg-yellow-100 text-yellow-700'
-                          }`}>
+                                ? 'bg-gray-100 text-gray-700'
+                                : 'bg-yellow-100 text-yellow-700'
+                            }`}>
                             {product.status === 'active' ? 'Hoạt Động' : product.status === 'inactive' ? 'Ngừng' : 'Nháp'}
                           </span>
                         </td>
@@ -454,11 +453,10 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
                       <button
                         key={page}
                         onClick={() => setCurrentPage(page)}
-                        className={`min-w-9 h-9 px-2 rounded-lg text-sm font-bold transition-all ${
-                          safeCurrentPage === page
+                        className={`min-w-9 h-9 px-2 rounded-lg text-sm font-bold transition-all ${safeCurrentPage === page
                             ? 'bg-primary text-white'
                             : 'border border-slate-300 text-slate-700 hover:bg-slate-100'
-                        }`}
+                          }`}
                       >
                         {page}
                       </button>
@@ -478,7 +476,7 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
           )}
         </div>
 
-     
+
       </div>
     </div>
   );

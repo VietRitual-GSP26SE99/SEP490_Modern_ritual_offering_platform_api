@@ -4,6 +4,7 @@ import { orderService, Order } from '../../services/orderService';
 import { refundService, RefundRecord } from '../../services/refundService';
 import toast from '../../services/toast';
 import RefundModal from '../../components/customer/RefundModal';
+import ReviewModal from '../../components/customer/ReviewModal';
 
 const OrderDetailsPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -13,6 +14,8 @@ const OrderDetailsPage: React.FC = () => {
     const [cancelling, setCancelling] = useState(false);
     const [completing, setCompleting] = useState(false);
     const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
+    const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
+    const [selectedItemForReview, setSelectedItemForReview] = useState<{itemId: string, packageName: string} | null>(null);
     const [refundInfo, setRefundInfo] = useState<RefundRecord | null>(null);
     const [escalating, setEscalating] = useState(false);
     const [refundDismissed, setRefundDismissed] = useState(false);
@@ -141,7 +144,7 @@ const OrderDetailsPage: React.FC = () => {
             case 'SHIPPING':
             case 'DELIVERING': return 'Đang giao hàng';
             case 'DELIVERED': return 'Đã giao hàng';
-            case 'COMPLETED': return 'Đã hoàn tiền';
+            case 'COMPLETED': return 'Đã hoàn thành';
             case 'CANCELLED': return 'Đã hủy';
             case 'REFUNDED': return 'Đã hoàn tiền';
             case 'PAYMENTFAILED': return 'Thanh toán lỗi';
@@ -273,7 +276,7 @@ const OrderDetailsPage: React.FC = () => {
                     </div>
                 )}
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
                     {/* Main Info */}
                     <div className="md:col-span-2 space-y-6">
@@ -322,6 +325,18 @@ const OrderDetailsPage: React.FC = () => {
                                         </div>
                                         <div className="pt-1 text-right">
                                             <p className="font-bold text-primary">{(item.lineTotal || (item.price || (item as any).unitPrice || 0) * item.quantity).toLocaleString('vi-VN')}đ</p>
+                                            
+                                            {order.orderStatus.toUpperCase() === 'COMPLETED' && (
+                                                <button
+                                                    onClick={() => {
+                                                        setSelectedItemForReview({ itemId: item.itemId, packageName: item.packageName });
+                                                        setIsReviewModalOpen(true);
+                                                    }}
+                                                    className="mt-2 text-xs font-bold text-primary hover:text-primary/70 transition-all underline underline-offset-4"
+                                                >
+                                                    Viết đánh giá
+                                                </button>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
@@ -394,12 +409,26 @@ const OrderDetailsPage: React.FC = () => {
             </div>
 
             {/* Refund Modal */}
-            <RefundModal 
+            <RefundModal
                 isOpen={isRefundModalOpen}
                 onClose={() => setIsRefundModalOpen(false)}
                 onSuccess={fetchOrder}
                 order={order}
             />
+
+            {/* Review Modal */}
+            {selectedItemForReview && (
+                <ReviewModal
+                    isOpen={isReviewModalOpen}
+                    onClose={() => {
+                        setIsReviewModalOpen(false);
+                        setSelectedItemForReview(null);
+                    }}
+                    onSuccess={fetchOrder}
+                    itemId={selectedItemForReview.itemId}
+                    packageName={selectedItemForReview.packageName}
+                />
+            )}
         </div>
     );
 };

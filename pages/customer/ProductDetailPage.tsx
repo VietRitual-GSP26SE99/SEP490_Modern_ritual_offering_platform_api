@@ -1,14 +1,14 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { MOCK_PRODUCTS } from '../../constants';
 import ImageModal from '../../components/ImageModal';
-import { packageService } from '../../services/packageService';
-import { vendorService, VendorProfile } from '../../services/vendorService';
 import { Product } from '../../types';
+import { packageService } from '../../services/packageService';
+import { VendorProfile, vendorService } from '../../services/vendorService';
+import { getCurrentUser, getProfile } from '../../services/auth';
+import { reviewService, Review } from '../../services/reviewService';
 import toast from '../../services/toast';
 import { cartService } from '../../services/cartService';
-import { getCurrentUser } from '../../services/auth';
 
 const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate }) => {
   const { id } = useParams<{ id: string }>();
@@ -16,22 +16,50 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
   const [product, setProduct] = useState<Product | null>(null);
   const [vendor, setVendor] = useState<VendorProfile | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedTier, setSelectedTier] = useState('Special');
   const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [currentMainImage, setCurrentMainImage] = useState(0);
   const [userRating, setUserRating] = useState(0);
-  const [hoverRating, setHoverRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [addingToCart, setAddingToCart] = useState(false);
   const [buyingNow, setBuyingNow] = useState(false);
   const [packageMeta, setPackageMeta] = useState<any | null>(null);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [vendorReplyingTo, setVendorReplyingTo] = useState<string | null>(null);
+  const [vendorReplyText, setVendorReplyText] = useState('');
+  const [isSubmittingReply, setIsSubmittingReply] = useState(false);
+  const [isVendor, setIsVendor] = useState(false);
+  const [activeReviewMenu, setActiveReviewMenu] = useState<string | null>(null);
+  const [isTogglingVisibility, setIsTogglingVisibility] = useState(false);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
   }, [id]);
+
+  useEffect(() => {
+    const checkVendorStatus = async () => {
+      const user = getCurrentUser();
+      if (!user) return;
+
+      if (user.role?.toLowerCase() === 'vendor' || user.roles?.some(r => r.toLowerCase() === 'vendor')) {
+        setIsVendor(true);
+        return;
+      }
+
+      try {
+        const profile = await getProfile();
+        if (profile.isVendor) {
+          setIsVendor(true);
+        }
+      } catch (e) {
+        // Silent fail
+      }
+    };
+    checkVendorStatus();
+  }, []);
 
   const buildVendorFromPackage = (pkg: any): VendorProfile | null => {
     const vendorId = String(pkg?.vendorProfileId || pkg?.vendorId || pkg?.vendor?.vendorProfileId || pkg?.vendor?.vendorId || '').trim();
@@ -54,14 +82,11 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
     };
   };
 
-  // Fetch product from API
   useEffect(() => {
     const fetchProduct = async () => {
       if (!id) return;
-
       const numericId = Number(String(id).trim());
       if (!Number.isInteger(numericId) || numericId <= 0) {
-        console.warn(' Invalid package id from route:', id);
         setProduct(null);
         setLoading(false);
         return;
@@ -69,13 +94,9 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
 
       setLoading(true);
       try {
-        console.log(' Fetching product detail for ID:', numericId);
         const apiPackage = await packageService.getPackageById(numericId);
-        console.log(' Received package:', apiPackage);
-
         if (apiPackage) {
           setPackageMeta(apiPackage as any);
-          // Fetch vendor info
           const vendorId = apiPackage.vendorProfileId || (apiPackage as any).vendorId;
           const vendorFromPackage = buildVendorFromPackage(apiPackage as any);
           const vendorInfo = vendorFromPackage || (vendorId ? await vendorService.getVendorCached(vendorId) : null);
@@ -88,35 +109,100 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
           }
 
           const mappedProduct = packageService.mapToProduct(apiPackage, vendorMap);
-          console.log(' Mapped product:', mappedProduct);
-          console.log(' Variants:', mappedProduct.variants);
-          if (mappedProduct.variants && mappedProduct.variants[0]) {
-            console.log(' First variant items:', mappedProduct.variants[0].items);
-          }
           setProduct(mappedProduct);
         } else {
           setPackageMeta(null);
-          console.warn(' No package from API, using mock data');
           const mockProduct = MOCK_PRODUCTS.find(p => p.id === id);
           setProduct(mockProduct || null);
         }
       } catch (error) {
         setPackageMeta(null);
-        console.error(' Error fetching product:', error);
         const mockProduct = MOCK_PRODUCTS.find(p => p.id === id);
         setProduct(mockProduct || null);
       } finally {
         setLoading(false);
       }
     };
-
     fetchProduct();
   }, [id]);
 
-  // Find product by ID
-  // const product = MOCK_PRODUCTS.find(p => p.id === id);
+  const currentUser = getCurrentUser();
+  const role = currentUser?.role?.toLowerCase() || '';
+  const isModerator = ['admin', 'staff', 'vendor'].includes(role);
 
-  // Product thumbnail images from gallery or fallback to random images
+  const isOwnerVendor = isVendor || isModerator; // Simplified for now but could be refined to check vendorId match if needed.
+
+  const fetchReviews = useCallback(async () => {
+    const selectedVariant = product?.variants?.[selectedVariantIndex];
+    if (!selectedVariant || !selectedVariant.variantId) return;
+
+    setLoadingReviews(true);
+    try {
+      const data = await reviewService.getReviewsByVariant(selectedVariant.variantId);
+      setReviews(data);
+    } catch (error) {
+      console.error('Error fetching reviews:', error);
+      setReviews([]);
+    } finally {
+      setLoadingReviews(false);
+    }
+  }, [product, selectedVariantIndex]);
+
+  useEffect(() => {
+    if (product) {
+      fetchReviews();
+    }
+  }, [product, selectedVariantIndex, fetchReviews]);
+
+  const handleVendorReply = async (reviewId: string) => {
+    if (!vendorReplyText.trim()) {
+      toast.error('Vui lòng nhập nội dung phản hồi.');
+      return;
+    }
+
+    setIsSubmittingReply(true);
+    try {
+      const success = await reviewService.updateVendorReply(reviewId, vendorReplyText);
+      if (success) {
+        toast.success('Phản hồi thành công!');
+        setVendorReplyingTo(null);
+        setVendorReplyText('');
+        fetchReviews();
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Phản hồi thất bại.');
+    } finally {
+      setIsSubmittingReply(false);
+    }
+  };
+
+  const handleToggleVisibility = async (reviewId: string, currentVisibility: boolean) => {
+    setIsTogglingVisibility(true);
+    try {
+      const success = await reviewService.updateReviewVisibility(reviewId, !currentVisibility);
+      if (success) {
+        toast.success(`Đã ${!currentVisibility ? 'hiện' : 'ẩn'} đánh giá!`);
+        fetchReviews();
+      }
+    } catch (error: any) {
+      toast.error(error.message || 'Thao tác thất bại.');
+    } finally {
+      setIsTogglingVisibility(false);
+      setActiveReviewMenu(null);
+    }
+  };
+
+  const reviewsToDisplay = reviews.filter(r => r.isVisible || isOwnerVendor);
+  const averageRating = reviewsToDisplay.length > 0
+    ? (reviewsToDisplay.reduce((acc, r) => acc + r.rating, 0) / reviewsToDisplay.length).toFixed(1)
+    : (product?.rating || '0.0');
+
+  const ratingDistribution = [5, 4, 3, 2, 1].map(stars => {
+    const count = reviewsToDisplay.filter(r => Math.round(r.rating) === stars).length;
+    const percentage = reviewsToDisplay.length > 0 ? (count / reviewsToDisplay.length) * 100 : 0;
+    return { stars, count, percentage };
+  });
+
   const thumbnailImages = product?.gallery || [
     'https://picsum.photos/400/400?random=1',
     'https://picsum.photos/400/400?random=2',
@@ -124,7 +210,6 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
     'https://picsum.photos/400/400?random=4',
   ];
 
-  // All product images (main + thumbnails)
   const productImages = [
     product?.image || '',
     ...thumbnailImages
@@ -149,57 +234,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
     setCurrentMainImage(index);
   };
 
-  // Mock reviews data
-  const mockReviews = [
-    {
-      id: 1,
-      userName: 'Nguyễn Thị Lan',
-      avatar: 'https://i.pravatar.cc/150?img=1',
-      rating: 5,
-      comment: 'Mâm cúng rất đẹp và chu đáo, lễ vật tươi ngon. Shop tư vấn nhiệt tình, giao hàng đúng giờ. Rất hài lòng!',
-      date: '15/01/2026',
-      helpful: 12
-    },
-    {
-      id: 2,
-      userName: 'Trần Văn Minh',
-      avatar: 'https://i.pravatar.cc/150?img=12',
-      rating: 5,
-      comment: 'Chất lượng tuyệt vời, trình bày đẹp mắt. Gia đình rất ấn tượng. Sẽ ủng hộ shop lâu dài!',
-      date: '12/01/2026',
-      helpful: 8
-    },
-    {
-      id: 3,
-      userName: 'Lê Thị Hương',
-      avatar: 'https://i.pravatar.cc/150?img=5',
-      rating: 4,
-      comment: 'Mâm cúng đẹp, tuy nhiên giá hơi cao so với mặt bằng chung. Nhưng chất lượng xứng đáng!',
-      date: '08/01/2026',
-      helpful: 5
-    }
-  ];
-
-  const ratingDistribution = [
-    { stars: 5, count: 98, percentage: 77 },
-    { stars: 4, count: 20, percentage: 16 },
-    { stars: 3, count: 7, percentage: 5 },
-    { stars: 2, count: 2, percentage: 2 },
-    { stars: 1, count: 1, percentage: 1 }
-  ];
-
-  const handleSubmitReview = () => {
-    if (userRating > 0 && reviewText.trim()) {
-      toast.success('Cảm ơn bạn đã đánh giá!');
-      setUserRating(0);
-      setReviewText('');
-    } else {
-      toast.warning('Vui lòng chọn số sao và viết đánh giá');
-    }
-  };
-
   const handleAddToCart = async () => {
-    // Check authentication
     const user = getCurrentUser();
     if (!user) {
       toast.warning('Vui lòng đăng nhập để thêm vào giỏ hàng');
@@ -207,7 +242,6 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
       return;
     }
 
-    // Get selected variant
     const selectedVariant = product?.variants?.[selectedVariantIndex];
     if (!selectedVariant || !selectedVariant.variantId) {
       toast.error('Vui lòng chọn gói lễ');
@@ -216,19 +250,12 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
 
     setAddingToCart(true);
     try {
-      console.log('🛒 Adding to cart:', {
-        variantId: selectedVariant.variantId,
-        quantity
-      });
-
       const success = await cartService.addToCart({
         variantId: selectedVariant.variantId,
         quantity
       });
-
       if (success) {
         toast.success('Đã thêm vào giỏ hàng!');
-        // Trigger cart update event
         window.dispatchEvent(new Event('cartUpdated'));
       } else {
         toast.error('Không thể thêm vào giỏ hàng. Vui lòng thử lại.');
@@ -242,7 +269,6 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
   };
 
   const handleBuyNow = async () => {
-    // Check authentication
     const user = getCurrentUser();
     if (!user) {
       toast.warning('Vui lòng đăng nhập để mua hàng');
@@ -250,7 +276,6 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
       return;
     }
 
-    // Get selected variant
     const selectedVariant = product?.variants?.[selectedVariantIndex];
     if (!selectedVariant || !selectedVariant.variantId) {
       toast.error('Vui lòng chọn gói lễ');
@@ -265,10 +290,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
       });
 
       if (success) {
-        // Trigger cart update event so header updates
         window.dispatchEvent(new Event('cartUpdated'));
-
-        // Fetch cart to get the cartItemId
         const cart = await cartService.getCart();
         if (cart && cart.cartItems) {
           const addedItem = cart.cartItems.find(item => item.variantId === selectedVariant.variantId);
@@ -277,8 +299,6 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
             return;
           }
         }
-
-        // Fallback if item cart id not found
         onNavigate('/cart');
       } else {
         toast.error('Không thể mua hàng. Vui lòng thử lại.');
@@ -291,7 +311,6 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
     }
   };
 
-  // If product not found, show error
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-6 md:px-10 py-16 flex items-center justify-center min-h-screen">
@@ -335,16 +354,13 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
             onClick={() => handleImageClick(currentMainImage)}
           >
             <img className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" src={productImages[currentMainImage]} alt={product.name} />
-            <div className="absolute inset-0 bg-black/0 hover:bg-black/10 transition-colors flex items-center justify-center opacity-0 hover:opacity-100">
-            </div>
           </div>
           <div className="grid grid-cols-5 gap-4">
-            {thumbnailImages.map((imgUrl, i) => (
+            {productImages.map((imgUrl, i) => (
               <div
                 key={i}
-                className={`aspect-square rounded-2xl overflow-hidden border-2 cursor-pointer transition-all hover:shadow-lg ${currentMainImage === i + 1 ? 'border-gold' : 'border-transparent hover:border-gold'
-                  }`}
-                onClick={() => handleThumbnailClick(i + 1)}
+                className={`aspect-square rounded-2xl overflow-hidden border-2 cursor-pointer transition-all hover:shadow-lg ${currentMainImage === i ? 'border-primary' : 'border-transparent hover:border-primary'}`}
+                onClick={() => setCurrentMainImage(i)}
               >
                 <img className="w-full h-full object-cover hover:scale-110 transition-transform" src={imgUrl} alt={`Ảnh ${i + 1}`} />
               </div>
@@ -369,8 +385,8 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
             )}
             <div className="flex items-baseline gap-4">
               <p className="text-4xl font-black text-primary tracking-tight">
-                {(product.variants && product.variants[selectedVariantIndex] 
-                  ? product.variants[selectedVariantIndex].price 
+                {(product.variants && product.variants[selectedVariantIndex]
+                  ? product.variants[selectedVariantIndex].price
                   : product.price).toLocaleString()}đ
               </p>
               {product.originalPrice && (
@@ -379,7 +395,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
             </div>
             <div className="flex items-center gap-2">
               <span style={{ color: '#FFD700' }}>★</span>
-              <span className="text-sm font-bold text-slate-600">{product.rating} ({product.reviews} đánh giá)</span>
+              <span className="text-sm font-bold text-slate-600">{averageRating} ({reviewsToDisplay.length > 0 ? reviewsToDisplay.length : product.reviews} đánh giá)</span>
             </div>
           </div>
 
@@ -387,29 +403,16 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
             <div>
               <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-4">Cấp độ gói lễ (Tier)</label>
               <div className="grid grid-cols-3 gap-3">
-                {product.variants && product.variants.length > 0 ? (
-                  product.variants.map((variant, index) => (
-                    <button
-                      key={variant.variantId}
-                      onClick={() => setSelectedVariantIndex(index)}
-                      className={`p-4 rounded-2xl border-2 text-center transition-all ${selectedVariantIndex === index ? 'border-primary bg-primary/5' : 'border-slate-100 hover:border-gold'}`}
-                    >
-                      <p className="text-xs font-bold leading-none mb-1">{variant.tier}</p>
-                      <p className="text-[10px] text-slate-400 italic">{variant.price.toLocaleString()}đ</p>
-                    </button>
-                  ))
-                ) : (
-                  ['Standard', 'Special', 'Premium'].map((t) => (
-                    <button
-                      key={t}
-                      onClick={() => setSelectedTier(t)}
-                      className={`p-4 rounded-2xl border-2 text-center transition-all ${selectedTier === t ? 'border-primary bg-primary/5' : 'border-slate-100 hover:border-gold'}`}
-                    >
-                      <p className="text-xs font-bold leading-none mb-1">{t === 'Standard' ? 'Tiêu chuẩn' : t === 'Special' ? 'Đặc biệt' : 'Thượng hạng'}</p>
-                      <p className="text-[10px] text-slate-400 italic">{product.price.toLocaleString()}đ</p>
-                    </button>
-                  ))
-                )}
+                {product.variants?.map((variant, index) => (
+                  <button
+                    key={variant.variantId}
+                    onClick={() => setSelectedVariantIndex(index)}
+                    className={`p-4 rounded-2xl border-2 text-center transition-all ${selectedVariantIndex === index ? 'border-primary bg-primary/5' : 'border-slate-100 hover:border-gold'}`}
+                  >
+                    <p className="text-xs font-bold leading-none mb-1">{variant.tier}</p>
+                    <p className="text-[10px] text-slate-400 italic">{variant.price.toLocaleString()}đ</p>
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -419,28 +422,21 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                 <p className="text-xs font-medium text-slate-600 mb-4 leading-6">{selectedVariantDescription}</p>
               )}
               <div className="grid grid-cols-2 gap-y-3">
-                {product.variants && product.variants[selectedVariantIndex]?.items && product.variants[selectedVariantIndex].items.length > 0 ? (
-                  product.variants[selectedVariantIndex].items.map((item, idx) => (
-                    <div key={idx} className="flex items-center gap-2 text-xs font-medium text-slate-600">
-                      <span className="text-gold">✓</span>
-                      {item}
-                    </div>
-                  ))
-                ) : (
-                  <div className="col-span-2 text-xs text-slate-400 italic">
-                    {selectedVariantDescription ? 'Chi tiết lễ vật nằm trong phần mô tả ở trên.' : 'Đang cập nhật danh sách lễ vật...'}
+                {product.variants?.[selectedVariantIndex]?.items?.map((item, idx) => (
+                  <div key={idx} className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                    <span className="text-gold">✓</span>
+                    {item}
                   </div>
-                )}
+                ))}
               </div>
             </div>
 
-            {/* Quantity Selector */}
             <div className="pt-6 border-t border-gold/10">
               <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-4">Số lượng</label>
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="w-12 h-12 rounded-xl border-2 border-slate-200 text-primary font-bold hover:bg-primary hover:text-white hover:border-primary transition-all"
+                  className="w-12 h-12 rounded-xl border-2 border-slate-200 text-primary font-bold hover:bg-primary hover:text-white transition-all"
                 >
                   −
                 </button>
@@ -453,7 +449,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                 />
                 <button
                   onClick={() => setQuantity(quantity + 1)}
-                  className="w-12 h-12 rounded-xl border-2 border-slate-200 text-primary font-bold hover:bg-primary hover:text-white hover:border-primary transition-all"
+                  className="w-12 h-12 rounded-xl border-2 border-slate-200 text-primary font-bold hover:bg-primary hover:text-white transition-all"
                 >
                   +
                 </button>
@@ -463,100 +459,49 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
             <button
               onClick={handleAddToCart}
               disabled={addingToCart || buyingNow}
-              className="w-full border-3 border-primary text-primary py-4 rounded-lg font-bold uppercase tracking-widest hover:bg-primary hover:text-white transition-all mb-3 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full border-2 border-primary text-primary py-4 rounded-lg font-bold uppercase tracking-widest hover:bg-primary hover:text-white transition-all mb-3 disabled:opacity-50"
             >
-              {addingToCart ? ' Đang thêm...' : ' Thêm vào giỏ'}
+              {addingToCart ? 'Đang thêm...' : 'Thêm vào giỏ'}
             </button>
             <button
               onClick={handleBuyNow}
               disabled={addingToCart || buyingNow}
-              className="w-full bg-primary text-white py-4 rounded-lg font-bold uppercase tracking-widest hover:bg-primary/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              className="w-full bg-primary text-white py-4 rounded-lg font-bold uppercase tracking-widest hover:bg-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {buyingNow ? (
-                <>
-                  <span className="inline-block animate-spin rounded-full h-5 w-5 border-b-2 border-white"></span>
-                  ĐANG XỬ LÝ...
-                </>
-              ) : (
-                'Mua ngay'
-              )}
+              {buyingNow ? 'Đang xử lý...' : 'Mua ngay'}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Vendor Info Box - Similar to Shopee */}
       {vendor && (
-        <div className="mt-8">
-          <div className="bg-white rounded-3xl p-8 border border-gold/10 shadow-sm">
-            <div className="flex flex-col md:flex-row gap-6">
-              {/* Vendor Avatar & Name */}
-              <div className="flex items-center gap-4 md:w-1/3 pb-6 md:pb-0 md:border-r border-gold/10">
-                <div className="relative">
-                  <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary to-orange-400 flex items-center justify-center text-white text-2xl font-black shadow-lg">
-                    {vendor.shopName.charAt(0).toUpperCase()}
-                  </div>
-                  {(vendor.rating && vendor.rating >= 4.5) && (
-                    <div className="absolute -bottom-1 -right-1 bg-primary text-white text-[10px] font-black px-2 py-0.5 rounded-full border-2 border-white">
-                      Yêu thích
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <h3 className="font-bold text-lg text-slate-900">{vendor.shopName}</h3>
-                  <p className="text-xs text-green-600 mt-1">● Online 3 Phút Trước</p>
-                  <div className="flex gap-2 mt-3">
-                    <button className="px-4 py-1.5 border-2 border-primary text-primary text-xs font-bold rounded-lg hover:bg-primary hover:text-white transition">
-                      💬 Chat Ngay
-                    </button>
-                    <button
-                      onClick={() => vendor.vendorProfileId && onNavigate(`/vendor/${vendor.vendorProfileId}`)}
-                      className="px-4 py-1.5 border-2 border-slate-300 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 transition"
-                    >
-                      🏪 Xem Shop
-                    </button>
-                  </div>
+        <div className="mt-8 bg-white rounded-3xl p-8 border border-gold/10 shadow-sm">
+          <div className="flex flex-col md:flex-row gap-6">
+            <div className="flex items-center gap-4 md:w-1/3 pb-6 md:pb-0 md:border-r border-gold/10">
+              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary to-orange-400 flex items-center justify-center text-white text-2xl font-black shadow-lg">
+                {vendor.shopName.charAt(0).toUpperCase()}
+              </div>
+              <div>
+                <h3 className="font-bold text-lg text-slate-900">{vendor.shopName}</h3>
+                <p className="text-xs text-green-600 mt-1">● Online</p>
+                <div className="flex gap-2 mt-3">
+                  <button className="px-4 py-1.5 border-2 border-primary text-primary text-xs font-bold rounded-lg hover:bg-primary hover:text-white transition">💬 Chat Ngay</button>
+                  <button onClick={() => vendor.vendorProfileId && onNavigate(`/vendor/${vendor.vendorProfileId}`)} className="px-4 py-1.5 border-2 border-slate-300 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 transition">🏪 Xem Shop</button>
                 </div>
               </div>
-
-              {/* Vendor Stats */}
-              <div className="md:w-2/3 grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-6 md:pl-6">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-slate-500 text-xs">Đánh Giá</span>
-                  </div>
-                  <p className="text-primary font-bold">{vendor.rating ? `${vendor.rating}/5` : '4.8/5'}</p>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-slate-500 text-xs">Tỉ Lệ Phản Hồi</span>
-                  </div>
-                  <p className="text-primary font-bold">{vendor.responseRate ? `${vendor.responseRate}%` : '96%'}</p>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-slate-500 text-xs">Tham Gia</span>
-                  </div>
-                  <p className="font-bold text-slate-700">{vendor.joinedDate || '5 năm trước'}</p>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-slate-500 text-xs">Sản Phẩm</span>
-                  </div>
-                  <p className="font-bold text-slate-700">{vendor.productCount || '127'}</p>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-slate-500 text-xs">Thời Gian Phản Hồi</span>
-                  </div>
-                  <p className="font-bold text-slate-700">{vendor.responseTime || 'trong vài giờ'}</p>
-                </div>
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-slate-500 text-xs">Người Theo Dõi</span>
-                  </div>
-                  <p className="font-bold text-slate-700">{vendor.followerCount ? `${(vendor.followerCount / 1000).toFixed(1)}k` : '2.1k'}</p>
-                </div>
+            </div>
+            <div className="md:w-2/3 grid grid-cols-2 md:grid-cols-3 gap-6 md:pl-6">
+              <div>
+                <span className="text-slate-500 text-xs">Đánh giá</span>
+                <p className="text-primary font-bold">{vendor.rating ? `${vendor.rating}/5` : '4.8/5'}</p>
+              </div>
+              <div>
+                <span className="text-slate-500 text-xs">Tỉ lệ phản hồi</span>
+                <p className="text-primary font-bold">{vendor.responseRate ? `${vendor.responseRate}%` : '96%'}</p>
+              </div>
+              <div>
+                <span className="text-slate-500 text-xs">Tham gia</span>
+                <p className="font-bold text-slate-700">{vendor.joinedDate || '5 năm trước'}</p>
               </div>
             </div>
           </div>
@@ -565,28 +510,23 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
 
       <div className="mt-16 space-y-8">
         <h2 className="text-3xl font-black text-primary">Đánh giá sản phẩm</h2>
-
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="bg-white rounded-3xl p-8 border border-gold/10 shadow-sm">
             <div className="text-center mb-6">
-              <div className="text-5xl font-black text-primary mb-2">{product.rating}</div>
+              <div className="text-5xl font-black text-primary mb-2">{averageRating}</div>
               <div className="flex justify-center mb-2">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <span key={star} className="text-2xl" style={{ color: '#FFD700' }}>★</span>
+                {[1, 2, 3, 4, 5].map(star => (
+                  <span key={star} className="text-2xl" style={{ color: star <= Math.round(Number(averageRating)) ? '#FFD700' : '#cbd5e1' }}>★</span>
                 ))}
               </div>
-              <p className="text-sm text-slate-500">{product.reviews} đánh giá</p>
+              <p className="text-sm text-slate-500">{reviewsToDisplay.length} đánh giá cho gói này</p>
             </div>
-
             <div className="space-y-2">
               {ratingDistribution.map((item) => (
                 <div key={item.stars} className="flex items-center gap-3">
                   <span className="text-xs font-bold text-slate-600 w-8">{item.stars}★</span>
                   <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
-                    <div
-                      className="h-full transition-all"
-                      style={{ width: `${item.percentage}%`, backgroundColor: '#FFD700' }}
-                    />
+                    <div className="h-full bg-gold transition-all" style={{ width: `${item.percentage}%`, backgroundColor: '#FFD700' }} />
                   </div>
                   <span className="text-xs text-slate-500 w-8">{item.count}</span>
                 </div>
@@ -594,86 +534,161 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
             </div>
           </div>
 
-          {/* Reviews List */}
           <div className="lg:col-span-2 space-y-6">
-            {mockReviews.map((review) => (
-              <div key={review.id} className="bg-white rounded-3xl p-6 border border-gold/10 shadow-sm">
-                <div className="flex items-start gap-4">
-                  <img src={review.avatar} alt={review.userName} className="w-12 h-12 rounded-full" />
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-2">
-                      <div>
-                        <h4 className="font-bold text-slate-900">{review.userName}</h4>
-                        <div className="flex items-center gap-2">
-                          <div className="flex">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                              <span key={star} className="text-sm" style={{ color: star <= review.rating ? '#FFD700' : '#cbd5e1' }}>★</span>
-                            ))}
+            {loadingReviews ? (
+              <div className="flex flex-col items-center justify-center py-12 bg-white rounded-3xl border border-gold/10">
+                <div className="w-10 h-10 animate-spin rounded-full border-4 border-primary border-t-transparent mb-4"></div>
+                <p className="text-slate-500">Đang tải đánh giá...</p>
+              </div>
+            ) : reviewsToDisplay.length === 0 ? (
+              <div className="text-center py-12 bg-white rounded-3xl border border-gold/10">
+                <div className="text-6xl mb-4">⭐</div>
+                <p className="text-slate-500">Chưa có đánh giá nào cho gói lễ này.</p>
+              </div>
+            ) : (
+              reviewsToDisplay.map((review) => (
+                <div
+                  key={review.reviewId}
+                  className={`bg-white rounded-3xl p-6 border border-gold/10 shadow-sm transition-all duration-300 ${!review.isVisible ? 'opacity-60 bg-slate-50' : ''}`}
+                >
+                  <div className="flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-full overflow-hidden bg-primary/10 flex items-center justify-center text-primary font-bold shadow-inner flex-shrink-0">
+                      {review.customerAvatar ? (
+                        <img src={review.customerAvatar} alt={review.customerName} className="w-full h-full object-cover" />
+                      ) : (
+                        review.customerName?.charAt(0).toUpperCase()
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-2">
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <h4 className="font-bold text-slate-900">{review.customerName}</h4>
+                            {!review.isVisible && (
+                              <span className="text-[9px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full font-black uppercase tracking-widest border border-red-200">Đã ẩn</span>
+                            )}
                           </div>
-                          <span className="text-xs text-slate-400">• {review.date}</span>
+                          <div className="flex items-center gap-2">
+                            <div className="flex">
+                              {[1, 2, 3, 4, 5].map(star => (
+                                <span key={star} className="text-sm" style={{ color: star <= review.rating ? '#FFD700' : '#cbd5e1' }}>★</span>
+                              ))}
+                            </div>
+                            <span className="text-xs text-slate-400">• {new Date(review.createdAt).toLocaleDateString('vi-VN')}</span>
+                            {review.variantName && <span className="text-[10px] text-slate-400 font-bold ml-2 italic">({review.variantName})</span>}
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-[10px] bg-green-50 text-green-600 px-2 py-0.5 rounded-full font-black uppercase tracking-widest border border-green-100">Đã mua hàng</span>
+                          {isOwnerVendor && (
+                            <div className="relative">
+                              <button
+                                onClick={() => setActiveReviewMenu(activeReviewMenu === review.reviewId ? null : review.reviewId)}
+                                className="p-1.5 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-600"
+                                title="Quản lý"
+                              >
+                                <svg className="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                  <circle cx="12" cy="5" r="1" />
+                                  <circle cx="12" cy="12" r="1" />
+                                  <circle cx="12" cy="19" r="1" />
+                                </svg>
+                              </button>
+
+                              {activeReviewMenu === review.reviewId && (
+                                <div className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] border border-gray-100 z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+                                  <div className="px-4 py-2 bg-slate-50 border-b border-slate-100">
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quản lý đánh giá</p>
+                                  </div>
+                                  <button
+                                    onClick={() => handleToggleVisibility(review.reviewId, !!review.isVisible)}
+                                    disabled={isTogglingVisibility}
+                                    className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center gap-3 transition-colors disabled:opacity-50"
+                                  >
+                                    <div className={`p-1.5 rounded-lg ${review.isVisible ? 'bg-red-50 text-red-500' : 'bg-green-50 text-green-600'}`}>
+                                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2.5">
+                                        {review.isVisible ? (
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
+                                        ) : (
+                                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.644C3.228 8.396 6.633 5 12 5c4.183 0 7.39 2.21 8.946 5.378.345.7.345 1.503 0 2.204-1.555 3.168-4.763 5.378-8.946 5.378-4.183 0-7.39-2.21-8.946-5.378z" />
+                                        )}
+                                      </svg>
+                                    </div>
+                                    <span className={`text-xs font-bold ${review.isVisible ? 'text-red-500' : 'text-green-600'}`}>
+                                      {review.isVisible ? 'Ẩn đánh giá này' : 'Hiện đánh giá này'}
+                                    </span>
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
-                      <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full font-bold">Đã mua hàng</span>
+                      <p className="text-sm text-slate-600 mb-4">{review.comment}</p>
+
+                      {review.reviewImageUrls?.length > 0 && (
+                        <div className="flex flex-wrap gap-3 mb-4">
+                          {review.reviewImageUrls.map((url, idx) => (
+                            <img key={idx} src={url} alt="Review" className="w-20 h-20 rounded-xl object-cover border border-gray-100 shadow-sm" />
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Vendor Reply Display */}
+                      {review.vendorReply && vendorReplyingTo !== review.reviewId ? (
+                        <div className="mt-4 p-4 bg-primary/5 rounded-2xl border-l-4 border-primary relative">
+                          <p className="text-xs font-bold text-primary uppercase tracking-widest mb-1">Phản hồi từ shop</p>
+                          <p className="text-sm text-slate-600 italic">"{review.vendorReply}"</p>
+                          {/* {isOwnerVendor && (
+                            <button
+                              onClick={() => { setVendorReplyingTo(review.reviewId); setVendorReplyText(review.vendorReply || ''); }}
+                              className="absolute top-4 right-4 text-[10px] font-bold text-primary hover:underline hover:scale-110 transition-transform"
+                            >
+                              Sửa
+                            </button>
+                          )} */}
+                        </div>
+                      ) : isOwnerVendor && vendorReplyingTo !== review.reviewId ? (
+                        <button
+                          onClick={() => setVendorReplyingTo(review.reviewId)}
+                          className="mt-4 text-[11px] font-black text-primary uppercase tracking-widest hover:bg-primary/5 px-3 py-1.5 rounded-lg border border-primary transition-all"
+                        >
+                          Phản hồi ngay
+                        </button>
+                      ) : null}
+
+                      {/* Vendor Reply Form */}
+                      {isOwnerVendor && vendorReplyingTo === review.reviewId && (
+                        <div className="mt-4 space-y-3 bg-slate-50 p-5 rounded-2xl border border-gold/10 animate-in fade-in slide-in-from-top-2">
+                          <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><span></span> Phản hồi cho khách hàng</p>
+                          <textarea
+                            value={vendorReplyText}
+                            onChange={(e) => setVendorReplyText(e.target.value)}
+                            placeholder="Cảm ơn khách hàng hoặc giải đáp thắc mắc..."
+                            className="w-full px-4 py-3 rounded-xl bg-white border border-slate-200 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm min-h-[80px]"
+                          />
+                          <div className="flex gap-2">
+                            <button onClick={() => handleVendorReply(review.reviewId)} disabled={isSubmittingReply} className="px-6 py-2 bg-primary text-white font-black rounded-lg hover:bg-primary/90 transition-all disabled:opacity-50 text-[10px] uppercase">Gửi phản hồi</button>
+                            <button onClick={() => { setVendorReplyingTo(null); setVendorReplyText(''); }} disabled={isSubmittingReply} className="px-6 py-2 border border-slate-300 text-slate-500 font-black rounded-lg hover:bg-gray-100 transition-all text-[10px] uppercase">Hủy</button>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                    <p className="text-sm text-slate-600 mb-3">{review.comment}</p>
-                    <button className="text-xs text-slate-500 hover:text-primary font-semibold flex items-center gap-1">
-                      <span></span> Hữu ích ({review.helpful})
-                    </button>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
-
-        {/* Write Review */}
-        {/* <div className="bg-white rounded-3xl p-8 border border-gold/10 shadow-sm">
-          <h3 className="text-xl font-bold text-primary mb-6">Viết đánh giá của bạn</h3>
-          <div className="space-y-6">
-            <div>
-              <label className="text-sm font-bold text-slate-700 block mb-3">Đánh giá của bạn</label>
-              <div className="flex gap-2">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <button
-                    key={star}
-                    onClick={() => setUserRating(star)}
-                    onMouseEnter={() => setHoverRating(star)}
-                    onMouseLeave={() => setHoverRating(0)}
-                    className="text-4xl transition-all hover:scale-110"
-                  >
-                    <span style={{ color: star <= (hoverRating || userRating) ? '#FFD700' : '#cbd5e1' }}>★</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className="text-sm font-bold text-slate-700 block mb-3">Nội dung đánh giá</label>
-              <textarea
-                value={reviewText}
-                onChange={(e) => setReviewText(e.target.value)}
-                placeholder="Chia sẻ trải nghiệm của bạn về sản phẩm này..."
-                className="w-full h-32 px-4 py-3 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary resize-none text-sm"
-              />
-            </div>
-            <button
-              onClick={handleSubmitReview}
-              className="bg-slate-900 text-white px-8 py-3 rounded-xl font-bold hover:bg-slate-800 transition-all"
-            >
-              Gửi đánh giá
-            </button>
-          </div>
-        </div> */}
       </div>
 
-      {/* Image Modal */}
-      <ImageModal
-        isOpen={showImageModal}
-        imageSrc={productImages[selectedImageIndex] || ''}
-        altText={product.name}
-        images={productImages}
-        currentIndex={selectedImageIndex}
-        onClose={() => setShowImageModal(false)}
-      />
+      {showImageModal && (
+        <ImageModal
+          images={productImages}
+          initialIndex={selectedImageIndex}
+          isOpen={showImageModal}
+          onClose={() => setShowImageModal(false)}
+        />
+      )}
     </div>
   );
 };

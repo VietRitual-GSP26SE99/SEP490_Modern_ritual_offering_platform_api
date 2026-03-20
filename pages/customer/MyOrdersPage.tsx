@@ -85,7 +85,7 @@ const MyOrdersPage: React.FC = () => {
             case 'SHIPPING':
             case 'DELIVERING': return 'Đang giao hàng';
             case 'DELIVERED': return 'Đã giao hàng';
-            case 'COMPLETED': return 'Đã hoàn tiền';
+            case 'COMPLETED': return 'Đã hoàn thành';
             case 'CANCELLED': return 'Đã hủy';
             case 'REFUNDED': return 'Đã hoàn tiền';
             case 'PAYMENTFAILED': return 'Thanh toán lỗi';
@@ -102,7 +102,7 @@ const MyOrdersPage: React.FC = () => {
         { id: 'PENDING', label: 'Chờ thanh toán' },
         { id: 'PAID', label: 'Đang xử lý' },
         { id: 'DELIVERING', label: 'Đang giao' },
-        { id: 'COMPLETED', label: 'Đã hoàn tiền' },
+        { id: 'COMPLETED', label: 'Đã hoàn thành' },
         { id: 'CANCELLED', label: 'Đã hủy' }
     ];
 
@@ -221,8 +221,8 @@ const MyOrdersPage: React.FC = () => {
                                             {(() => {
                                                 // List API returns flat structure, detail API returns nested
                                                 const total = (order as any).finalAmount
-                                                    || (order as any).totalAmount 
-                                                    || order.pricing?.totalAmount 
+                                                    || (order as any).totalAmount
+                                                    || order.pricing?.totalAmount
                                                     || 0;
                                                 return total.toLocaleString('vi-VN');
                                             })()}đ

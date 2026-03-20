@@ -2,26 +2,26 @@ import React, { useState, useEffect } from 'react';
 
 interface ImageModalProps {
   isOpen: boolean;
-  imageSrc: string;
-  altText: string;
+  imageSrc?: string;
+  altText?: string;
   onClose: () => void;
   images?: string[];
-  currentIndex?: number;
+  initialIndex?: number;
 }
 
 const ImageModal: React.FC<ImageModalProps> = ({
   isOpen,
-  imageSrc,
-  altText,
+  imageSrc = '',
+  altText = '',
   onClose,
   images = [],
-  currentIndex = 0,
+  initialIndex = 0,
 }) => {
-  const [index, setIndex] = useState(currentIndex);
+  const [index, setIndex] = useState(initialIndex);
 
   useEffect(() => {
-    setIndex(currentIndex);
-  }, [currentIndex]);
+    setIndex(initialIndex);
+  }, [initialIndex]);
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -101,13 +101,7 @@ const ImageModal: React.FC<ImageModalProps> = ({
 
         {/* Image Counter */}
         {images.length > 1 && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-medium">
-            Ảnh {index + 1} của {images.length}
-          </div>
-        )}
-        {/* Image Counter */}
-        {images.length > 1 && (
-          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-medium">
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-sm text-white px-4 py-2 rounded-full text-sm font-medium text-center min-w-[120px]">
             Ảnh {index + 1} của {images.length}
           </div>
         )}

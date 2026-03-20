@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { orderService, VendorOrder, Order } from '../../services/orderService';
 import { getProfile } from '../../services/auth';
 import VendorRefundTab from './VendorRefundTab';
+import VendorReviewTab from './VendorReviewTab';
 
 
 interface OrderManagementProps {
@@ -10,45 +11,45 @@ interface OrderManagementProps {
 
 
 const ORDER_STATUS_TABS = [
-  { id: 'all',           label: 'Tất cả' },
-  { id: 'Paid',          label: 'Đã thanh toán' },
-  { id: 'Confirmed',     label: 'Đã xác nhận' },
-  { id: 'Processing',    label: 'Đang xử lý' },
-  { id: 'Delivering',    label: 'Đang giao' },
-  { id: 'Delivered',     label: 'Đã giao' },
-  { id: 'Completed',     label: 'Hoàn thành' },
-  { id: 'Cancelled',     label: 'Đã hủy' },
-  { id: 'Refunded',      label: 'Đã hoàn' },
+  { id: 'all', label: 'Tất cả' },
+  { id: 'Paid', label: 'Đã thanh toán' },
+  { id: 'Confirmed', label: 'Đã xác nhận' },
+  { id: 'Processing', label: 'Đang xử lý' },
+  { id: 'Delivering', label: 'Đang giao' },
+  { id: 'Delivered', label: 'Đã giao' },
+  { id: 'Completed', label: 'Hoàn thành' },
+  { id: 'Cancelled', label: 'Đã hủy' },
+  { id: 'Refunded', label: 'Đã hoàn' },
   { id: 'PaymentFailed', label: 'Thanh toán lỗi' },
 ];
 
 const NEXT_STATUSES: Record<string, { value: string; label: string }[]> = {
-  Paid:          [{ value: 'Confirmed',  label: 'Xác nhận đơn' },            { value: 'Cancelled', label: 'Hủy đơn' }],
-  Confirmed:     [{ value: 'Processing', label: 'Bắt đầu xử lý đơn' },      { value: 'Cancelled', label: 'Hủy đơn' }],
-  Processing:    [{ value: 'Delivering', label: 'Bắt đầu giao hàng' },      { value: 'Cancelled', label: 'Hủy đơn' }],
-  Delivering:    [{ value: 'Delivered',  label: 'Xác nhận đã giao' }],
-  Delivered:     [],
-  Completed:     [],
-  Cancelled:     [{ value: 'Refunded',   label: 'Hoàn tiền' }],
-  Refunded:      [],
-  PaymentFailed: [{ value: 'Cancelled',  label: 'Hủy đơn' }],
-  Pending:       [{ value: 'Confirmed',  label: 'Xác nhận đơn' },            { value: 'Cancelled', label: 'Hủy đơn' }],
-  Preparing:     [{ value: 'Processing', label: 'Chuyển sang đang xử lý' }, { value: 'Cancelled', label: 'Hủy đơn' }],
-  Shipping:      [{ value: 'Delivered',  label: 'Xác nhận đã giao' },        { value: 'Cancelled', label: 'Hủy đơn' }],
+  Paid: [{ value: 'Confirmed', label: 'Xác nhận đơn' }, { value: 'Cancelled', label: 'Hủy đơn' }],
+  Confirmed: [{ value: 'Processing', label: 'Bắt đầu xử lý đơn' }, { value: 'Cancelled', label: 'Hủy đơn' }],
+  Processing: [{ value: 'Delivering', label: 'Bắt đầu giao hàng' }, { value: 'Cancelled', label: 'Hủy đơn' }],
+  Delivering: [{ value: 'Delivered', label: 'Xác nhận đã giao' }],
+  Delivered: [],
+  Completed: [],
+  Cancelled: [{ value: 'Refunded', label: 'Hoàn tiền' }],
+  Refunded: [],
+  PaymentFailed: [{ value: 'Cancelled', label: 'Hủy đơn' }],
+  Pending: [{ value: 'Confirmed', label: 'Xác nhận đơn' }, { value: 'Cancelled', label: 'Hủy đơn' }],
+  Preparing: [{ value: 'Processing', label: 'Chuyển sang đang xử lý' }, { value: 'Cancelled', label: 'Hủy đơn' }],
+  Shipping: [{ value: 'Delivered', label: 'Xác nhận đã giao' }, { value: 'Cancelled', label: 'Hủy đơn' }],
 };
 
 const STATUS_BADGE: Record<string, { badge: string; label: string }> = {
-  Pending:       { badge: 'bg-yellow-100 text-yellow-700',   label: 'Chờ duyệt' },
-  Confirmed:     { badge: 'bg-blue-100   text-blue-700',     label: 'Đã xác nhận' },
-  Processing:    { badge: 'bg-violet-100 text-violet-700',   label: 'Đang xử lý' },
-  Preparing:     { badge: 'bg-violet-100 text-violet-700',   label: 'Đang xử lý' },
-  Paid:          { badge: 'bg-emerald-100 text-emerald-700', label: 'Đã thanh toán' },
-  Delivering:    { badge: 'bg-orange-100 text-orange-700',   label: 'Đang giao' },
-  Delivered:     { badge: 'bg-green-100  text-green-700',    label: 'Đã giao' },
-  Completed:     { badge: 'bg-green-100  text-green-700',    label: 'Hoàn thành' },
-  Cancelled:     { badge: 'bg-red-100    text-red-600',      label: 'Đã hủy' },
-  Refunded:      { badge: 'bg-purple-100 text-purple-600',   label: 'Đã hoàn tiền' },
-  PaymentFailed: { badge: 'bg-red-100    text-red-700',      label: 'TT thất bại' },
+  Pending: { badge: 'bg-yellow-100 text-yellow-700', label: 'Chờ duyệt' },
+  Confirmed: { badge: 'bg-blue-100   text-blue-700', label: 'Đã xác nhận' },
+  Processing: { badge: 'bg-violet-100 text-violet-700', label: 'Đang xử lý' },
+  Preparing: { badge: 'bg-violet-100 text-violet-700', label: 'Đang xử lý' },
+  Paid: { badge: 'bg-emerald-100 text-emerald-700', label: 'Đã thanh toán' },
+  Delivering: { badge: 'bg-orange-100 text-orange-700', label: 'Đang giao' },
+  Delivered: { badge: 'bg-green-100  text-green-700', label: 'Đã giao' },
+  Completed: { badge: 'bg-green-100  text-green-700', label: 'Hoàn thành' },
+  Cancelled: { badge: 'bg-red-100    text-red-600', label: 'Đã hủy' },
+  Refunded: { badge: 'bg-purple-100 text-purple-600', label: 'Đã hoàn tiền' },
+  PaymentFailed: { badge: 'bg-red-100    text-red-700', label: 'TT thất bại' },
 };
 
 // ─── Pure helpers ─────────────────────────────────────────────────────────────
@@ -143,29 +144,29 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
   const toDateInputRef = useRef<HTMLInputElement | null>(null);
 
   // ── orders state ────────────────────────────────────────────────────────────
-  const [orders, setOrders]               = useState<VendorOrder[]>([]);
+  const [orders, setOrders] = useState<VendorOrder[]>([]);
   const [vendorShopName, setVendorShopName] = useState('');
-  const [loading, setLoading]             = useState(true);
-  const [error, setError]                 = useState<string | null>(null);
-  const [filterStatus, setFilterStatus]   = useState('all');
-  const [fromDate, setFromDate]           = useState('');
-  const [toDate, setToDate]               = useState('');
-  const [fromDateText, setFromDateText]   = useState('');
-  const [toDateText, setToDateText]       = useState('');
-  const [currentPage, setCurrentPage]     = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [fromDateText, setFromDateText] = useState('');
+  const [toDateText, setToDateText] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
   // ── detail modal state ──────────────────────────────────────────────────────
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [statusUpdating, setStatusUpdating] = useState(false);
-  const [statusError, setStatusError]     = useState<string | null>(null);
-  const [newStatus, setNewStatus]         = useState('');
-  const [statusReason, setStatusReason]   = useState('');
+  const [statusError, setStatusError] = useState<string | null>(null);
+  const [newStatus, setNewStatus] = useState('');
+  const [statusReason, setStatusReason] = useState('');
   const [statusSuccess, setStatusSuccess] = useState<string | null>(null);
   const [deliveryProofImages, setDeliveryProofImages] = useState<File[]>([]);
 
   // ── tab state ───────────────────────────────────────────────────────────────
-  const [mainTab, setMainTab]             = useState<'orders' | 'refunds'>('orders');
+  const [mainTab, setMainTab] = useState<'orders' | 'refunds' | 'reviews'>('orders');
   const [pendingRefunds, setPendingRefunds] = useState(0);
 
   const getTodayYmd = (): string => toYmd(new Date());
@@ -307,9 +308,9 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
       setStatusReason('');
       setDeliveryProofImages([]);
       setStatusSuccess(
-        newStatus === 'Delivered'  ? 'Đơn hàng đã giao thành công. Khách hàng sẽ xác nhận để hoàn thành đơn.' :
-        newStatus === 'Cancelled'  ? 'Đơn hàng đã được hủy thành công.' :
-        'Cập nhật trạng thái thành công!'
+        newStatus === 'Delivered' ? 'Đơn hàng đã giao thành công. Khách hàng sẽ xác nhận để hoàn thành đơn.' :
+          newStatus === 'Cancelled' ? 'Đơn hàng đã được hủy thành công.' :
+            'Cập nhật trạng thái thành công!'
       );
     } catch (e: any) {
       setStatusError(e.message || 'Cập nhật thất bại. Vui lòng thử lại.');
@@ -337,7 +338,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
       if (!d) return false;
       const ymd = toYmd(d);
       if (fromDate && ymd < fromDate) return false;
-      if (toDate   && ymd > toDate)   return false;
+      if (toDate && ymd > toDate) return false;
       return true;
     })
     .sort((a, b) => (parseDate(b.createdAt)?.getTime() ?? 0) - (parseDate(a.createdAt)?.getTime() ?? 0));
@@ -403,11 +404,11 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
           {[
-            { label: 'Tổng đơn',      value: orders.length,                                                                                                color: 'text-primary' },
-            { label: 'Đã giao',       value: orders.filter(o => ['Delivered','Completed'].includes(normalizeStatus(o.orderStatus))).length,              color: 'text-green-600' },
-            { label: 'Chờ xử lý',     value: orders.filter(o => ['Paid','Confirmed','Processing','Delivering','Pending'].includes(normalizeStatus(o.orderStatus))).length, color: 'text-amber-600' },
-            { label: 'Doanh thu',     value: `${(orders.reduce((s, o) => s + (Number(o.vendorNetAmount) || 0), 0) / 1_000_000).toFixed(1)}M ₫`,          color: 'text-blue-600' },
-            { label: 'Yêu cầu hoàn', value: pendingRefunds,                                                                                              color: 'text-orange-500' },
+            { label: 'Tổng đơn', value: orders.length, color: 'text-primary' },
+            { label: 'Đã giao', value: orders.filter(o => ['Delivered', 'Completed'].includes(normalizeStatus(o.orderStatus))).length, color: 'text-green-600' },
+            { label: 'Chờ xử lý', value: orders.filter(o => ['Paid', 'Confirmed', 'Processing', 'Delivering', 'Pending'].includes(normalizeStatus(o.orderStatus))).length, color: 'text-amber-600' },
+            { label: 'Doanh thu', value: `${(orders.reduce((s, o) => s + (Number(o.vendorNetAmount) || 0), 0) / 1_000_000).toFixed(1)}M ₫`, color: 'text-blue-600' },
+            { label: 'Yêu cầu hoàn', value: pendingRefunds, color: 'text-orange-500' },
           ].map(s => (
             <div key={s.label} className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-1">{s.label}</p>
@@ -417,27 +418,26 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
         </div>
 
         <div className="flex gap-2 mb-6 bg-white p-1.5 rounded-2xl border border-gray-200 shadow-sm w-fit">
-          {(['orders', 'refunds'] as const).map(id => (
+          {(['orders', 'refunds', 'reviews'] as const).map(id => (
             <button
               key={id}
               onClick={() => setMainTab(id)}
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${
-                mainTab === id
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl font-bold text-sm transition-all ${mainTab === id
                   ? 'bg-primary text-white shadow-md shadow-primary/20'
                   : 'text-slate-500 hover:text-slate-800 hover:bg-gray-50'
-              }`}
+                }`}
             >
               {id === 'refunds' && pendingRefunds > 0 && (
                 <span className="inline-flex items-center justify-center w-5 h-5 text-[10px] font-black bg-orange-500 text-white rounded-full">
                   {pendingRefunds}
                 </span>
               )}
-              {id === 'orders' ? 'Đơn Hàng' : 'Yêu Cầu Hoàn Tiền'}
+              {id === 'orders' ? 'Đơn Hàng' : (id === 'refunds' ? 'Yêu cầu hoàn tiền' : 'Đánh giá')}
             </button>
           ))}
         </div>
 
-       
+
         {mainTab === 'orders' && (
           <>
             {/* Date filter */}
@@ -549,11 +549,10 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
             <div className="flex flex-wrap gap-1 pb-4 mb-8 border-b border-gray-200">
               {ORDER_STATUS_TABS.map(tab => (
                 <button key={tab.id} onClick={() => setFilterStatus(tab.id)}
-                  className={`whitespace-nowrap px-5 py-3 rounded-t-xl font-bold text-sm transition-all border-b-2 ${
-                    filterStatus === tab.id
+                  className={`whitespace-nowrap px-5 py-3 rounded-t-xl font-bold text-sm transition-all border-b-2 ${filterStatus === tab.id
                       ? 'border-primary text-primary bg-primary/5'
                       : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-gray-100'
-                  }`}>
+                    }`}>
                   {tab.label}
                 </button>
               ))}
@@ -684,11 +683,10 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                     <button
                       key={page}
                       onClick={() => setCurrentPage(page)}
-                      className={`min-w-9 h-9 px-2 rounded-lg text-sm font-bold transition-all ${
-                        safeCurrentPage === page
+                      className={`min-w-9 h-9 px-2 rounded-lg text-sm font-bold transition-all ${safeCurrentPage === page
                           ? 'bg-primary text-white'
                           : 'border border-slate-300 text-slate-700 hover:bg-slate-100'
-                      }`}
+                        }`}
                     >
                       {page}
                     </button>
@@ -714,6 +712,10 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
           <VendorRefundTab onPendingCount={setPendingRefunds} />
         )}
 
+        {mainTab === 'reviews' && (
+          <VendorReviewTab />
+        )}
+
       </div>
 
       {/* ── Loading overlay (detail fetch) ───────────────────────────────────── */}
@@ -732,7 +734,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
       {selectedOrder && (
         <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-start justify-center z-50 p-4 overflow-y-auto"
-                        onClick={() => { setSelectedOrder(null); setNewStatus(''); setStatusReason(''); setStatusError(null); setStatusSuccess(null); setDeliveryProofImages([]); }}
+          onClick={() => { setSelectedOrder(null); setNewStatus(''); setStatusReason(''); setStatusError(null); setStatusSuccess(null); setDeliveryProofImages([]); }}
         >
           <div
             className="bg-gray-50 w-full max-w-6xl my-4 rounded-[2rem] shadow-2xl overflow-hidden max-h-[calc(100vh-2rem)] flex flex-col"
@@ -796,8 +798,8 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                       <div className="grid grid-cols-2 gap-3 text-sm">
                         {[
                           { label: 'Ngày giao', value: formatDateVi(selectedOrder.delivery.deliveryDate) },
-                          { label: 'Giờ giao',  value: selectedOrder.delivery.deliveryTime?.slice(0, 5) || 'N/A' },
-                          { label: 'Phí giao',  value: formatVnd(selectedOrder.pricing?.shippingFee) },
+                          { label: 'Giờ giao', value: selectedOrder.delivery.deliveryTime?.slice(0, 5) || 'N/A' },
+                          { label: 'Phí giao', value: formatVnd(selectedOrder.pricing?.shippingFee) },
                           { label: 'Khoảng cách', value: `${selectedOrder.delivery.shippingDistanceKm} km` },
                         ].map(row => (
                           <div key={row.label}>
@@ -862,9 +864,9 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                   <div className="text-sm divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden">
                     {[
                       { label: 'Số lượng', value: String(selectedOrder.pricing?.totalQuantity ?? selectedOrder.items?.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0) ?? 0) },
-                      { label: 'Tạm tính',   value: formatVnd(selectedOrder.pricing?.subTotal) },
-                      { label: 'Phí giao',   value: formatVnd(selectedOrder.pricing?.shippingFee) },
-                      { label: 'Giảm giá',   value: formatVnd(selectedOrder.pricing?.discountAmount) },
+                      { label: 'Tạm tính', value: formatVnd(selectedOrder.pricing?.subTotal) },
+                      { label: 'Phí giao', value: formatVnd(selectedOrder.pricing?.shippingFee) },
+                      { label: 'Giảm giá', value: formatVnd(selectedOrder.pricing?.discountAmount) },
                       { label: 'TT đơn hàng', value: getStatusBadge(selectedOrder.orderStatus).label },
                       { label: 'TT thanh toán', value: getPaymentStatusLabel(selectedOrder.payment?.paymentStatus) },
                     ].map(row => (
@@ -934,7 +936,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                         )}
                       </div>
                     )}
-                    {statusError   && <p className="text-xs text-red-500 font-medium">{statusError}</p>}
+                    {statusError && <p className="text-xs text-red-500 font-medium">{statusError}</p>}
                     {statusSuccess && <p className="text-xs text-green-600 font-medium">{statusSuccess}</p>}
                     <button
                       onClick={handleUpdateStatus}

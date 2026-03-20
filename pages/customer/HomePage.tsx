@@ -31,12 +31,6 @@ const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
   };
 
   const handleNavigateToProductDetail = (rawId: string) => {
-    const user = getCurrentUser();
-    if (!user) {
-      toast.warning('Vui lòng đăng nhập để xem chi tiết sản phẩm');
-      return;
-    }
-
     onNavigate(getProductDetailPath(rawId));
   };
 

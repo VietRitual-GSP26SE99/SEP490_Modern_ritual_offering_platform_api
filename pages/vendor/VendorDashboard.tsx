@@ -162,11 +162,10 @@ const VendorDashboard: React.FC<VendorDashboardProps> = ({ onNavigate }) => {
                 else if (tab === 'orders') onNavigate('/vendor/orders');
                 else if (tab === 'settings') onNavigate('/vendor/settings');
               }}
-              className={`flex-1 md:flex-none md:px-6 py-3 rounded-lg font-bold text-sm uppercase transition-all tracking-wider whitespace-nowrap border-2 ${
-                activeTab === tab
+              className={`flex-1 md:flex-none md:px-6 py-3 rounded-lg font-bold text-sm uppercase transition-all tracking-wider whitespace-nowrap border-2 ${activeTab === tab
                   ? 'border-primary bg-primary/5 text-primary'
                   : 'border-slate-300 text-slate-500 hover:text-primary'
-              }`}
+                }`}
             >
               {tab === 'overview' && 'Tổng quan'}
               {tab === 'products' && 'Sản phẩm'}
@@ -235,7 +234,7 @@ const VendorDashboard: React.FC<VendorDashboardProps> = ({ onNavigate }) => {
               <div className="bg-white rounded-[2rem] border border-gray-200 shadow-sm p-8 text-center hover:shadow-lg transition-all cursor-pointer">
                 <h3 className="font-bold text-primary mb-2">Quản Lý Sản Phẩm</h3>
                 <p className="text-xs text-slate-500 mb-4">Thêm, sửa, xóa sản phẩm</p>
-                <button 
+                <button
                   onClick={() => onNavigate('/vendor/products')}
                   className="w-full border-2 border-primary text-primary py-2 rounded-lg font-bold text-sm uppercase hover:bg-primary/5 transition-all"
                 >
@@ -245,7 +244,7 @@ const VendorDashboard: React.FC<VendorDashboardProps> = ({ onNavigate }) => {
               <div className="bg-white rounded-[2rem] border border-gray-200 shadow-sm p-8 text-center hover:shadow-lg transition-all cursor-pointer">
                 <h3 className="font-bold text-primary mb-2">Quản Lý Đơn Hàng</h3>
                 <p className="text-xs text-slate-500 mb-4">Xem và xử lý đơn hàng</p>
-                <button 
+                <button
                   onClick={() => onNavigate('/vendor/orders')}
                   className="w-full border-2 border-primary text-primary py-2 rounded-lg font-bold text-sm uppercase hover:bg-primary/5 transition-all"
                 >
@@ -255,7 +254,7 @@ const VendorDashboard: React.FC<VendorDashboardProps> = ({ onNavigate }) => {
               <div className="bg-white rounded-[2rem] border border-gray-200 shadow-sm p-8 text-center hover:shadow-lg transition-all cursor-pointer">
                 <h3 className="font-bold text-primary mb-2">Thống Kê & Báo Cáo</h3>
                 <p className="text-xs text-slate-500 mb-4">Xem doanh số chi tiết</p>
-                <button 
+                <button
                   onClick={() => onNavigate('/vendor/analytics')}
                   className="w-full border-2 border-primary text-primary py-2 rounded-lg font-bold text-sm uppercase hover:bg-primary/5 transition-all"
                 >
@@ -265,7 +264,7 @@ const VendorDashboard: React.FC<VendorDashboardProps> = ({ onNavigate }) => {
               <div className="bg-white rounded-[2rem] border border-gray-200 shadow-sm p-8 text-center hover:shadow-lg transition-all cursor-pointer">
                 <h3 className="font-bold text-primary mb-2">Cài Đặt Cửa Hàng</h3>
                 <p className="text-xs text-slate-500 mb-4">Quản lý thông tin cửa hàng</p>
-                <button 
+                <button
                   onClick={() => onNavigate('/vendor/settings')}
                   className="w-full border-2 border-primary text-primary py-2 rounded-lg font-bold text-sm uppercase hover:bg-primary/5 transition-all"
                 >
@@ -280,7 +279,7 @@ const VendorDashboard: React.FC<VendorDashboardProps> = ({ onNavigate }) => {
           <div className="bg-white rounded-[2rem] border border-gold/10 shadow-sm overflow-hidden">
             <div className="p-8 border-b border-gold/10 flex items-center justify-between">
               <h2 className="text-2xl font-bold text-primary">Sản phẩm của bạn</h2>
-              <button 
+              <button
                 onClick={() => onNavigate('/vendor/products')}
                 className="bg-primary text-white px-6 py-2 rounded-lg font-bold text-sm hover:bg-[#600018] transition-all"
               >
@@ -305,9 +304,8 @@ const VendorDashboard: React.FC<VendorDashboardProps> = ({ onNavigate }) => {
                       <td className="px-6 py-4 font-bold text-primary">{product.name}</td>
                       <td className="px-6 py-4 font-black text-primary">{product.price.toLocaleString()}đ</td>
                       <td className="px-6 py-4">
-                        <span className={`px-3 py-1 rounded-lg text-xs font-bold ${
-                          product.stock > 10 ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
-                        }`}>
+                        <span className={`px-3 py-1 rounded-lg text-xs font-bold ${product.stock > 10 ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+                          }`}>
                           {product.stock}
                         </span>
                       </td>
