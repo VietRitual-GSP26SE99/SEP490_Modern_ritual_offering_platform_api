@@ -35,12 +35,6 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
   };
 
   const handleNavigateToProductDetail = (rawId: string) => {
-    const user = getCurrentUser();
-    if (!user) {
-      toast.warning('Vui lòng đăng nhập để xem chi tiết sản phẩm');
-      return;
-    }
-
     onNavigate(getProductDetailPath(rawId));
   };
 

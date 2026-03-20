@@ -46,7 +46,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
   const isCustomer = userRole === 'customer' || userRole === 'guest';
   const isVendor = userRole === 'vendor';
   const isAdmin = userRole === 'admin';
-  const hideWalletAndProfileOnAdminDashboard = isAdmin && activeRoute.startsWith('/admin/dashboard');
+  const hideWalletAndProfileOnAdminDashboard = false;
   const currentUser = getCurrentUser();
   const hasVendorRole =
     currentUser?.role === 'vendor' ||

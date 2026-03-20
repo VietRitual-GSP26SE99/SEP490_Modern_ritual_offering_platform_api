@@ -141,7 +141,7 @@ const OrderDetailsPage: React.FC = () => {
             case 'SHIPPING':
             case 'DELIVERING': return 'Đang giao hàng';
             case 'DELIVERED': return 'Đã giao hàng';
-            case 'COMPLETED': return 'Đã hoàn tiền';
+            case 'COMPLETED': return 'Đơn hàng đã hoàn thành';
             case 'CANCELLED': return 'Đã hủy';
             case 'REFUNDED': return 'Đã hoàn tiền';
             case 'PAYMENTFAILED': return 'Thanh toán lỗi';
@@ -273,7 +273,7 @@ const OrderDetailsPage: React.FC = () => {
                     </div>
                 )}
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
                     {/* Main Info */}
                     <div className="md:col-span-2 space-y-6">
@@ -394,7 +394,7 @@ const OrderDetailsPage: React.FC = () => {
             </div>
 
             {/* Refund Modal */}
-            <RefundModal 
+            <RefundModal
                 isOpen={isRefundModalOpen}
                 onClose={() => setIsRefundModalOpen(false)}
                 onSuccess={fetchOrder}
