@@ -19,8 +19,16 @@ export interface OrderItem {
 export interface Order {
     orderId: string;
     orderStatus: string;
+    trackingLists: Array<{
+        trackingId: string;
+        title: string;
+        status: string;
+        description: string;
+        createdAt: string;
+    }>;
     customer: {
         profileId: string;
+        customerId?: string;
         fullName: string;
         email: string;
         phoneNumber: string;
@@ -37,13 +45,17 @@ export interface Order {
         deliveryTime: string;
         deliveryAddress: string;
         shippingDistanceKm: number;
+        deliveryProofImageUrl?: string | null;
     };
     items: OrderItem[];
     pricing: {
+        totalQuantity?: number;
         subTotal: number;
         shippingFee: number;
         totalAmount: number;
         finalAmount?: number;
+        discountAmount?: number;
+        discountBreakdown?: unknown;
         commissionRate: number;
         platformFee: number;
         vendorNetAmount: number;
@@ -52,9 +64,17 @@ export interface Order {
         paymentMethod: string;
         paymentStatus: string;
         paidAt: string | null;
-        transactionId: string;
+        transactionId: string | null;
         isPaidToVendor: boolean | null;
         paidToVendorDate: string | null;
+    };
+    vendorPricingDetails: {
+        commissionRate: number;
+        platformFee: number;
+        vendorNetAmount: number;
+        isPaidToVendor: boolean | null;
+        paidToVendorDate: string | null;
+        transactionId: string | null;
     };
     createdAt: string;
     updatedAt: string | null;
@@ -168,6 +188,7 @@ interface OrderDetailsApiItem {
         deliveryTime?: string;
         deliveryAddress?: string;
         shippingDistanceKm?: number;
+        deliveryProofImageUrl?: string | null;
     };
     items?: Array<{
         itemId?: string;
@@ -181,10 +202,13 @@ interface OrderDetailsApiItem {
         decorationNote?: string;
     }>;
     pricing?: {
+        totalQuantity?: number;
         subTotal?: number;
         shippingFee?: number;
         totalAmount?: number;
         finalAmount?: number;
+        discountAmount?: number;
+        discountBreakdown?: unknown;
         commissionRate?: number;
         platformFee?: number;
         vendorNetAmount?: number;
@@ -308,14 +332,26 @@ class OrderService {
                 const commissionRate = this.normalizeCommissionRate(
                     raw.vendorPricingDetails?.commissionRate ?? raw.pricing?.commissionRate,
                 );
-                const platformFee = Number(raw.vendorPricingDetails?.platformFee ?? raw.pricing?.platformFee) || (totalAmount * commissionRate);
-                const vendorNetAmount = Number(raw.vendorPricingDetails?.vendorNetAmount ?? raw.pricing?.vendorNetAmount) || (totalAmount - platformFee);
+                const platformFee = Number(raw.vendorPricingDetails?.platformFee ?? raw.pricing?.platformFee) || (subTotal * commissionRate);
+                const vendorNetAmount = Number(raw.vendorPricingDetails?.vendorNetAmount ?? raw.pricing?.vendorNetAmount) || Math.max(subTotal - platformFee, 0);
+
+                const trackingLists = Array.isArray(raw.trackingLists)
+                    ? raw.trackingLists.map((item, index) => ({
+                        trackingId: String((item as any)?.trackingId || `tracking-${index}`),
+                        title: String(item?.title || 'Cập nhật đơn hàng'),
+                        status: String(item?.status || ''),
+                        description: String(item?.description || ''),
+                        createdAt: String(item?.createdAt || ''),
+                    }))
+                    : [];
 
                 return {
                     orderId: raw.orderId || orderId,
                     orderStatus: raw.orderStatus || 'Pending',
+                    trackingLists,
                     customer: {
                         profileId: raw.customer?.profileId || raw.customer?.customerId || '',
+                        customerId: raw.customer?.customerId || raw.customer?.profileId || '',
                         fullName: raw.customer?.fullName || raw.customer?.customerName || 'Khách hàng',
                         email: raw.customer?.email || '',
                         phoneNumber: raw.customer?.phoneNumber || raw.customer?.customerPhone || '',
@@ -332,13 +368,17 @@ class OrderService {
                         deliveryTime: raw.delivery?.deliveryTime || '',
                         deliveryAddress: raw.delivery?.deliveryAddress || 'N/A',
                         shippingDistanceKm: Number(raw.delivery?.shippingDistanceKm) || 0,
+                        deliveryProofImageUrl: raw.delivery?.deliveryProofImageUrl || null,
                     },
                     items,
                     pricing: {
+                        totalQuantity: Number(raw.pricing?.totalQuantity) || items.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0),
                         subTotal,
                         shippingFee,
                         totalAmount,
                         finalAmount: Number(raw.pricing?.finalAmount) || totalAmount,
+                        discountAmount: Number(raw.pricing?.discountAmount) || 0,
+                        discountBreakdown: raw.pricing?.discountBreakdown ?? null,
                         commissionRate,
                         platformFee,
                         vendorNetAmount,
@@ -347,15 +387,25 @@ class OrderService {
                         paymentMethod: raw.payment?.paymentMethod || 'N/A',
                         paymentStatus: this.derivePaymentStatus(raw),
                         paidAt: raw.payment?.paidAt || null,
-                        transactionId: String(
+                        transactionId: (
                             raw.payment?.transactionId
                             || raw.vendorPricingDetails?.transactionId
-                            || '',
+                            || null
                         ),
                         isPaidToVendor: typeof raw.vendorPricingDetails?.isPaidToVendor === 'boolean'
                             ? raw.vendorPricingDetails.isPaidToVendor
                             : null,
                         paidToVendorDate: raw.vendorPricingDetails?.paidToVendorDate || null,
+                    },
+                    vendorPricingDetails: {
+                        commissionRate,
+                        platformFee,
+                        vendorNetAmount,
+                        isPaidToVendor: typeof raw.vendorPricingDetails?.isPaidToVendor === 'boolean'
+                            ? raw.vendorPricingDetails.isPaidToVendor
+                            : null,
+                        paidToVendorDate: raw.vendorPricingDetails?.paidToVendorDate || null,
+                        transactionId: raw.vendorPricingDetails?.transactionId || raw.payment?.transactionId || null,
                     },
                     createdAt: raw.createdAt || new Date().toISOString(),
                     updatedAt: raw.updatedAt || null,

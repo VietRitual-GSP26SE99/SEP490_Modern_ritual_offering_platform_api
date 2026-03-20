@@ -64,6 +64,12 @@ const formatDateVi = (value: unknown): string => {
   return Number.isNaN(d.getTime()) ? 'N/A' : d.toLocaleDateString('vi-VN');
 };
 
+const formatDateTimeVi = (value: unknown): string => {
+  if (!value) return 'N/A';
+  const d = new Date(String(value));
+  return Number.isNaN(d.getTime()) ? 'N/A' : d.toLocaleString('vi-VN');
+};
+
 const hasMeaningfulText = (v: unknown): boolean => {
   if (typeof v !== 'string') return false;
   const n = v.trim().toLowerCase();
@@ -115,6 +121,19 @@ const parseViDateToYmd = (value: string): string | null => {
 
 const getStatusBadge = (status: unknown) =>
   STATUS_BADGE[normalizeStatus(status)] ?? { badge: 'bg-gray-100 text-gray-600', label: String(status) };
+
+const getPaymentStatusLabel = (status: unknown): string => {
+  const key = String(status || '').trim().toLowerCase();
+  const map: Record<string, string> = {
+    paid: 'Đã thanh toán',
+    pending: 'Chờ thanh toán',
+    failed: 'Thanh toán thất bại',
+    paymentfailed: 'Thanh toán thất bại',
+    refunded: 'Đã hoàn tiền',
+    cancelled: 'Đã hủy',
+  };
+  return map[key] || (key ? String(status) : 'N/A');
+};
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -716,11 +735,11 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                         onClick={() => { setSelectedOrder(null); setNewStatus(''); setStatusReason(''); setStatusError(null); setStatusSuccess(null); setDeliveryProofImages([]); }}
         >
           <div
-            className="bg-gray-50 w-full max-w-3xl my-8 rounded-[2rem] shadow-2xl overflow-hidden"
+            className="bg-gray-50 w-full max-w-6xl my-4 rounded-[2rem] shadow-2xl overflow-hidden max-h-[calc(100vh-2rem)] flex flex-col"
             onClick={e => e.stopPropagation()}
           >
             {/* Modal header */}
-            <div className="bg-white px-8 py-6 flex items-center gap-4 border-b border-gray-100">
+            <div className="bg-white px-6 md:px-8 py-5 flex items-center gap-4 border-b border-gray-100">
               <button
                 onClick={() => { setSelectedOrder(null); setNewStatus(''); setStatusReason(''); setStatusError(null); setStatusSuccess(null); setDeliveryProofImages([]); }}
                 className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-200 hover:bg-gray-50 transition flex-shrink-0"
@@ -741,20 +760,20 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
               </span>
             </div>
 
-            <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-5">
+            <div className="p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-5 overflow-y-auto">
 
               {/* Left column: items + delivery */}
-              <div className="md:col-span-2 space-y-5">
+              <div className="lg:col-span-7 space-y-4">
 
                 {/* Items */}
-                <div className="bg-white rounded-[1.5rem] border border-gray-200 p-6 shadow-sm">
-                  <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-4 pb-3 border-b border-gray-100">
+                <div className="bg-white rounded-[1.25rem] border border-gray-200 p-4 md:p-5 shadow-sm">
+                  <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-3 pb-2 border-b border-gray-100">
                     Sản phẩm ({(selectedOrder.items || []).length})
                   </h3>
-                  <div className="space-y-4">
+                  <div className="space-y-3 max-h-[260px] overflow-y-auto pr-1">
                     {(selectedOrder.items || []).map(item => (
-                      <div key={item.itemId} className="flex gap-4 items-center">
-                        <div className="size-14 rounded-xl bg-gray-100 border border-gray-200 flex-shrink-0 bg-cover bg-center"
+                      <div key={item.itemId} className="flex gap-3 items-center">
+                        <div className="size-12 rounded-xl bg-gray-100 border border-gray-200 flex-shrink-0 bg-cover bg-center"
                           style={{ backgroundImage: 'url("https://picsum.photos/100?random=3")' }} />
                         <div className="flex-1 min-w-0">
                           <p className="font-bold text-gray-800 truncate">{item.packageName}</p>
@@ -763,124 +782,205 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                             <p className="text-xs text-amber-600 italic mt-0.5">{item.decorationNote}</p>
                           )}
                         </div>
-                        <p className="font-bold text-primary flex-shrink-0">{formatVnd(item.lineTotal)}</p>
+                        <p className="font-bold text-primary flex-shrink-0 text-sm">{formatVnd(item.lineTotal)}</p>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* Delivery info */}
-                {selectedOrder.delivery && (
-                  <div className="bg-white rounded-[1.5rem] border border-gray-200 p-6 shadow-sm">
-                    <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-4">Thông tin giao hàng</h3>
-                    <div className="grid grid-cols-2 gap-4 text-sm">
-                      {[
-                        { label: 'Ngày giao', value: formatDateVi(selectedOrder.delivery.deliveryDate) },
-                        { label: 'Giờ giao',  value: selectedOrder.delivery.deliveryTime?.slice(0, 5) || 'N/A' },
-                        { label: 'Phí giao',  value: formatVnd(selectedOrder.pricing?.shippingFee) },
-                        { label: 'Khoảng cách', value: `${selectedOrder.delivery.shippingDistanceKm} km` },
-                      ].map(row => (
-                        <div key={row.label}>
-                          <p className="text-gray-400 text-xs font-semibold uppercase">{row.label}</p>
-                          <p className="font-medium text-gray-800 mt-0.5">{row.value}</p>
-                        </div>
-                      ))}
-                    </div>
-                    {hasMeaningfulText(selectedOrder.delivery.deliveryAddress) && (
-                      <div className="mt-4 p-3 bg-blue-50 rounded-xl">
-                        <p className="text-xs text-blue-400 font-semibold uppercase mb-1">Địa chỉ giao</p>
-                        <p className="text-sm text-gray-700">{selectedOrder.delivery.deliveryAddress}</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Delivery info */}
+                  {selectedOrder.delivery && (
+                    <div className="bg-white rounded-[1.25rem] border border-gray-200 p-4 md:p-5 shadow-sm">
+                      <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-3">Thông tin giao hàng</h3>
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        {[
+                          { label: 'Ngày giao', value: formatDateVi(selectedOrder.delivery.deliveryDate) },
+                          { label: 'Giờ giao',  value: selectedOrder.delivery.deliveryTime?.slice(0, 5) || 'N/A' },
+                          { label: 'Phí giao',  value: formatVnd(selectedOrder.pricing?.shippingFee) },
+                          { label: 'Khoảng cách', value: `${selectedOrder.delivery.shippingDistanceKm} km` },
+                        ].map(row => (
+                          <div key={row.label}>
+                            <p className="text-gray-400 text-xs font-semibold uppercase">{row.label}</p>
+                            <p className="font-medium text-gray-800 mt-0.5">{row.value}</p>
+                          </div>
+                        ))}
                       </div>
-                    )}
-                  </div>
-                )}
+                      {hasMeaningfulText(selectedOrder.delivery.deliveryAddress) && (
+                        <div className="mt-3 p-3 bg-blue-50 rounded-xl">
+                          <p className="text-xs text-blue-400 font-semibold uppercase mb-1">Địa chỉ giao</p>
+                          <p className="text-sm text-gray-700 line-clamp-3">{selectedOrder.delivery.deliveryAddress}</p>
+                        </div>
+                      )}
+                      {selectedOrder.delivery.deliveryProofImageUrl && (
+                        <div className="mt-3">
+                          <a
+                            href={selectedOrder.delivery.deliveryProofImageUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center text-sm font-semibold text-primary hover:underline"
+                          >
+                            Xem ảnh giao hàng
+                          </a>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {Array.isArray(selectedOrder.trackingLists) && selectedOrder.trackingLists.length > 0 && (
+                    <div className="bg-white rounded-[1.25rem] border border-gray-200 p-4 md:p-5 shadow-sm">
+                      <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-3">Lịch sử trạng thái</h3>
+                      <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
+                        {selectedOrder.trackingLists.map((tracking) => (
+                          <div key={tracking.trackingId} className="rounded-xl border border-gray-100 p-3 bg-gray-50">
+                            <div className="flex items-start justify-between gap-3">
+                              <div>
+                                <p className="text-sm font-bold text-gray-800">{tracking.title || 'Cập nhật đơn hàng'}</p>
+                                {hasMeaningfulText(tracking.description) && (
+                                  <p className="text-xs text-slate-600 mt-0.5">{tracking.description}</p>
+                                )}
+                              </div>
+                              <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${getStatusBadge(tracking.status).badge}`}>
+                                {getStatusBadge(tracking.status).label}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-500 mt-2">{formatDateTimeVi(tracking.createdAt)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
-              {/* Right column: summary + status update */}
-              <div className="space-y-5">
+              {/* Right column: summary */}
+              <div className="lg:col-span-5 space-y-4">
 
                 {/* Order summary */}
-                <div className="bg-white rounded-[1.5rem] border border-gray-200 p-6 shadow-sm">
+                <div className="bg-white rounded-[1.25rem] border border-gray-200 p-4 md:p-5 shadow-sm">
                   <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-4 pb-3 border-b border-gray-100">Tóm tắt</h3>
-                  <div className="space-y-3 text-sm">
+                  <div className="text-sm divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden">
                     {[
+                      { label: 'Số lượng', value: String(selectedOrder.pricing?.totalQuantity ?? selectedOrder.items?.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0) ?? 0) },
                       { label: 'Tạm tính',   value: formatVnd(selectedOrder.pricing?.subTotal) },
                       { label: 'Phí giao',   value: formatVnd(selectedOrder.pricing?.shippingFee) },
-                      { label: 'Thanh toán', value: selectedOrder.payment?.paymentMethod || 'N/A' },
+                      { label: 'Giảm giá',   value: formatVnd(selectedOrder.pricing?.discountAmount) },
+                      { label: 'TT đơn hàng', value: getStatusBadge(selectedOrder.orderStatus).label },
+                      { label: 'TT thanh toán', value: getPaymentStatusLabel(selectedOrder.payment?.paymentStatus) },
                     ].map(row => (
-                      <div key={row.label} className="flex justify-between">
-                        <span className="text-gray-500">{row.label}</span>
-                        <span className="font-medium">{row.value}</span>
+                      <div key={row.label} className="flex justify-between px-4 py-2.5 bg-white">
+                        <span className="text-gray-500 text-[13px]">{row.label}</span>
+                        <span className="font-semibold text-gray-800 text-right">{row.value}</span>
                       </div>
                     ))}
-                    <div className="flex justify-between pt-3 border-t border-dashed border-gray-200">
+                    <div className="flex justify-between px-4 py-3 bg-slate-50">
                       <span className="font-bold text-gray-700">Tổng cộng</span>
-                      <span className="text-xl font-black text-primary">{formatVnd(selectedOrder.pricing?.totalAmount)}</span>
+                      <span className="text-xl font-black text-primary">{formatVnd(selectedOrder.pricing?.finalAmount ?? selectedOrder.pricing?.totalAmount)}</span>
                     </div>
-                    <p className="text-xs text-green-600 font-semibold text-right">
+                    <p className="text-xs text-green-600 font-semibold text-right px-4 py-2 bg-white">
                       Thực nhận: {formatVnd(selectedOrder.pricing?.vendorNetAmount)}
                     </p>
+                    {selectedOrder.payment?.paidAt && (
+                      <p className="text-xs text-slate-500 text-right px-4 py-2 bg-white">Thanh toán lúc: {formatDateTimeVi(selectedOrder.payment.paidAt)}</p>
+                    )}
                   </div>
                 </div>
 
-                {/* Status update */}
-                {(NEXT_STATUSES[normalizeStatus(selectedOrder.orderStatus)] ?? []).length > 0 && (
-                  <div className="bg-white rounded-[1.5rem] border border-gray-200 p-6 shadow-sm">
-                    <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-4">Cập nhật trạng thái</h3>
-                    <div className="space-y-3">
-                      <select
-                        value={newStatus}
-                        onChange={e => {
-                          const nextValue = e.target.value;
-                          setNewStatus(nextValue);
-                          if (nextValue !== 'Delivered') {
-                            setDeliveryProofImages([]);
-                          }
-                          setStatusError(null);
-                        }}
-                        className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-white"
-                      >
-                        <option value="">-- Chọn trạng thái --</option>
-                        {(NEXT_STATUSES[normalizeStatus(selectedOrder.orderStatus)] ?? []).map(s => (
-                          <option key={s.value} value={s.value}>{s.label}</option>
-                        ))}
-                      </select>
-                      {newStatus === 'Cancelled' && (
-                        <textarea
-                          value={statusReason}
-                          onChange={e => setStatusReason(e.target.value)}
-                          placeholder="Lý do hủy đơn..."
-                          rows={3}
-                          className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
+              </div>
+
+              {/* Bottom row: status update (left) + customer/settlement (right) */}
+              {(NEXT_STATUSES[normalizeStatus(selectedOrder.orderStatus)] ?? []).length > 0 && (
+                <div className="lg:col-span-7 bg-white rounded-[1.25rem] border border-gray-200 p-4 md:p-5 shadow-sm">
+                  <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-3">Cập nhật trạng thái</h3>
+                  <div className="space-y-2.5">
+                    <select
+                      value={newStatus}
+                      onChange={e => {
+                        const nextValue = e.target.value;
+                        setNewStatus(nextValue);
+                        if (nextValue !== 'Delivered') {
+                          setDeliveryProofImages([]);
+                        }
+                        setStatusError(null);
+                      }}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-white"
+                    >
+                      <option value="">-- Chọn trạng thái --</option>
+                      {(NEXT_STATUSES[normalizeStatus(selectedOrder.orderStatus)] ?? []).map(s => (
+                        <option key={s.value} value={s.value}>{s.label}</option>
+                      ))}
+                    </select>
+                    {newStatus === 'Cancelled' && (
+                      <textarea
+                        value={statusReason}
+                        onChange={e => setStatusReason(e.target.value)}
+                        placeholder="Lý do hủy đơn..."
+                        rows={3}
+                        className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
+                      />
+                    )}
+                    {newStatus === 'Delivered' && (
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Ảnh chứng minh giao hàng</label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          multiple
+                          onChange={(e) => setDeliveryProofImages(Array.from(e.target.files || []))}
+                          className="w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
                         />
-                      )}
-                      {newStatus === 'Delivered' && (
-                        <div className="space-y-2">
-                          <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Ảnh chứng minh giao hàng</label>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            multiple
-                            onChange={(e) => setDeliveryProofImages(Array.from(e.target.files || []))}
-                            className="w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-gray-100 file:text-gray-700 hover:file:bg-gray-200"
-                          />
-                          {deliveryProofImages.length > 0 && (
-                            <p className="text-xs text-slate-500">Đã chọn {deliveryProofImages.length} ảnh</p>
-                          )}
-                        </div>
-                      )}
-                      {statusError   && <p className="text-xs text-red-500 font-medium">{statusError}</p>}
-                      {statusSuccess && <p className="text-xs text-green-600 font-medium">{statusSuccess}</p>}
-                      <button
-                        onClick={handleUpdateStatus}
-                        disabled={!newStatus || statusUpdating}
-                        className="w-full py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition text-sm disabled:opacity-50 shadow-md shadow-primary/20"
-                      >
-                        {statusUpdating ? 'Đang cập nhật...' : 'Xác nhận'}
-                      </button>
-                    </div>
+                        {deliveryProofImages.length > 0 && (
+                          <p className="text-xs text-slate-500">Đã chọn {deliveryProofImages.length} ảnh</p>
+                        )}
+                      </div>
+                    )}
+                    {statusError   && <p className="text-xs text-red-500 font-medium">{statusError}</p>}
+                    {statusSuccess && <p className="text-xs text-green-600 font-medium">{statusSuccess}</p>}
+                    <button
+                      onClick={handleUpdateStatus}
+                      disabled={!newStatus || statusUpdating}
+                      className="w-full py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition text-sm disabled:opacity-50 shadow-md shadow-primary/20"
+                    >
+                      {statusUpdating ? 'Đang cập nhật...' : 'Xác nhận'}
+                    </button>
                   </div>
-                )}
+                </div>
+              )}
+
+              <div className="lg:col-span-5 bg-white rounded-[1.25rem] border border-gray-200 p-4 md:p-5 shadow-sm">
+                <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-4">Khách hàng & đối soát</h3>
+                <div className="text-sm divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden">
+                  <div className="flex justify-between gap-3 px-4 py-2.5 bg-white">
+                    <span className="text-gray-500">Khách hàng</span>
+                    <span className="font-semibold text-gray-800 text-right">{selectedOrder.customer?.fullName || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between gap-3 px-4 py-2.5 bg-white">
+                    <span className="text-gray-500">Số điện thoại</span>
+                    <span className="font-semibold text-gray-800 text-right">{selectedOrder.customer?.phoneNumber || 'N/A'}</span>
+                  </div>
+                  <div className="flex justify-between gap-3 px-4 py-2.5 bg-white">
+                    <span className="text-gray-500">Hoa hồng</span>
+                    <span className="font-semibold text-gray-800">{((Number(selectedOrder.vendorPricingDetails?.commissionRate) || 0) * 100).toFixed(0)}%</span>
+                  </div>
+                  <div className="flex justify-between gap-3 px-4 py-2.5 bg-white">
+                    <span className="text-gray-500">Phí nền tảng</span>
+                    <span className="font-semibold text-gray-800">{formatVnd(selectedOrder.vendorPricingDetails?.platformFee)}</span>
+                  </div>
+                  <div className="flex justify-between gap-3 px-4 py-2.5 bg-white">
+                    <span className="text-gray-500">Thực nhận</span>
+                    <span className="font-semibold text-green-600">{formatVnd(selectedOrder.vendorPricingDetails?.vendorNetAmount)}</span>
+                  </div>
+                  <div className="flex justify-between gap-3 px-4 py-2.5 bg-white">
+                    <span className="text-gray-500">Đã trả cho nhà bán</span>
+                    <span className={`font-bold ${selectedOrder.vendorPricingDetails?.isPaidToVendor ? 'text-green-600' : 'text-amber-600'}`}>
+                      {selectedOrder.vendorPricingDetails?.isPaidToVendor ? 'Đã trả' : 'Chưa trả'}
+                    </span>
+                  </div>
+                  <div className="flex justify-between gap-3 px-4 py-2.5 bg-white">
+                    <span className="text-gray-500">Ngày trả</span>
+                    <span className="font-semibold text-gray-800 text-right">{selectedOrder.vendorPricingDetails?.paidToVendorDate ? formatDateTimeVi(selectedOrder.vendorPricingDetails.paidToVendorDate) : 'N/A'}</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
