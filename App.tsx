@@ -31,7 +31,7 @@ import AdminDashboard from './pages/admin/AdminDashboard';
 // Staff Pages
 import StaffDashboard from './pages/staff/StaffDashboard';
 import CustomerManagement from './pages/staff/CustomerManagement';
-import PostManagement from './pages/staff/PostManagement';
+import StaffProductManagement from './pages/staff/StaffProductManagement';
 import SystemSettings from './pages/staff/SystemSettings';
 import RefundManagement from './pages/staff/RefundManagement';
 
@@ -148,11 +148,11 @@ const AppContent: React.FC<{
       <Route path="/vendor/settings" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/settings" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorSettings onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
 
       {/* Staff Routes */}
-      <Route path="/staff/dashboard" element={isAuthenticated && userRole === 'staff' ? <StaffDashboard onNavigate={handleNavigate} onLogout={onLogout} /> : <Navigate to="/auth" />} />
-      <Route path="/staff-customers" element={isAuthenticated && userRole === 'staff' ? <CustomerManagement onNavigate={handleNavigate} onLogout={onLogout} /> : <Navigate to="/auth" />} />
-      <Route path="/staff-posts" element={isAuthenticated && userRole === 'staff' ? <PostManagement onNavigate={handleNavigate} onLogout={onLogout} /> : <Navigate to="/auth" />} />
-      <Route path="/staff-settings" element={isAuthenticated && userRole === 'staff' ? <SystemSettings onNavigate={handleNavigate} onLogout={onLogout} /> : <Navigate to="/auth" />} />
-      <Route path="/staff-refunds" element={isAuthenticated && userRole === 'staff' ? <RefundManagement onNavigate={handleNavigate} /> : <Navigate to="/auth" />} />
+      <Route path="/staff/dashboard" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff/dashboard" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><StaffDashboard onNavigate={handleNavigate} onLogout={onLogout} /></Layout> : <Navigate to="/auth" />} />
+      <Route path="/staff-customers" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-customers" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><CustomerManagement onNavigate={handleNavigate} onLogout={onLogout} /></Layout> : <Navigate to="/auth" />} />
+      <Route path="/staff-product" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-product" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><StaffProductManagement onNavigate={handleNavigate} onLogout={onLogout} /></Layout> : <Navigate to="/auth" />} />
+      <Route path="/staff-settings" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-settings" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><SystemSettings onNavigate={handleNavigate} onLogout={onLogout} /></Layout> : <Navigate to="/auth" />} />
+      <Route path="/staff-refunds" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-refunds" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><RefundManagement onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
 
       {/* Admin Routes */}
       <Route path="/admin/dashboard" element={isAuthenticated && userRole === 'admin' ? <Layout activeRoute="/admin/dashboard" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><AdminDashboard onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />

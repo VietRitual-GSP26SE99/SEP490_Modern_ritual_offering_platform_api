@@ -46,6 +46,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
   const isCustomer = userRole === 'customer' || userRole === 'guest';
   const isVendor = userRole === 'vendor';
   const isAdmin = userRole === 'admin';
+  const isStaff = userRole === 'staff';
   const hideWalletAndProfileOnAdminDashboard = false;
   const currentUser = getCurrentUser();
   const hasVendorRole =
@@ -227,6 +228,14 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
       return [
         { path: '/admin/dashboard', label: 'Quản lý hệ thống' },
       ];
+    } else if (isStaff) {
+      return [
+        { path: '/staff/dashboard', label: 'Bảng điều khiển' },
+        { path: '/staff-customers', label: 'Khách hàng' },
+        { path: '/staff-product', label: 'Sản phẩm' },
+        { path: '/staff-refunds', label: 'Hoàn tiền' },
+        { path: '/staff-settings', label: 'Hệ thống' },
+      ];
     }
     return [];
   };
@@ -284,6 +293,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
   const resolveWalletType = (): WalletType => {
     if (activeRoute.startsWith('/vendor')) return 'Vendor';
     if (activeRoute.startsWith('/admin')) return 'System';
+    if (activeRoute.startsWith('/staff')) return 'System';
     if (userRole === 'vendor') return 'Vendor';
     if (userRole === 'customer' || userRole === 'guest') return 'Customer';
     if (userRole === 'admin') return 'System';
@@ -815,7 +825,14 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
         <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
           <div className="max-w-[92rem] mx-auto px-6 md:px-10 py-4 flex items-center justify-between">
             <div className="flex items-center gap-12">
-              <div className="cursor-pointer" onClick={() => onNavigate('/')}>
+              <div
+                className={isAdmin || isStaff ? "cursor-default" : "cursor-pointer"}
+                onClick={() => {
+                  if (!isAdmin && !isStaff) {
+                    onNavigate('/');
+                  }
+                }}
+              >
                 <div className="w-[240px] h-[72px] md:w-[288px] md:h-[84px] lg:w-[312px] lg:h-[96px] -ml-16">
                   <img
                     src="/assets/logo1.png"

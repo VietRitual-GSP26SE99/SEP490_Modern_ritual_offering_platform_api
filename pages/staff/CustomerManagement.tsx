@@ -1,6 +1,4 @@
 import React, { useState } from 'react';
-import { logoutAndRedirect } from '../../services/auth';
-import StaffShell from './StaffShell';
 
 interface CustomerManagementProps {
   onNavigate: (path: string) => void;
@@ -170,29 +168,18 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ onNavigate, onL
   };
 
   return (
-    <StaffShell
-      title="Quản lý khách hàng"
-      subtitle="Theo dõi, phân loại và hỗ trợ khách hàng"
-      onBack={() => onNavigate('/staff/dashboard')}
-      actions={
-        <>
-          <button
-            className="px-4 py-2 rounded-full bg-slate-900 text-white text-sm font-semibold shadow-sm hover:bg-slate-800"
-          >
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Quản lý khách hàng</h1>
+          <p className="text-gray-600 mt-1">Theo dõi, phân loại và hỗ trợ khách hàng</p>
+        </div>
+        <div>
+          <button className="px-4 py-2 rounded-xl bg-gray-900 text-white text-sm font-semibold shadow-sm hover:bg-gray-800">
             Xuất báo cáo
           </button>
-          <button
-            onClick={() => {
-              console.log('🚪 Logging out...');
-              logoutAndRedirect();
-            }}
-            className="px-4 py-2 rounded-full border border-slate-200 text-sm font-semibold text-slate-700 hover:border-slate-300 hover:text-slate-900"
-          >
-            Đăng xuất
-          </button>
-        </>
-      }
-    >
+        </div>
+      </div>
       <div className="space-y-6">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
           {stats.map((stat, index) => (
@@ -439,7 +426,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ onNavigate, onL
           </div>
         </div>
       )}
-    </StaffShell>
+    </div>
   );
 };
 
