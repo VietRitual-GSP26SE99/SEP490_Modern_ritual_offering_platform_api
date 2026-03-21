@@ -112,13 +112,11 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
           setProduct(mappedProduct);
         } else {
           setPackageMeta(null);
-          const mockProduct = MOCK_PRODUCTS.find(p => p.id === id);
-          setProduct(mockProduct || null);
+          setProduct(null);
         }
       } catch (error) {
         setPackageMeta(null);
-        const mockProduct = MOCK_PRODUCTS.find(p => p.id === id);
-        setProduct(mockProduct || null);
+        setProduct(null);
       } finally {
         setLoading(false);
       }

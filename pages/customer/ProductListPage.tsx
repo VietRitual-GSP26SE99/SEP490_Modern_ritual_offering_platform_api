@@ -10,7 +10,7 @@ import toast from '../../services/toast';
 const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void }> = ({ onNavigate }) => {
   const [searchParams] = useSearchParams();
   const [activeFilter, setActiveFilter] = useState<Occasion | 'All'>('All');
-  const [products, setProducts] = useState<Product[]>(MOCK_PRODUCTS);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [priceRanges, setPriceRanges] = useState({
     p1: false, // Dưới 1 triệu
@@ -51,12 +51,11 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
           console.log(' Mapped products with vendors:', mappedProducts);
           setProducts(mappedProducts);
         } else {
-          console.warn(' No packages from API, using mock data');
-          setProducts(MOCK_PRODUCTS);
+          setProducts([]); // If no packages, set to empty array
         }
       } catch (error) {
-        console.error(' Error fetching products:', error);
-        setProducts(MOCK_PRODUCTS);
+        console.error('Error fetching products:', error);
+        setProducts([]); // On error, set to empty array
       } finally {
         setLoading(false);
       }

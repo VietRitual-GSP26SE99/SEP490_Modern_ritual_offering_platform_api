@@ -4,11 +4,12 @@ import MOCK_DATA from '../../mockData';
 import Carousel from '../../components/Carousel';
 import { packageService } from '../../services/packageService';
 import { getCurrentUser } from '../../services/auth';
+import { Product } from '../../types';
 import toast from '../../services/toast';
 
 const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate }) => {
   const [showAllServices, setShowAllServices] = useState(false);
-  const [products, setProducts] = useState(MOCK_PRODUCTS);
+  const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const { heroSlides, services, trustStats } = MOCK_DATA;
 
@@ -44,11 +45,11 @@ const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
           const mappedProducts = await packageService.mapToProductsWithVendors(apiPackages);
           setProducts(pickRandomProducts(mappedProducts, 3));
         } else {
-          setProducts(pickRandomProducts(MOCK_PRODUCTS, 3));
+          setProducts([]);
         }
       } catch (error) {
         console.error('Error fetching products:', error);
-        setProducts(pickRandomProducts(MOCK_PRODUCTS, 3));
+        setProducts([]);
       } finally {
         setLoadingProducts(false);
       }

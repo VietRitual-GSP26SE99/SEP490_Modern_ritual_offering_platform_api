@@ -311,35 +311,56 @@ const OrderDetailsPage: React.FC = () => {
                                 Danh sách gói lễ
                             </h3>
                             <div className="space-y-6">
-                                {order.items?.map((item, idx) => (
-                                    <div key={idx} className="flex gap-4 items-start">
-                                        <div className="size-20 rounded-2xl bg-gray-100 border border-gray-200 flex-shrink-0 relative overflow-hidden">
-                                            <img src={`https://picsum.photos/200?random=${idx}`} alt={item.packageName} className="w-full h-full object-cover" />
-                                            <div className="absolute top-0 right-0 bg-primary text-white text-[10px] font-black w-6 h-6 flex items-center justify-center rounded-bl-lg">
-                                                x{item.quantity}
+                                {order.items?.map((item, idx) => {
+                                    const goToDetail = () => {
+                                        console.log('📦 Order Item Debug:', item);
+                                        const pkgId = item.packageId;
+                                        if (pkgId) {
+                                            navigate(`/product/${pkgId}`);
+                                        } else {
+                                            toast.error('Không tìm thấy thông tin sản phẩm để xem chi tiết');
+                                        }
+                                    };
+
+                                    return (
+                                        <div key={idx} className="flex gap-4 items-start">
+                                            <div
+                                                className="size-20 rounded-2xl bg-gray-100 border border-gray-200 flex-shrink-0 relative overflow-hidden cursor-pointer group/img"
+                                                onClick={goToDetail}
+                                            >
+                                                <img src={`https://picsum.photos/200?random=${idx}`} alt={item.packageName} className="w-full h-full object-cover group-hover/img:scale-110 transition-transform duration-300" />
+                                                <div className="absolute top-0 right-0 bg-primary text-white text-[10px] font-black w-6 h-6 flex items-center justify-center rounded-bl-lg">
+                                                    x{item.quantity}
+                                                </div>
+                                            </div>
+                                            <div className="flex-1 pt-1">
+                                                <h4
+                                                    className="font-bold text-gray-800 cursor-pointer hover:text-primary transition-colors"
+                                                    onClick={goToDetail}
+                                                >
+                                                    {item.packageName}
+                                                </h4>
+                                                <p className="text-xs text-gray-500 mt-1">Gói: <span className="text-gray-700 font-medium">{item.variantName}</span></p>
+                                            </div>
+                                            <div className="pt-1 text-right">
+                                                <p className="font-bold text-primary">{(item.lineTotal || (item.price || (item as any).unitPrice || 0) * item.quantity).toLocaleString('vi-VN')}đ</p>
+
+                                                {order.orderStatus.toUpperCase() === 'COMPLETED' && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            setSelectedItemForReview({ itemId: item.itemId, packageName: item.packageName });
+                                                            setIsReviewModalOpen(true);
+                                                        }}
+                                                        className="mt-2 text-xs font-bold text-primary hover:text-primary/70 transition-all underline underline-offset-4"
+                                                    >
+                                                        Viết đánh giá
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
-                                        <div className="flex-1 pt-1">
-                                            <h4 className="font-bold text-gray-800">{item.packageName}</h4>
-                                            <p className="text-xs text-gray-500 mt-1">Gói: <span className="text-gray-700 font-medium">{item.variantName}</span></p>
-                                        </div>
-                                        <div className="pt-1 text-right">
-                                            <p className="font-bold text-primary">{(item.lineTotal || (item.price || (item as any).unitPrice || 0) * item.quantity).toLocaleString('vi-VN')}đ</p>
-
-                                            {order.orderStatus.toUpperCase() === 'COMPLETED' && (
-                                                <button
-                                                    onClick={() => {
-                                                        setSelectedItemForReview({ itemId: item.itemId, packageName: item.packageName });
-                                                        setIsReviewModalOpen(true);
-                                                    }}
-                                                    className="mt-2 text-xs font-bold text-primary hover:text-primary/70 transition-all underline underline-offset-4"
-                                                >
-                                                    Viết đánh giá
-                                                </button>
-                                            )}
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
 

@@ -10,6 +10,7 @@ export interface OrderItem {
     price: number;
     lineTotal: number;
     decorationNote?: string;
+    packageId?: string | number;
     // Fields from API response
     totalAmount?: number;
     subTotal?: number;
@@ -157,6 +158,8 @@ interface VendorOrdersApiItem {
         price?: number;
         lineTotal?: number;
         decorationNote?: string;
+        packageId?: string | number;
+        productId?: string | number;
     }>;
 }
 
@@ -164,7 +167,11 @@ interface OrderDetailsApiItem {
     orderId?: string;
     orderStatus?: string;
     trackingLists?: Array<{
+        trackingId?: string;
+        title?: string;
         status?: string;
+        description?: string;
+        createdAt?: string;
     }>;
     customer?: {
         profileId?: string;
@@ -200,6 +207,8 @@ interface OrderDetailsApiItem {
         price?: number;
         lineTotal?: number;
         decorationNote?: string;
+        packageId?: string | number;
+        productId?: string | number;
     }>;
     pricing?: {
         totalQuantity?: number;
@@ -281,8 +290,44 @@ class OrderService {
             }
 
             const data = await response.json();
-            if (data.isSuccess && data.result) {
-                return data.result;
+            if (data.isSuccess && Array.isArray(data.result)) {
+                return data.result.map((raw: any) => {
+                    const items = Array.isArray(raw.items)
+                        ? raw.items.map((item: any) => {
+                            const quantity = Number(item.quantity) || 0;
+                            const lineTotal = Number(item.lineTotal) || 0;
+                            const unitPrice = Number(item.unitPrice ?? item.price) || (quantity > 0 ? lineTotal / quantity : 0);
+                            return {
+                                itemId: item.itemId || item.orderItemId || item.id || `item-${Math.random().toString(36).slice(2, 10)}`,
+                                variantId: item.variantId ?? '',
+                                variantName: item.variantName || 'N/A',
+                                packageName: item.packageName || 'N/A',
+                                quantity,
+                                price: unitPrice,
+                                lineTotal,
+                                decorationNote: item.decorationNote || '',
+                                packageId: 
+                                    item.packageId || 
+                                    (item as any).PackageId || 
+                                    (item as any).productId || 
+                                    (item as any).ProductId || 
+                                    (item as any).package_id || 
+                                    (item as any).product_id || '',
+                            };
+                        })
+                        : [];
+
+                    return {
+                        ...raw,
+                        items,
+                        // Ensure pricing is accessible
+                        pricing: raw.pricing || {
+                            subTotal: raw.subTotal || 0,
+                            shippingFee: raw.shippingFee || 0,
+                            totalAmount: raw.totalAmount || raw.finalAmount || 0,
+                        }
+                    } as Order;
+                });
             }
             return [];
         } catch (error) {
@@ -309,9 +354,10 @@ class OrderService {
 
                 const items: OrderItem[] = Array.isArray(raw.items)
                     ? raw.items.map((item) => {
+                        console.log('🔍 Raw Order Item from API:', item);
                         const quantity = Number(item.quantity) || 0;
-                        const unitPrice = Number(item.unitPrice ?? item.price) || 0;
-                        const lineTotal = Number(item.lineTotal) || (unitPrice * quantity);
+                        const lineTotal = Number(item.lineTotal) || 0;
+                        const unitPrice = Number(item.unitPrice ?? item.price) || (quantity > 0 ? lineTotal / quantity : 0);
 
                         return {
                             itemId: item.itemId || (item as any).orderItemId || (item as any).id || `item-${Math.random().toString(36).slice(2, 10)}`,
@@ -322,6 +368,15 @@ class OrderService {
                             price: unitPrice,
                             lineTotal,
                             decorationNote: item.decorationNote || '',
+                            packageId: 
+                                item.packageId || 
+                                (item as any).PackageId || 
+                                (item as any).packageID || 
+                                (item as any).productId || 
+                                (item as any).ProductId || 
+                                (item as any).productID || 
+                                (item as any).package_id || 
+                                (item as any).product_id || '',
                         };
                     })
                     : [];

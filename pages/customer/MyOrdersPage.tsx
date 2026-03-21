@@ -199,14 +199,23 @@ const MyOrdersPage: React.FC = () => {
                                         {order.items?.map((item, idx) => (
                                             <div key={idx} className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
                                                 <div className="flex gap-4 items-center w-full">
-                                                    <div className="size-16 rounded-xl bg-gray-100 border border-gray-200 flex-shrink-0 bg-cover bg-center" style={{ backgroundImage: 'url("https://picsum.photos/100?random=1")' }} />
-                                                    <div className="flex-1">
-                                                        <h5 className="font-bold text-gray-800 text-sm md:text-base">{item.packageName}</h5>
+                                                    <div 
+                                                        className="size-16 rounded-xl bg-gray-100 border border-gray-200 flex-shrink-0 bg-cover bg-center cursor-pointer hover:shadow-md transition-all active:scale-95" 
+                                                        style={{ backgroundImage: 'url("https://picsum.photos/100?random=1")' }}
+                                                        onClick={() => (item as any).packageId && navigate(`/product/${(item as any).packageId}`)}
+                                                    />
+                                                    <div className="flex-1 text-left">
+                                                        <h5 
+                                                            className="font-bold text-gray-800 text-sm md:text-base cursor-pointer hover:text-primary transition-colors"
+                                                            onClick={() => (item as any).packageId && navigate(`/product/${(item as any).packageId}`)}
+                                                        >
+                                                            {item.packageName}
+                                                        </h5>
                                                         <p className="text-xs text-slate-500 mt-1">Gói: {item.variantName}</p>
                                                         <p className="text-sm font-medium mt-1">x{item.quantity}</p>
                                                     </div>
                                                     <div className="text-right">
-                                                        <p className="font-bold text-primary">{((item.price || (item as any).unitPrice || 0) * item.quantity).toLocaleString('vi-VN')}đ</p>
+                                                        <p className="font-bold text-primary">{(item.lineTotal || (item.price || (item as any).unitPrice || 0) * item.quantity).toLocaleString('vi-VN')}đ</p>
                                                     </div>
                                                 </div>
                                             </div>
