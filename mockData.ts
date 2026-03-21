@@ -1,63 +1,65 @@
 // Mock Data for All Pages and Components
 // This file centralizes all mock data for easier API integration later
 
+import heroSlide1 from './assets/Gemini_Generated_Image_90aev690aev690ae.png';
+
 export const MOCK_DATA = {
-  // Product Data
-  products: [
-    {
-      id: '1',
-      name: 'Gói Sung Túc - Cúng Đầy Tháng',
-      category: 'Full Moon',
-      price: 2500000,
-      originalPrice: 2850000,
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA5pk34TFNITiBoTfzzR6j2tM4Cp8eWCMDiRH4qZuljZQIJYbiLfYZQFVoLe5hUiUvaOzM6OKfUam0dV6TZqLoJ_cCNShqoMxqWn1u3vnX3fsV9_iK1yUSDx-iHmIGcyQCJxm6i8T8dWweYKX7T1fdoMr5nn5ZQZD4AoZJXr363gXZ5rIJmm_HYeGK_pRGMq-RLSby_5xXlYxCkZZGl3f2wbZSbkq6qVJrHt140BQ3tJijWeo_NgY8Bmj3sH-anRE-toAvYScWM41CW',
-      description: 'Bao gồm 13 bộ xôi chè, gà luộc cánh tiên, mâm quả ngũ sắc và bộ văn khấn đầy đủ.',
-      rating: 4.9,
-      reviews: 128,
-      tag: 'Phổ biến',
-      images: [
-        // Thêm ảnh phụ tại đây (link 1)
-        // Thêm ảnh phụ tại đây (link 2)
-        // Thêm ảnh phụ tại đây (link 3)
-      ]
-    },
-    {
-      id: '2',
-      name: 'Gói Đại Phát - Khai Trương',
-      category: 'Grand Opening',
-      price: 4950000,
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD9ed9G_29HoTI9Y-GeI-hyIG5LL1M9XkEo2Xc-bPI5RRAnelI6nV1mRn4wJL0nNSuT6xfea8WWncno6jImIRDVybLBRLufAzeD0vm7ylvwopHIvoaaKjIKt9nshsIVbTKS-PT8ph2OvMm6Bf2APW0w1Gx0JCEdbokhjkewJuanhqwvPHi3Z0cEn7-cgpc9dZnmcw0eS7SjLgc8NcZmZQwIwnFOvXj-3aZl_oUKRFccMpRuHiStBSbSMsqJw6IqVB-tavHn1nhzgI__',
-      description: 'Heo quay nguyên con, tháp bia, mâm ngũ quả lớn và bộ nhang đèn cao cấp.',
-      rating: 5.0,
-      reviews: 86,
-      tag: 'VIP',
-      images: [
-        // Thêm ảnh phụ tại đây (link 1)
-        // Thêm ảnh phụ tại đây (link 2)
-        // Thêm ảnh phụ tại đây (link 3)
-      ]
-    },
-    {
-      id: '3',
-      name: 'Gói Bình An - Tân Gia',
-      category: 'House Warming',
-      price: 1850000,
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBSUAMlLxitdwU9p95wOsvj9lxzje0Ua1vrVIxZUY2DGYGYRJUrqBOSD8wWqMBWdr5EDilegTWoP_6KZVdqaGf53JtNzaNWnOGpdKV5EjAT73XXLPH49xUe42hswBZljYaWjjfp0h-T9ufWuFuO7o-0hAjDICimlfOkNmLO6kz9PPzAU-x69KY0gj4awRKdoYRpEqX_KcCxHtzLZhJWB05-YLN1VP0alzZ0LvP1B1CRANc7H50UIvfpUIajBygXEET0CF2DSpYKSTVz',
-      description: 'Trầu cau têm cánh phượng, chè trôi nước màu sắc, xôi gấc in chữ Phúc Lộc Thọ.',
-      rating: 4.8,
-      reviews: 92,
-      images: [
-        // Thêm ảnh phụ tại đây (link 1)
-        // Thêm ảnh phụ tại đây (link 2)
-        // Thêm ảnh phụ tại đây (link 3)
-      ]
-    }
-  ],
+  // // Product Data
+  // products: [
+  //   {
+  //     id: '1',
+  //     name: 'Gói Sung Túc - Cúng Đầy Tháng',
+  //     category: 'Full Moon',
+  //     price: 2500000,
+  //     originalPrice: 2850000,
+  //     image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuA5pk34TFNITiBoTfzzR6j2tM4Cp8eWCMDiRH4qZuljZQIJYbiLfYZQFVoLe5hUiUvaOzM6OKfUam0dV6TZqLoJ_cCNShqoMxqWn1u3vnX3fsV9_iK1yUSDx-iHmIGcyQCJxm6i8T8dWweYKX7T1fdoMr5nn5ZQZD4AoZJXr363gXZ5rIJmm_HYeGK_pRGMq-RLSby_5xXlYxCkZZGl3f2wbZSbkq6qVJrHt140BQ3tJijWeo_NgY8Bmj3sH-anRE-toAvYScWM41CW',
+  //     description: 'Bao gồm 13 bộ xôi chè, gà luộc cánh tiên, mâm quả ngũ sắc và bộ văn khấn đầy đủ.',
+  //     rating: 4.9,
+  //     reviews: 128,
+  //     tag: 'Phổ biến',
+  //     images: [
+  //       // Thêm ảnh phụ tại đây (link 1)
+  //       // Thêm ảnh phụ tại đây (link 2)
+  //       // Thêm ảnh phụ tại đây (link 3)
+  //     ]
+  //   },
+  //   {
+  //     id: '2',
+  //     name: 'Gói Đại Phát - Khai Trương',
+  //     category: 'Grand Opening',
+  //     price: 4950000,
+  //     image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD9ed9G_29HoTI9Y-GeI-hyIG5LL1M9XkEo2Xc-bPI5RRAnelI6nV1mRn4wJL0nNSuT6xfea8WWncno6jImIRDVybLBRLufAzeD0vm7ylvwopHIvoaaKjIKt9nshsIVbTKS-PT8ph2OvMm6Bf2APW0w1Gx0JCEdbokhjkewJuanhqwvPHi3Z0cEn7-cgpc9dZnmcw0eS7SjLgc8NcZmZQwIwnFOvXj-3aZl_oUKRFccMpRuHiStBSbSMsqJw6IqVB-tavHn1nhzgI__',
+  //     description: 'Heo quay nguyên con, tháp bia, mâm ngũ quả lớn và bộ nhang đèn cao cấp.',
+  //     rating: 5.0,
+  //     reviews: 86,
+  //     tag: 'VIP',
+  //     images: [
+  //       // Thêm ảnh phụ tại đây (link 1)
+  //       // Thêm ảnh phụ tại đây (link 2)
+  //       // Thêm ảnh phụ tại đây (link 3)
+  //     ]
+  //   },
+  //   {
+  //     id: '3',
+  //     name: 'Gói Bình An - Tân Gia',
+  //     category: 'House Warming',
+  //     price: 1850000,
+  //     image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBSUAMlLxitdwU9p95wOsvj9lxzje0Ua1vrVIxZUY2DGYGYRJUrqBOSD8wWqMBWdr5EDilegTWoP_6KZVdqaGf53JtNzaNWnOGpdKV5EjAT73XXLPH49xUe42hswBZljYaWjjfp0h-T9ufWuFuO7o-0hAjDICimlfOkNmLO6kz9PPzAU-x69KY0gj4awRKdoYRpEqX_KcCxHtzLZhJWB05-YLN1VP0alzZ0LvP1B1CRANc7H50UIvfpUIajBygXEET0CF2DSpYKSTVz',
+  //     description: 'Trầu cau têm cánh phượng, chè trôi nước màu sắc, xôi gấc in chữ Phúc Lộc Thọ.',
+  //     rating: 4.8,
+  //     reviews: 92,
+  //     images: [
+  //       // Thêm ảnh phụ tại đây (link 1)
+  //       // Thêm ảnh phụ tại đây (link 2)
+  //       // Thêm ảnh phụ tại đây (link 3)
+  //     ]
+  //   }
+  // ],
 
   // Hero Carousel Slides
   heroSlides: [
     {
-      image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCW6V48knxy1h3Uoa4Sd9_-UXap6SfQO8O6--llUH3Djy5RIFd52Q8vk2MZD-M6Gy5jPAXdh4eMrWl4ss6k-lnuwqf6obSsiWf3L_4bc__jZfL-MQPBNKTYaYEVrJ2O4Ot1RWevittDJkitC1mvOMnVL7pYHVZ5yypnLXtjMVB4bvV3Z8FWtj5g84Wm8Ph0zPweW6yfpAYh54IRINQK9ZU3zkRTN6l8YkosSnlsrGqM1QldFpIZD9oj_z73J5c-Iaz95mYnaZv3UiB0',
+      image: heroSlide1,
       title: 'Đặt mâm cúng\nđúng lễ – đúng giờ\ntrọn ý nghĩa',
       subtitle: 'Tâm Linh Việt - Chuẩn Hiện Đại',
       description: 'Giải pháp mâm cúng trọn gói tiện lợi, cam kết chính xác theo nghi lễ truyền thống. Chúng tôi chuẩn bị tâm huyết để bạn dành trọn thời gian quý báu.'

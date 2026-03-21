@@ -96,21 +96,31 @@ const OrderDetailsPage: React.FC = () => {
     const handleCancelOrder = async () => {
         if (!order) return;
 
-        const confirmResult = await toast.confirm({
+        const result = await toast.selectPrompt({
             title: 'Xác nhận hủy đơn hàng',
-            text: 'Bạn có chắc chắn muốn hủy đơn hàng này không? Không thể hoàn tác!',
-            icon: 'warning',
-            confirmButtonText: 'Hủy đơn',
-            cancelButtonText: 'Không',
+            text: 'Vui lòng chọn lý do mà bạn muốn hủy đơn:',
+            inputOptions: {
+                'Muốn thay đổi địa chỉ giao hàng': 'Thay đổi địa chỉ giao hàng',
+                'Muốn thay đổi món/số lượng': 'Thay đổi món / số lượng',
+                'Thủ tục thanh toán quá rắc rối': 'Thủ tục thanh toán rắc rối',
+                'Tìm thấy chỗ khác rẻ hơn/tốt hơn': 'Tìm thấy chỗ khác phù hợp hơn',
+                'Không có nhu cầu đặt nữa': 'Không có nhu cầu mua nữa',
+                'Lý do khác': 'Lý do khác'
+            },
+            inputPlaceholder: 'Chọn lý do hủy...',
+            confirmButtonText: 'Đồng ý hủy',
+            cancelButtonText: 'Bỏ qua'
         });
 
-        if (!confirmResult.isConfirmed) {
+        if (!result.isConfirmed) {
             return;
         }
 
+        const reason = result.value || 'Khách hàng thay đổi ý định';
+
         setCancelling(true);
         try {
-            const success = await orderService.cancelOrder(order.orderId);
+            const success = await orderService.cancelOrder(order.orderId, reason);
             if (success) {
                 toast.success('Hủy đơn hàng thành công');
                 // Refresh data
@@ -241,7 +251,7 @@ const OrderDetailsPage: React.FC = () => {
                         <h2 className="text-2xl font-black">{getStatusText(order.orderStatus)}</h2>
                     </div>
                     <div className="flex flex-col sm:flex-row gap-3">
-                        {order.orderStatus.toUpperCase() === 'PENDING' && (
+                        {['PENDING', 'PAID'].includes(order.orderStatus.toUpperCase()) && (
                             <button
                                 onClick={handleCancelOrder}
                                 disabled={cancelling}
@@ -365,7 +375,11 @@ const OrderDetailsPage: React.FC = () => {
                                                 className="size-20 rounded-2xl bg-gray-100 border border-gray-200 flex-shrink-0 relative overflow-hidden cursor-pointer group/img"
                                                 onClick={goToDetail}
                                             >
-                                                <img src={`https://picsum.photos/200?random=${idx}`} alt={item.packageName} className="w-full h-full object-cover group-hover/img:scale-110 transition-transform duration-300" />
+                                                <img
+                                                    src={item.imageUrl || `https://picsum.photos/200?random=${idx}`}
+                                                    alt={item.packageName}
+                                                    className="w-full h-full object-cover group-hover/img:scale-110 transition-transform duration-300"
+                                                />
                                                 <div className="absolute top-0 right-0 bg-primary text-white text-[10px] font-black w-6 h-6 flex items-center justify-center rounded-bl-lg">
                                                     x{item.quantity}
                                                 </div>

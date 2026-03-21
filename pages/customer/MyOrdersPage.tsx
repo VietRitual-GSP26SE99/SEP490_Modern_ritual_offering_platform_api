@@ -37,13 +37,31 @@ const MyOrdersPage: React.FC = () => {
     }, []);
 
     const handleCancelOrder = async (orderId: string) => {
-        if (window.confirm('Bạn có chắc chắn muốn hủy đơn hàng này không? Không thể hoàn tác!') === false) {
+        const result = await toast.selectPrompt({
+            title: 'Xác nhận hủy đơn hàng',
+            text: 'Vui lòng chọn lý do mà bạn muốn hủy đơn:',
+            inputOptions: {
+                'Muốn thay đổi địa chỉ giao hàng': 'Thay đổi địa chỉ giao hàng',
+                'Muốn thay đổi món/số lượng': 'Thay đổi món / số lượng',
+                'Thủ tục thanh toán quá rắc rối': 'Thủ tục thanh toán rắc rối',
+                'Tìm thấy chỗ khác rẻ hơn/tốt hơn': 'Tìm thấy chỗ khác phù hợp hơn',
+                'Không có nhu cầu đặt nữa': 'Không có nhu cầu mua nữa',
+                'Lý do khác': 'Lý do khác'
+            },
+            inputPlaceholder: 'Chọn lý do hủy...',
+            confirmButtonText: 'Đồng ý hủy',
+            cancelButtonText: 'Bỏ qua'
+        });
+
+        if (!result.isConfirmed) {
             return;
         }
 
+        const reason = result.value || 'Khách hàng thay đổi ý định';
+
         setCancellingId(orderId);
         try {
-            const success = await orderService.cancelOrder(orderId);
+            const success = await orderService.cancelOrder(orderId, reason);
             if (success) {
                 toast.success('Hủy đơn hàng thành công');
                 await fetchOrders();
@@ -217,7 +235,7 @@ const MyOrdersPage: React.FC = () => {
                                                 <div className="flex gap-4 items-center w-full">
                                                     <div 
                                                         className="size-16 rounded-xl bg-gray-100 border border-gray-200 flex-shrink-0 bg-cover bg-center cursor-pointer hover:shadow-md transition-all active:scale-95" 
-                                                        style={{ backgroundImage: 'url("https://picsum.photos/100?random=1")' }}
+                                                        style={{ backgroundImage: `url("${item.imageUrl || 'https://picsum.photos/100?random=1'}")` }}
                                                         onClick={() => (item as any).packageId && navigate(`/product/${(item as any).packageId}`)}
                                                     />
                                                     <div className="flex-1 text-left">
@@ -254,7 +272,7 @@ const MyOrdersPage: React.FC = () => {
                                         </span>
                                     </div>
                                     <div className="flex gap-3 w-full sm:w-auto">
-                                        {order.orderStatus.toUpperCase() === 'PENDING' && (
+                                        {['PENDING', 'PAID'].includes(order.orderStatus.toUpperCase()) && (
                                             <button
                                                 onClick={() => handleCancelOrder(order.orderId)}
                                                 disabled={cancellingId === order.orderId}

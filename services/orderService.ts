@@ -11,6 +11,7 @@ export interface OrderItem {
     lineTotal: number;
     decorationNote?: string;
     packageId?: string | number;
+    imageUrl?: string | null;
     // Fields from API response
     totalAmount?: number;
     subTotal?: number;
@@ -160,6 +161,7 @@ interface VendorOrdersApiItem {
         decorationNote?: string;
         packageId?: string | number;
         productId?: string | number;
+        imageUrl?: string | null;
     }>;
 }
 
@@ -196,6 +198,7 @@ interface OrderDetailsApiItem {
         deliveryAddress?: string;
         shippingDistanceKm?: number;
         deliveryProofImageUrl?: string | null;
+        imageUrl?: string | null;
     };
     items?: Array<{
         itemId?: string;
@@ -209,6 +212,7 @@ interface OrderDetailsApiItem {
         decorationNote?: string;
         packageId?: string | number;
         productId?: string | number;
+        imageUrl?: string | null;
     }>;
     pricing?: {
         totalQuantity?: number;
@@ -315,6 +319,14 @@ class OrderService {
                                     (item as any).ProductId || 
                                     (item as any).package_id || 
                                     (item as any).product_id || '',
+                                imageUrl:
+                                    item.imageUrl ||
+                                    item.imageURL ||
+                                    item.packageImageUrl ||
+                                    item.packageImageURL ||
+                                    item.productImageUrl ||
+                                    item.productImageURL ||
+                                    null,
                             };
                         })
                         : [];
@@ -381,6 +393,14 @@ class OrderService {
                                 (item as any).productID || 
                                 (item as any).package_id || 
                                 (item as any).product_id || '',
+                            imageUrl: 
+                                item.imageUrl || 
+                                (item as any).imageURL || 
+                                (item as any).packageImageUrl || 
+                                (item as any).packageImageURL || 
+                                (item as any).productImageUrl || 
+                                (item as any).productImageURL || 
+                                null,
                         };
                     })
                     : [];
@@ -427,7 +447,13 @@ class OrderService {
                         deliveryTime: raw.delivery?.deliveryTime || '',
                         deliveryAddress: raw.delivery?.deliveryAddress || 'N/A',
                         shippingDistanceKm: Number(raw.delivery?.shippingDistanceKm) || 0,
-                        deliveryProofImageUrl: raw.delivery?.deliveryProofImageUrl || null,
+                        deliveryProofImageUrl: (
+                            raw.delivery?.deliveryProofImageUrl
+                            || raw.delivery?.imageUrl
+                            || (raw as any).deliveryProofImageUrl
+                            || (raw as any).imageUrl
+                            || null
+                        ),
                     },
                     items,
                     pricing: {
@@ -598,7 +624,7 @@ class OrderService {
             const response = await fetch(`${API_BASE_URL}/orders/${orderId}/cancel`, {
                 method: 'PUT',
                 headers: this.getHeaders(),
-                body: JSON.stringify({ cancelReason: normalizedReason || 'Vendor hủy đơn' }),
+                body: JSON.stringify({ cancelReason: normalizedReason || 'Không có lý do' }),
             });
 
             if (!response.ok) {

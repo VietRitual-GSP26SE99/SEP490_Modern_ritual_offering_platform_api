@@ -913,16 +913,13 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
 
                   {isWalletDropdownOpen && (
                     <div
-                      className="absolute top-full right-0 mt-3 w-72 bg-white rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] border-x border-b border-gray-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300"
+                      className="absolute top-full right-0 mt-3 w-72 bg-white rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.1)] border border-gray-100 z-50 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-300"
                       onMouseEnter={() => {
                         if (walletDropdownTimeout.current) {
                           clearTimeout(walletDropdownTimeout.current);
                         }
                       }}
                     >
-                      {/* Gradient Header Decor */}
-                      <div className="h-1.5 bg-gradient-to-r from-primary via-amber-400 to-primary rounded-t-2xl"></div>
-
                       <div className="p-5">
                         <div className="flex justify-between items-center mb-4">
                           <div className="flex items-center gap-2">
@@ -1015,15 +1012,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                             </button>
                           </div>
                         )}
-                      </div>
-
-                      {/* Decorative bottom bar */}
-                      <div className="bg-slate-50 px-5 py-3 flex items-center justify-between">
-                        <div className="flex gap-1.5">
-                          <div className="size-1 rounded-full bg-slate-300"></div>
-                          <div className="size-1 rounded-full bg-slate-300"></div>
-                          <div className="size-1 rounded-full bg-slate-300"></div>
-                        </div>
                       </div>
                     </div>
                   )}
