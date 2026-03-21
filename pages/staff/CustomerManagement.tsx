@@ -90,26 +90,23 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ onNavigate, onL
     {
       label: 'Tổng khách hàng',
       value: customers.length.toString(),
-      change: '+12',
-      icon: '👥'
+
+
     },
     {
       label: 'Đang hoạt động',
       value: customers.filter(c => c.status === 'active').length.toString(),
-      change: '+5',
-      icon: '✅'
+
     },
     {
       label: 'Không hoạt động',
       value: customers.filter(c => c.status === 'inactive').length.toString(),
-      change: '+2',
-      icon: '⏸️'
+
     },
     {
       label: 'Tổng doanh thu',
       value: (customers.reduce((sum, c) => sum + c.totalSpent, 0) / 1000000).toFixed(1) + 'M',
-      change: '+15%',
-      icon: '💰'
+
     },
   ];
 
@@ -188,12 +185,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ onNavigate, onL
               className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm hover:shadow-md transition"
             >
               <div className="flex items-start justify-between mb-4">
-                <div className="text-3xl">{stat.icon}</div>
-                <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                  stat.change.startsWith('+') ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'
-                }`}>
-                  {stat.change}
-                </span>
+
               </div>
               <h3 className="text-3xl font-bold text-gray-900 mb-2">{stat.value}</h3>
               <p className="text-sm text-gray-600 font-medium">{stat.label}</p>
@@ -213,11 +205,10 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ onNavigate, onL
                 <button
                   key={tab.id}
                   onClick={() => setFilterStatus(tab.id)}
-                  className={`px-4 py-2 rounded-full text-sm font-semibold transition ${
-                    filterStatus === tab.id
+                  className={`px-4 py-2 rounded-full text-sm font-semibold transition ${filterStatus === tab.id
                       ? 'bg-slate-900 text-white'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}
+                    }`}
                 >
                   {tab.label}
                 </button>

@@ -32,6 +32,9 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<PackageStatusFilter>('');
+  const [viewProductDetails, setViewProductDetails] = useState<any | null>(null);
+  const [viewDisplayImageIndex, setViewDisplayImageIndex] = useState<number>(0);
+  const [rawPackages, setRawPackages] = useState<any[]>([]);
 
   const fallbackProductImage = `data:image/svg+xml;utf8,${encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="88" height="88" viewBox="0 0 88 88">
@@ -65,6 +68,7 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
 
     try {
       const packages = await packageService.getPackagesByStatus(selectedStatus);
+      setRawPackages(packages);
 
       const mapped: StaffProduct[] = packages.map((item) => {
         const variants = Array.isArray((item as any).packageVariants) ? (item as any).packageVariants : [];
@@ -78,7 +82,9 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
           category: mapCategory(Number((item as any).categoryId || 0)),
           price: Number.isFinite(price) ? price : 0,
           stock: activeVariants.length,
-          image: String((item as any).imageUrl || ''),
+          image: Array.isArray((item as any).imageUrls) && (item as any).imageUrls.length > 0
+            ? ((item as any).imageUrls[(item as any).primaryImageIndex || 0] || (item as any).imageUrls[0])
+            : String((item as any).imageUrl || ''),
           rating: 0,
           orders: 0,
           status: Boolean((item as any).isActive) ? 'active' : 'inactive',
@@ -125,12 +131,74 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
     setCurrentPage(1);
   }, [selectedCategory, selectedStatus]);
 
-  const handleApprove = (id: string) => {
-    toast.success('Đã duyệt sản phẩm thành công!');
+  const handleApprove = async (id: string) => {
+    try {
+      const confirmResult = await toast.confirm({
+        title: 'Xác nhận phê duyệt',
+        text: 'Bạn có chắc chắn muốn duyệt mâm cúng này?',
+        icon: 'question',
+        confirmButtonText: 'Phê duyệt',
+        cancelButtonText: 'Hủy',
+      });
+      if (!confirmResult.isConfirmed) return;
+
+      const success = await packageService.approvePackage(id);
+      if (success) {
+        toast.success('Đã duyệt sản phẩm thành công!');
+        setViewProductDetails(null);
+        loadPackages();
+      } else {
+        toast.error('Có lỗi xảy ra khi phê duyệt sản phẩm!');
+      }
+    } catch (e) {
+      toast.error('Lỗi khi phê duyệt.');
+    }
   };
 
-  const handleReject = (id: string) => {
-    toast.error('Đã từ chối sản phẩm.');
+  const handleReject = async (id: string) => {
+    const promptResult = await toast.prompt({
+      title: 'Từ chối mâm cúng',
+      text: 'Vui lòng nhập lý do từ chối (bắt buộc):',
+      inputPlaceholder: 'Nhập lý do tại đây...',
+      confirmButtonText: 'Từ chối',
+      cancelButtonText: 'Hủy'
+    });
+
+    if (!promptResult.isConfirmed) return;
+
+    const reason = promptResult.value;
+    if (!reason || !reason.trim()) {
+      toast.error('Vui lòng nhập lý do hợp lệ.');
+      return;
+    }
+
+    try {
+      const success = await packageService.rejectPackage(id, reason.trim());
+      if (success) {
+        toast.success('Đã từ chối sản phẩm.');
+        setViewProductDetails(null);
+        loadPackages();
+      } else {
+        toast.error('Có lỗi xảy ra khi từ chối sản phẩm!');
+      }
+    } catch (e) {
+      toast.error('Lỗi khi từ chối.');
+    }
+  };
+
+  const handleViewDetails = async (id: string) => {
+    try {
+      let details = await packageService.getPackageById(id);
+
+      if (details) {
+        setViewDisplayImageIndex((details as any).primaryImageIndex || 0);
+        setViewProductDetails(details);
+      } else {
+        toast.error('Không tìm thấy thông tin chi tiết sản phẩm');
+      }
+    } catch (error) {
+      toast.error('Có lỗi khi lấy thông tin chi tiết sản phẩm từ API');
+    }
   };
 
   return (
@@ -227,26 +295,31 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
                         {product.price.toLocaleString('vi-VN')}₫
                       </td>
                       <td className="p-4 text-center">
-                        <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold ${
-                          product.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                        }`}>
+                        <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold ${product.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                          }`}>
                           {product.status === 'active' ? 'Hoạt động' : 'Tạm ẩn'}
                         </span>
                       </td>
                       <td className="p-4 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <button
+                            onClick={() => handleViewDetails(product.id)}
+                            className="text-blue-600 border border-blue-200 hover:bg-blue-50 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                          >
+                            Chi tiết
+                          </button>
+                          {/* <button
                             onClick={() => handleApprove(product.id)}
                             className="bg-gray-900 hover:bg-gray-800 text-white px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
                           >
                             Duyệt
-                          </button>
-                          <button
+                          </button> */}
+                          {/* <button
                             onClick={() => handleReject(product.id)}
                             className="border border-red-200 text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
                           >
                             Từ chối
-                          </button>
+                          </button> */}
                         </div>
                       </td>
                     </tr>
@@ -255,7 +328,7 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
               </table>
             </div>
           )}
-          
+
           {/* Pagination */}
           {!loadingProducts && !productsError && filteredTotalPages > 1 && (
             <div className="p-4 border-t border-gray-200 flex items-center justify-between">
@@ -282,6 +355,193 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
           )}
         </div>
       </div>
+
+      {/* Product Details Modal */}
+      {viewProductDetails && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm"
+          onClick={() => setViewProductDetails(null)}
+        >
+          <div
+            className="bg-gray-50 w-full max-w-5xl my-4 rounded-[2rem] shadow-2xl overflow-hidden max-h-[calc(100vh-2rem)] flex flex-col"
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="bg-white px-6 md:px-8 py-5 flex flex-wrap items-center gap-4 border-b border-gray-100">
+              <button
+                onClick={() => setViewProductDetails(null)}
+                className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-200 hover:bg-gray-50 transition flex-shrink-0"
+                title="Đóng"
+              >
+                <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <div className="flex gap-2 items-center flex-1">
+                <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest flex-shrink-0 ${viewProductDetails.approvalStatus === 'Approved' ? 'bg-green-100 text-green-700 border border-green-200' :
+                  viewProductDetails.approvalStatus === 'Rejected' ? 'bg-red-100 text-red-700 border border-red-200' :
+                    'bg-yellow-100 text-yellow-700 border border-yellow-200'
+                  }`}>
+                  {viewProductDetails.approvalStatus === 'Approved' ? 'Đã Duyệt' : viewProductDetails.approvalStatus === 'Rejected' ? 'Từ Chối' : 'Chờ Duyệt'}
+                </span>
+                <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest flex-shrink-0 ${viewProductDetails.isActive ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-gray-100 text-gray-700 border border-gray-200'
+                  }`}>
+                  {viewProductDetails.isActive ? 'Đang Bán' : 'Tạm Ngừng'}
+                </span>
+              </div>
+              {/* Actions for Staff */}
+              <div className="flex gap-2 items-center">
+                <button
+                  onClick={() => handleApprove(String(viewProductDetails.packageId || viewProductDetails.id))}
+                  className="px-5 py-2 rounded-full text-xs font-black uppercase tracking-widest text-white bg-green-600 hover:bg-green-700 transition-all shadow-sm flex-shrink-0"
+                >
+                  Phê Duyệt
+                </button>
+                <button
+                  onClick={() => handleReject(String(viewProductDetails.packageId || viewProductDetails.id))}
+                  className="px-5 py-2 rounded-full text-xs font-black uppercase tracking-widest text-red-600 bg-red-50 hover:bg-red-100 border border-red-200 transition-all shadow-sm flex-shrink-0"
+                >
+                  Từ Chối
+                </button>
+              </div>
+            </div>
+
+            {/* Body */}
+            <div className="p-4 md:p-6 grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-6 overflow-y-auto custom-scrollbar">
+
+              {/* Left column */}
+              <div className="lg:col-span-7 space-y-6">
+                {/* Main Info Card */}
+                <div className="bg-white rounded-[2rem] border border-gray-200 p-6 shadow-sm group">
+                  <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-5 pb-3 border-b border-gray-100 flex items-center gap-2">
+                    <svg className="w-5 h-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                    </svg>
+                    Thông tin cơ bản
+                  </h3>
+                  <h4 className="text-xl font-bold text-gray-900 mb-2 leading-tight">{viewProductDetails.packageName}</h4>
+                  <div className="inline-block px-4 py-1.5 bg-sky-50 text-sky-700 font-bold text-xs rounded-xl mb-4 border border-sky-100">
+                    {mapCategory(viewProductDetails.categoryId)}
+                  </div>
+                  <div>
+                    <p className="text-[11px] text-gray-500 font-bold uppercase tracking-widest mb-2">Mô tả sản phẩm</p>
+                    <p className="text-sm text-gray-700 leading-relaxed bg-gray-50/80 p-4 rounded-[1.25rem] border border-gray-100">
+                      {viewProductDetails.description || 'Không có mô tả chi tiết cho sản phẩm này.'}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Variants Card */}
+                <div className="bg-white rounded-[2rem] border border-gray-200 p-6 shadow-sm">
+                  <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-5 pb-3 border-b border-gray-100 flex items-center gap-2">
+                    <i className="fas fa-layer-group text-primary"></i>
+                    Danh sách gói biến thể ({(viewProductDetails.packageVariants || []).length})
+                  </h3>
+                  <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
+                    {(viewProductDetails.packageVariants && viewProductDetails.packageVariants.length > 0) ? (
+                      viewProductDetails.packageVariants.map((v: any, idx: number) => (
+                        <div key={v.variantId || v.id || idx} className="rounded-[1.5rem] border p-5 transition-all border-gray-100 bg-gray-50 hover:bg-white hover:shadow-md hover:border-gray-200">
+                          <div className="flex items-start justify-between gap-4 mb-3 border-b border-gray-100 pb-3">
+                            <div className="flex-1">
+                              <p className="font-bold text-gray-800 text-base group-hover:text-primary transition-colors">{v.variantName}</p>
+                            </div>
+                            <div className="text-right flex flex-col items-end shrink-0">
+                              <p className="font-black text-primary text-lg">{Number(v.price).toLocaleString('vi-VN')}đ</p>
+                              <span className={`inline-block mt-1.5 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${v.isActive ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-gray-200 text-gray-600 border border-gray-300'}`}>
+                                {v.isActive ? 'Hoạt động' : 'Tạm ngừng'}
+                              </span>
+                            </div>
+                          </div>
+                          {v.description && (
+                            <p className="text-sm text-slate-600 bg-white p-3.5 rounded-xl border border-gray-100 italic leading-relaxed shadow-sm">{v.description}</p>
+                          )}
+                        </div>
+                      ))
+                    ) : (
+                      <div className="text-center py-8 bg-gray-50 rounded-[1.5rem] border border-dashed border-gray-200">
+                        <p className="text-xl mb-2 opacity-30">📦</p>
+                        <p className="text-slate-500 text-sm font-medium">Sản phẩm này chưa có biến thể nào.</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Right column */}
+              <div className="lg:col-span-5 space-y-6">
+                {/* Product Image Card */}
+                <div className="bg-white rounded-[2rem] border border-gray-200 overflow-hidden shadow-sm">
+                  {/* Primary image display */}
+                  <div className="w-full aspect-square relative rounded-t-[2rem] overflow-hidden">
+                    {(() => {
+                      const primarySrc = viewProductDetails.imageUrls && viewProductDetails.imageUrls.length > 0
+                        ? (viewProductDetails.imageUrls[viewDisplayImageIndex] || viewProductDetails.imageUrls[0])
+                        : (viewProductDetails.imageUrl || (viewProductDetails.packageImages && viewProductDetails.packageImages.length > 0 ? (viewProductDetails.packageImages.find((img: any) => img.isPrimary)?.imageUrl || viewProductDetails.packageImages[0].imageUrl) : ''));
+                      return primarySrc ? (
+                        <img
+                          src={primarySrc}
+                          alt={viewProductDetails.packageName}
+                          className="w-full h-full object-cover"
+                          onError={(e) => { (e.target as HTMLImageElement).onerror = null; (e.target as HTMLImageElement).src = fallbackProductImage; }}
+                        />
+                      ) : (
+                        <div className="w-full h-full flex flex-col items-center justify-center text-gray-300 bg-gray-50">
+                          <i className="fas fa-image text-5xl mb-3 opacity-40"></i>
+                          <span className="text-sm font-medium text-gray-400">Chưa có ảnh sản phẩm</span>
+                        </div>
+                      );
+                    })()}
+                    {viewProductDetails.imageUrls && viewProductDetails.imageUrls.length > 0 && viewDisplayImageIndex === (viewProductDetails.primaryImageIndex || 0) && (
+                      <div className="absolute top-4 left-4 bg-yellow-400 text-white text-[10px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-md">
+                        ★ Ảnh đại diện
+                      </div>
+                    )}
+                  </div>
+
+                  {/* View mode: multi-image thumbnail list */}
+                  {viewProductDetails.imageUrls && viewProductDetails.imageUrls.length > 1 && (
+                    <div className="p-4 bg-gray-50 border-t border-gray-100 flex gap-3 overflow-x-auto custom-scrollbar">
+                      {viewProductDetails.imageUrls.map((url: string, idx: number) => (
+                        <button
+                          key={idx}
+                          onClick={() => setViewDisplayImageIndex(idx)}
+                          className={`flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden border-2 transition-all ${viewDisplayImageIndex === idx ? 'border-primary shadow-md scale-105' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'
+                            }`}
+                        >
+                          <img src={url} alt={`thumb-${idx}`} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).src = fallbackProductImage; }} />
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Summary Details */}
+                <div className="bg-white rounded-[2rem] border border-gray-200 p-6 shadow-sm relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none">
+                    <svg className="w-32 h-32" fill="currentColor" viewBox="0 0 24 24">
+                      <path d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-5 pb-3 border-b border-gray-100 flex items-center gap-2">
+                    <i className="fas fa-info-circle text-primary"></i> Tóm tắt thông tin
+                  </h3>
+                  <div className="space-y-4 text-sm relative z-10">
+                    <div className="flex justify-between items-center border-b border-gray-50 pb-3">
+                      <span className="text-gray-500 font-semibold">Ngày Đăng Hàng</span>
+                      <span className="font-bold text-gray-800 bg-gray-50 px-3 py-1.5 rounded-xl">{viewProductDetails.createdAt ? new Date(viewProductDetails.createdAt).toLocaleString('vi-VN') : 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between items-center pb-1">
+                      <span className="text-gray-500 font-semibold">Vendor ID</span>
+                      <span className="font-bold text-gray-800">{viewProductDetails.vendorProfileId || viewProductDetails.vendorId || 'N/A'}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 };

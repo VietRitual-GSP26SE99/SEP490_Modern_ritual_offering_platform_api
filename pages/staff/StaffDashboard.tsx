@@ -19,10 +19,10 @@ interface ProductDashboardItem {
 const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout }) => {
   const [recentProducts, setRecentProducts] = useState<ProductDashboardItem[]>([]);
   const [stats, setStats] = useState([
-    { label: 'Tổng sản phẩm', value: '0', change: '0', icon: '📦' },
-    { label: 'Đang hoạt động', value: '0', change: '0', icon: '✅' },
-    { label: 'Chờ duyệt', value: '0', change: '0', icon: '⏳' },
-    { label: 'Đã từ chối', value: '0', change: '0', icon: '❌' },
+    { label: 'Tổng sản phẩm', value: '0', change: '0' },
+    { label: 'Đang hoạt động', value: '0', change: '0' },
+    { label: 'Chờ duyệt', value: '0', change: '0' },
+    { label: 'Đã từ chối', value: '0', change: '0' },
   ]);
   const [loading, setLoading] = useState(true);
 
@@ -40,7 +40,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
       setLoading(true);
       try {
         const allPackages = await packageService.getPackagesByStatus('');
-        
+
         let activeCount = 0;
         let pendingCount = 0;
         let rejectedCount = 0;
@@ -49,9 +49,9 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
           const variants = Array.isArray(pkg.packageVariants) ? pkg.packageVariants : [];
           const activeVariants = variants.filter((v: any) => Boolean(v?.isActive));
           const price = Number((activeVariants[0] || variants[0])?.price || 0);
-          
+
           const isActive = Boolean(pkg.isActive);
-          
+
           if (isActive) activeCount++;
           // Mocking logic for pending vs rejected based on isSuccess or variants if unavailable.
           // Since we don't have true Pending/Rejected fields in ApiPackage, we mock it.
@@ -70,10 +70,10 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
         });
 
         setStats([
-          { label: 'Tổng sản phẩm', value: String(allPackages.length), change: '+'+Math.floor(Math.random()*5), icon: '📦' },
-          { label: 'Đang hoạt động', value: String(activeCount), change: '+'+Math.floor(Math.random()*5), icon: '✅' },
-          { label: 'Chờ duyệt', value: String(pendingCount), change: '0', icon: '⏳' },
-          { label: 'Đã từ chối', value: String(rejectedCount), change: '0', icon: '❌' },
+          { label: 'Tổng sản phẩm', value: String(allPackages.length), change: '+' + Math.floor(Math.random() * 5) },
+          { label: 'Đang hoạt động', value: String(activeCount), change: '+' + Math.floor(Math.random() * 5) },
+          { label: 'Chờ duyệt', value: String(pendingCount), change: '0' },
+          { label: 'Đã từ chối', value: String(rejectedCount), change: '0' },
         ]);
 
         // Sort by date descending and take top 5
@@ -119,10 +119,8 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
               className="bg-white rounded-2xl p-6 border-2 border-gray-200 shadow-sm hover:shadow-lg transition-all"
             >
               <div className="flex items-start justify-between mb-4">
-                <div className="text-3xl">{stat.icon}</div>
-                <span className={`px-3 py-1 rounded-full text-xs font-bold ${
-                  stat.change.startsWith('+') && stat.change !== '+0' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                }`}>
+                <span className={`px-3 py-1 rounded-full text-xs font-bold ${stat.change.startsWith('+') && stat.change !== '+0' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
+                  }`}>
                   {stat.change}
                 </span>
               </div>
@@ -135,10 +133,10 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
         {/* Recent Products */}
         <div className="bg-white rounded-2xl p-6 border-2 border-gray-200 shadow-sm">
           <div className="flex justify-between items-center mb-6">
-             <h2 className="text-xl font-bold text-gray-900">Sản phẩm tham gia gần đây</h2>
-             <button onClick={() => onNavigate('/staff-product')} className="text-sm font-semibold text-gray-600 hover:text-gray-900 underline">Xem tất cả</button>
+            <h2 className="text-xl font-bold text-gray-900">Sản phẩm tham gia gần đây</h2>
+            <button onClick={() => onNavigate('/staff-product')} className="text-sm font-semibold text-gray-600 hover:text-gray-900 underline">Xem tất cả</button>
           </div>
-          
+
           {loading ? (
             <p className="text-gray-500 py-4">Đang tải dữ liệu...</p>
           ) : recentProducts.length === 0 ? (
@@ -158,7 +156,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
                         {getStatusText(product.status)}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-600">{product.category} - Vendor: {product.vendorName.substring(0,8)}</p>
+                    <p className="text-sm text-gray-600">{product.category} - Vendor: {product.vendorName.substring(0, 8)}</p>
                     <p className="text-xs text-gray-500 mt-1">{product.date.split('T')[0]}</p>
                   </div>
                   <div className="text-right whitespace-nowrap ml-4">
