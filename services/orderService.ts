@@ -309,6 +309,8 @@ class OrderService {
                                 packageId: 
                                     item.packageId || 
                                     (item as any).PackageId || 
+                                    (item as any).package?.packageId || 
+                                    (item as any).package?.id || 
                                     (item as any).productId || 
                                     (item as any).ProductId || 
                                     (item as any).package_id || 
@@ -371,6 +373,8 @@ class OrderService {
                             packageId: 
                                 item.packageId || 
                                 (item as any).PackageId || 
+                                (item as any).package?.packageId || 
+                                (item as any).package?.id || 
                                 (item as any).packageID || 
                                 (item as any).productId || 
                                 (item as any).ProductId || 
