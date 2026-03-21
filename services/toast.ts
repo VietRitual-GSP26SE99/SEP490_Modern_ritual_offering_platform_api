@@ -89,11 +89,41 @@ export const showMessage = (options: {
   });
 };
 
+export const showPrompt = async (options: {
+  title: string;
+  text?: string;
+  inputPlaceholder?: string;
+  confirmButtonText?: string;
+  cancelButtonText?: string;
+}) => {
+  return Swal.fire({
+    title: options.title,
+    text: options.text,
+    input: 'textarea',
+    inputPlaceholder: options.inputPlaceholder || 'Nhập nội dung...',
+    inputAttributes: {
+      'aria-label': options.inputPlaceholder || 'Nhập nội dung'
+    },
+    showCancelButton: true,
+    confirmButtonColor: '#8B4513',
+    cancelButtonColor: '#64748b',
+    confirmButtonText: options.confirmButtonText || 'Xác nhận',
+    cancelButtonText: options.cancelButtonText || 'Hủy',
+    customClass: {
+      popup: 'rounded-2xl',
+      confirmButton: 'rounded-lg font-bold px-6 py-3',
+      cancelButton: 'rounded-lg font-bold px-6 py-3',
+      input: 'rounded-xl p-4 border-gray-300 focus:border-[#8B4513] focus:ring-[#8B4513]'
+    }
+  });
+};
+
 export default {
   success: showSuccess,
   error: showError,
   warning: showWarning,
   info: showInfo,
   confirm: showConfirm,
-  message: showMessage
+  message: showMessage,
+  prompt: showPrompt
 };

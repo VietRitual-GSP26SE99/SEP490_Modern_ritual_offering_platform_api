@@ -40,6 +40,8 @@ export interface ApiPackage {
   isActive: boolean;
   createdAt: string;
   packageVariants?: PackageVariant[];
+  imageUrls?: string[];
+  primaryImageIndex?: number;
 }
 
 // Product Variant for UI (parsed from API)

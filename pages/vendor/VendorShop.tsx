@@ -503,7 +503,7 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
   // Handle profile update
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     try {
       setUpdateLoading(true);
 
@@ -511,7 +511,7 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
         alert('Vui lòng nhập đầy đủ địa chỉ mới (Tỉnh/Thành phố, Quận/Huyện, địa chỉ chi tiết).');
         return;
       }
-      
+
       // Only send fields that exist in API
       const selectedProvinceName = provinces.find((p) => p.code === selectedProvince)?.name;
       const selectedDistrictName = districts.find((d) => d.code === selectedDistrict)?.name;
@@ -536,8 +536,8 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
 
       const composedAddressText = isCreatingNewAddress
         ? [detailedAddress?.trim(), selectedWardName, selectedDistrictName, selectedProvinceName]
-            .filter(Boolean)
-            .join(', ')
+          .filter(Boolean)
+          .join(', ')
         : profile?.addressText || formData.addressText;
 
       const apiData: UpdateProfileRequest = {
@@ -550,17 +550,17 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
         longitude: finalLongitude,
         avatarFile: formData.avatarFile
       };
-      
+
       const updatedProfile = await updateProfile(apiData);
-      
+
       // Update profile state safely
       setProfile(updatedProfile);
       setShowUpdateModal(false);
-      
+
       // Show success message then reload
       alert('✅ Cập nhật thông tin thành công!');
       window.location.reload();
-      
+
     } catch (error) {
       console.error('Failed to update profile:', error);
       alert('❌ Cập nhật thất bại: ' + (error instanceof Error ? error.message : 'Lỗi không xác định'));
@@ -726,9 +726,9 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
               <p className="text-gray-700 leading-relaxed mb-6">
                 {vendorProfile?.shopDescription || 'Cung cấp mâm cúng trọn gói chất lượng cao với các dịch vụ tư vấn miễn phí. Cam kết sử dụng nguyên liệu tươi sạch, tuân theo nghi lễ truyền thống.'}
               </p>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-gold/10">
-            
+
                 <div>
                   <p className="text-xs font-bold uppercase text-gold tracking-widest mb-2"> Liên Hệ</p>
                   <div className="space-y-2">
@@ -748,36 +748,36 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
             </div>
 
             {/* Products Preview */}
-            <div className="bg-white rounded-2xl border border-gold/10 shadow-sm p-8">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-primary">
-                   Sản Phẩm Nổi Bật
-                </h2>
-                <button
-                  onClick={() => onNavigate('/vendor/products')}
-                  className="text-sm font-bold text-primary border-b-2 border-primary pb-1 hover:text-gold transition-colors"
-                >
-                  Xem tất cả →
-                </button>
-              </div>
+            {/* <div className="bg-white rounded-2xl border border-gold/10 shadow-sm p-8">
+                <div className="flex items-center justify-between mb-6">
+                  <h2 className="text-2xl font-bold text-primary">
+                    Sản Phẩm Nổi Bật
+                  </h2>
+                  <button
+                    onClick={() => onNavigate('/vendor/products')}
+                    className="text-sm font-bold text-primary border-b-2 border-primary pb-1 hover:text-gold transition-colors"
+                  >
+                    Xem tất cả →
+                  </button>
+                </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {products.map((product) => (
-                  <div key={product.id} className="border border-gold/10 rounded-xl overflow-hidden hover:shadow-lg transition-all">
-                    <div className="bg-gradient-to-br from-primary/10 to-gold/10 h-32 flex items-center justify-center text-5xl">
-                      {product.image}
-                    </div>
-                    <div className="p-4">
-                      <h3 className="font-bold text-primary mb-2 line-clamp-2">{product.name}</h3>
-                      <div className="flex items-center justify-between">
-                        <p className="text-lg font-black text-gold">{(product.price / 1000000).toFixed(1)}M₫</p>
-                        <p className="text-xs text-gray-500">Bán: {product.sold}</p>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {products.map((product) => (
+                    <div key={product.id} className="border border-gold/10 rounded-xl overflow-hidden hover:shadow-lg transition-all">
+                      <div className="bg-gradient-to-br from-primary/10 to-gold/10 h-32 flex items-center justify-center text-5xl">
+                        {product.image}
+                      </div>
+                      <div className="p-4">
+                        <h3 className="font-bold text-primary mb-2 line-clamp-2">{product.name}</h3>
+                        <div className="flex items-center justify-between">
+                          <p className="text-lg font-black text-gold">{(product.price / 1000000).toFixed(1)}M₫</p>
+                          <p className="text-xs text-gray-500">Bán: {product.sold}</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            </div>
+                  ))}
+                </div>
+              </div> */}
           </div>
 
           {/* Right: Quick Actions */}
@@ -833,7 +833,7 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
         </div>
 
         {/* Reviews Section */}
-        <div className="bg-white rounded-2xl border border-gold/10 shadow-sm p-8 mb-12">
+        {/* <div className="bg-white rounded-2xl border border-gold/10 shadow-sm p-8 mb-12">
           <h2 className="text-2xl font-bold text-primary mb-6">
             Đánh Giá Gần Đây
           </h2>
@@ -858,7 +858,7 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
               </div>
             ))}
           </div>
-        </div>
+        </div> */}
       </div>
 
       {/* Update Profile Modal */}

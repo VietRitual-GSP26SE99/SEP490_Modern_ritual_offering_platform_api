@@ -578,11 +578,11 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                             <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-1">Cửa hàng</span>
                             <span className="text-gray-900 font-semibold">{vendorShopName || order.vendorName || 'N/A'}</span>
                           </div>
-                          <div className="hidden md:block w-px h-8 bg-gray-300" />
-                          <div>
+                          {/* <div className="hidden md:block w-px h-8 bg-gray-300" /> */}
+                          {/* <div>
                             <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-1">Mã đơn hàng</span>
                             <span className="font-mono text-gray-900 font-bold text-base">#{order.orderId.slice(0, 8).toUpperCase()}</span>
-                          </div>
+                          </div> */}
                           <div className="hidden md:block w-px h-8 bg-gray-300" />
                           <div>
                             <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-1">Ngày đặt</span>
@@ -741,7 +741,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
               <div className="flex-1">
                 <h2 className="text-2xl font-black text-gray-900">Chi tiết đơn hàng</h2>
                 <p className="text-sm text-gray-500 mt-0.5">
-                  #{selectedOrder.orderId.slice(0, 8).toUpperCase()}
+                  {/* #{selectedOrder.orderId.slice(0, 8).toUpperCase()} */}
                   {hasMeaningfulText(selectedOrder.customer?.fullName) && ` · Khách: ${selectedOrder.customer.fullName}`}
                 </p>
               </div>

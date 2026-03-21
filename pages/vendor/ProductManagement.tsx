@@ -33,29 +33,34 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<PackageStatusFilter>('Approved');
   const [viewProductDetails, setViewProductDetails] = useState<any | null>(null);
+  const [viewDisplayImageIndex, setViewDisplayImageIndex] = useState<number>(0);
   const [editProductOpen, setEditProductOpen] = useState(false);
   const [editSaving, setEditSaving] = useState(false);
   const [editForm, setEditForm] = useState<{
     packageName: string;
     description: string;
     categoryId: number;
-    packageImageUrl: string;
+    packageImageUrls: string[];
+    primaryImageIndex: number;
     variants: { variantName: string; description: string; price: number }[];
   } | null>(null);
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [createSaving, setCreateSaving] = useState(false);
+  const [uploadingImages, setUploadingImages] = useState(false);
   const [createForm, setCreateForm] = useState<{
     packageName: string;
     description: string;
     categoryId: number;
-    packageImageUrl: string;
+    packageImageUrls: string[];
+    primaryImageIndex: number;
     variants: { variantName: string; description: string; price: number }[];
   }>({
     packageName: '',
     description: '',
     categoryId: 1,
-    packageImageUrl: '',
+    packageImageUrls: [],
+    primaryImageIndex: 0,
     variants: [{ variantName: '', description: '', price: 0 }],
   });
 
@@ -107,6 +112,7 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
         throw new Error('Không tìm thấy thông tin chi tiết sản phẩm');
       }
 
+      setViewDisplayImageIndex(pkgDetails.primaryImageIndex || 0);
       setViewProductDetails(pkgDetails);
       setEditProductOpen(false);
     } catch (error) {
@@ -118,11 +124,30 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
 
   const openEditForm = () => {
     if (!viewProductDetails) return;
+    let imgs: string[] = [];
+    let primaryIdx = viewProductDetails.primaryImageIndex || 0;
+
+    if (Array.isArray(viewProductDetails.imageUrls) && viewProductDetails.imageUrls.length > 0) {
+      imgs = [...viewProductDetails.imageUrls];
+    } else {
+      const pkgImages: any[] = viewProductDetails.packageImages || viewProductDetails.images || [];
+      if (pkgImages.length > 0) {
+        const sorted = [...pkgImages].sort((a: any, b: any) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0));
+        sorted.forEach((img: any, i: number) => {
+          imgs.push(String(img.imageUrl || img.url || ''));
+          if (img.isPrimary) primaryIdx = i;
+        });
+      } else if (viewProductDetails.imageUrl) {
+        imgs.push(viewProductDetails.imageUrl);
+      }
+    }
+
     setEditForm({
       packageName: viewProductDetails.packageName || '',
       description: viewProductDetails.description || '',
       categoryId: viewProductDetails.categoryId || 1,
-      packageImageUrl: viewProductDetails.imageUrl || '',
+      packageImageUrls: imgs.filter(url => url.trim() !== ''),
+      primaryImageIndex: primaryIdx,
       variants: (viewProductDetails.packageVariants || []).map((v: any) => ({
         variantName: v.variantName || '',
         description: v.description || '',
@@ -132,15 +157,20 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
     setEditProductOpen(true);
   };
 
-  const handleSaveEdit = async () => {
+  const handleSaveEdit = async (action: 'draft' | 'submit') => {
     if (!viewProductDetails || !editForm) return;
     setEditSaving(true);
     try {
       await packageService.updatePackage(viewProductDetails.packageId || viewProductDetails.id, {
-        ...editForm,
-        action: 'update',
+        packageName: editForm.packageName,
+        description: editForm.description,
+        categoryId: editForm.categoryId,
+        packageImageUrls: editForm.packageImageUrls.filter(u => u.trim()),
+        primaryImageIndex: editForm.primaryImageIndex,
+        action: action,
+        variants: editForm.variants,
       });
-      toast.success('Cập nhật sản phẩm thành công!');
+      toast.success(action === 'draft' ? 'Lưu chỉnh sửa bản nháp thành công!' : 'Đã gửi duyệt thay đổi!');
       // Reload details
       const updated = await packageService.getPackageById(viewProductDetails.packageId || viewProductDetails.id);
       setViewProductDetails(updated);
@@ -187,7 +217,9 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
           category: mapCategory(Number((item as any).categoryId || 0)),
           price: Number.isFinite(price) ? price : 0,
           stock: activeVariants.length,
-          image: String((item as any).imageUrl || ''),
+          image: Array.isArray((item as any).imageUrls) && (item as any).imageUrls.length > 0
+            ? ((item as any).imageUrls[(item as any).primaryImageIndex || 0] || (item as any).imageUrls[0])
+            : String((item as any).imageUrl || ''),
           rating: 0,
           orders: 0,
           status: Boolean((item as any).isActive) ? 'active' : 'inactive',
@@ -244,10 +276,18 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
     }
     setCreateSaving(true);
     try {
-      await packageService.createPackage({ ...createForm, action });
+      await packageService.createPackage({
+        packageName: createForm.packageName,
+        description: createForm.description,
+        categoryId: createForm.categoryId,
+        packageImageUrls: createForm.packageImageUrls,
+        primaryImageIndex: createForm.primaryImageIndex,
+        action,
+        variants: createForm.variants,
+      });
       toast.success(action === 'Draft' ? 'Lưu nháp thành công!' : 'Gửi phê duyệt thành công!');
       setShowAddForm(false);
-      setCreateForm({ packageName: '', description: '', categoryId: 1, packageImageUrl: '', variants: [{ variantName: '', description: '', price: 0 }] });
+      setCreateForm({ packageName: '', description: '', categoryId: 1, packageImageUrls: [], primaryImageIndex: 0, variants: [{ variantName: '', description: '', price: 0 }] });
       loadPackages();
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Lỗi khi tạo sản phẩm';
@@ -324,23 +364,74 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
                   </select>
                 </div>
 
-                {/* Image URL */}
+                {/* Images */}
                 <div>
-                  <label className="text-xs font-black text-gray-400 uppercase tracking-widest block mb-1.5">URL ảnh sản phẩm</label>
-                  <input
-                    type="text"
-                    value={createForm.packageImageUrl}
-                    onChange={e => setCreateForm({ ...createForm, packageImageUrl: e.target.value })}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl text-sm text-gray-700 focus:border-primary focus:outline-none transition"
-                    placeholder="https://..."
-                  />
-                  {createForm.packageImageUrl && (
-                    <img
-                      src={createForm.packageImageUrl}
-                      alt="preview"
-                      className="mt-3 w-24 h-24 object-cover rounded-2xl border border-gray-200 shadow-sm"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                    />
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Hình ảnh sản phẩm</label>
+                    <label className={`text-xs font-bold text-white px-3 py-1 rounded-full cursor-pointer transition ${uploadingImages ? 'bg-gray-400' : 'bg-primary hover:bg-primary/90'
+                      }`}>
+                      {uploadingImages ? ' Đang tải...' : '⬆ Tải ảnh lên'}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        disabled={uploadingImages}
+                        onChange={async (e) => {
+                          const files = Array.from(e.target.files || []);
+                          if (!files.length) return;
+                          setUploadingImages(true);
+                          try {
+                            const urls = await packageService.uploadPackageImages(files);
+                            setCreateForm(f => ({ ...f, packageImageUrls: [...f.packageImageUrls, ...urls] }));
+                          } catch (err) {
+                            toast.error('Lỗi upload ảnh: ' + (err instanceof Error ? err.message : 'Unknown'));
+                          } finally {
+                            setUploadingImages(false);
+                            e.target.value = '';
+                          }
+                        }}
+                      />
+                    </label>
+                  </div>
+                  {createForm.packageImageUrls.length === 0 ? (
+                    <div className="w-full h-28 border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center text-gray-300 bg-gray-50">
+                      <i className="fas fa-image text-3xl mb-1 opacity-40"></i>
+                      <span className="text-xs text-gray-400">Chưa có ảnh</span>
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2">
+                      {createForm.packageImageUrls.map((url, i) => (
+                        <div key={i} className="relative group">
+                          <img
+                            src={url}
+                            alt={`preview-${i}`}
+                            className={`w-20 h-20 object-cover rounded-2xl border-2 transition ${createForm.primaryImageIndex === i ? 'border-yellow-400 shadow-md' : 'border-gray-200'
+                              }`}
+                            onError={(e) => { (e.target as HTMLImageElement).src = fallbackProductImage; }}
+                          />
+                          <div className="absolute inset-0 flex gap-1 items-start justify-end p-1 opacity-0 group-hover:opacity-100 transition">
+                            <button
+                              onClick={() => setCreateForm(f => ({ ...f, primaryImageIndex: i }))}
+                              title="Ảnh đại diện"
+                              className={`w-5 h-5 rounded-full text-xs flex items-center justify-center shadow ${createForm.primaryImageIndex === i ? 'bg-yellow-400 text-white' : 'bg-white text-gray-400 hover:bg-yellow-100'
+                                }`}
+                            >★</button>
+                            <button
+                              onClick={() => {
+                                const urls = createForm.packageImageUrls.filter((_, idx) => idx !== i);
+                                const newPrimary = createForm.primaryImageIndex >= urls.length ? Math.max(0, urls.length - 1) : createForm.primaryImageIndex === i ? 0 : createForm.primaryImageIndex > i ? createForm.primaryImageIndex - 1 : createForm.primaryImageIndex;
+                                setCreateForm(f => ({ ...f, packageImageUrls: urls, primaryImageIndex: newPrimary }));
+                              }}
+                              className="w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center shadow"
+                            >×</button>
+                          </div>
+                          {createForm.primaryImageIndex === i && (
+                            <div className="absolute bottom-0 left-0 right-0 bg-yellow-400 text-white text-[9px] font-black text-center rounded-b-xl">CHÍNH</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
 
@@ -545,10 +636,13 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
                               alt={product.name}
                               className="w-12 h-12 rounded-xl object-cover border border-slate-200 bg-slate-100"
                               loading="lazy"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = fallbackProductImage;
+                              }}
                             />
                             <div>
                               <p className="font-semibold text-gray-800">{product.name}</p>
-                              <p className="text-xs text-gray-500">ID: {product.id}</p>
+                              {/* <p className="text-xs text-gray-500">ID: {product.id}</p> */}
                             </div>
                           </div>
                         </td>
@@ -696,14 +790,31 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
                     }`}>
                     {viewProductDetails.isActive ? 'Đang Bán' : 'Tạm Ngừng'}
                   </span>
-                  <button
-                    onClick={editProductOpen ? handleSaveEdit : openEditForm}
-                    disabled={editSaving}
-                    className={`px-5 py-2 rounded-full text-xs font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-sm flex-shrink-0 disabled:opacity-50 ${editProductOpen ? 'bg-green-600 text-white' : 'bg-primary text-white'
-                      }`}
-                  >
-                    {editProductOpen ? (editSaving ? ' Đang lưu...' : 'Lưu') : ' Chỉnh sửa'}
-                  </button>
+                  {editProductOpen ? (
+                    <>
+                      <button
+                        onClick={() => handleSaveEdit('draft')}
+                        disabled={editSaving}
+                        className="px-5 py-2 rounded-full text-xs font-black text-white bg-yellow-500 uppercase tracking-widest hover:opacity-90 shadow-sm flex-shrink-0 transition-opacity disabled:opacity-50"
+                      >
+                        {editSaving ? ' Đang lưu...' : 'Lưu Nháp'}
+                      </button>
+                      <button
+                        onClick={() => handleSaveEdit('submit')}
+                        disabled={editSaving}
+                        className="px-5 py-2 rounded-full text-xs font-black uppercase tracking-widest text-white bg-green-600 hover:opacity-90 shadow-sm flex-shrink-0 transition-opacity disabled:opacity-50"
+                      >
+                        {editSaving ? ' Đang gửi...' : 'Lưu & Gửi Duyệt'}
+                      </button>
+                    </>
+                  ) : (
+                    <button
+                      onClick={openEditForm}
+                      className="px-5 py-2 bg-primary text-white rounded-full text-xs font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-sm flex-shrink-0"
+                    >
+                      Chỉnh sửa
+                    </button>
+                  )}
                   {editProductOpen && (
                     <button
                       onClick={() => setEditProductOpen(false)}
@@ -851,31 +962,123 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
                 <div className="lg:col-span-5 space-y-6">
                   {/* Product Image Card */}
                   <div className="bg-white rounded-[2rem] border border-gray-200 overflow-hidden shadow-sm">
-                    <div className="w-full aspect-square relative">
-                      {(editProductOpen && editForm ? editForm.packageImageUrl : viewProductDetails.imageUrl) ? (
-                        <img
-                          src={editProductOpen && editForm ? editForm.packageImageUrl : viewProductDetails.imageUrl}
-                          alt={viewProductDetails.packageName}
-                          className="w-full h-full object-cover"
-                          onError={(e) => { (e.target as HTMLImageElement).onerror = null; (e.target as HTMLImageElement).src = fallbackProductImage; }}
-                        />
-                      ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center text-gray-300 bg-gray-50">
-                          <i className="fas fa-image text-5xl mb-3 opacity-40"></i>
-                          <span className="text-sm font-medium text-gray-400">Chưa có ảnh sản phẩm</span>
+                    {/* Primary image display */}
+                    <div className="w-full aspect-square relative rounded-t-[2rem] overflow-hidden">
+                      {(() => {
+                        const primarySrc = editProductOpen && editForm
+                          ? (editForm.packageImageUrls[editForm.primaryImageIndex] || editForm.packageImageUrls[0] || '')
+                          : (viewProductDetails.imageUrls && viewProductDetails.imageUrls.length > 0 ? (viewProductDetails.imageUrls[viewDisplayImageIndex] || viewProductDetails.imageUrls[0]) : viewProductDetails.imageUrl);
+                        return primarySrc ? (
+                          <img
+                            src={primarySrc}
+                            alt={viewProductDetails.packageName}
+                            className="w-full h-full object-cover"
+                            onError={(e) => { (e.target as HTMLImageElement).onerror = null; (e.target as HTMLImageElement).src = fallbackProductImage; }}
+                          />
+                        ) : (
+                          <div className="w-full h-full flex flex-col items-center justify-center text-gray-300 bg-gray-50">
+                            <i className="fas fa-image text-5xl mb-3 opacity-40"></i>
+                            <span className="text-sm font-medium text-gray-400">Chưa có ảnh sản phẩm</span>
+                          </div>
+                        );
+                      })()}
+                      {editProductOpen && editForm && (
+                        <div className="absolute top-2 left-2 bg-primary/90 text-white text-[10px] font-black px-2 py-1 rounded-full uppercase tracking-widest">
+                          Ảnh đại diện
+                        </div>
+                      )}
+                      {!editProductOpen && viewProductDetails.imageUrls && viewProductDetails.imageUrls.length > 0 && viewDisplayImageIndex === (viewProductDetails.primaryImageIndex || 0) && (
+                        <div className="absolute top-4 left-4 bg-yellow-400 text-white text-[10px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-md">
+                          ★ Ảnh đại diện
                         </div>
                       )}
                     </div>
+
+                    {/* View mode: multi-image thumbnail list */}
+                    {!editProductOpen && viewProductDetails.imageUrls && viewProductDetails.imageUrls.length > 1 && (
+                      <div className="p-4 bg-gray-50 border-t border-gray-100 flex gap-3 overflow-x-auto custom-scrollbar">
+                        {viewProductDetails.imageUrls.map((url: string, idx: number) => (
+                          <button
+                            key={idx}
+                            onClick={() => setViewDisplayImageIndex(idx)}
+                            className={`flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden border-2 transition-all ${viewDisplayImageIndex === idx ? 'border-primary shadow-md scale-105' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'
+                              }`}
+                          >
+                            <img src={url} alt={`thumb-${idx}`} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).src = fallbackProductImage; }} />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Edit mode: multi-image URL list */}
                     {editProductOpen && editForm && (
-                      <div className="p-4 border-t border-gray-100">
-                        <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">URL ảnh</label>
-                        <input
-                          type="text"
-                          value={editForm.packageImageUrl}
-                          onChange={e => setEditForm({ ...editForm, packageImageUrl: e.target.value })}
-                          className="w-full px-3 py-2 border-2 border-primary/30 rounded-xl text-xs text-gray-700 focus:border-primary focus:outline-none bg-primary/5"
-                          placeholder="https://..."
-                        />
+                      <div className="p-4 border-t border-gray-100 space-y-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Danh sách ảnh</label>
+                          <label className={`text-xs font-bold text-white px-3 py-1 rounded-full cursor-pointer transition ${uploadingImages ? 'bg-gray-400' : 'bg-primary hover:bg-primary/90'}`}>
+                            {uploadingImages ? ' Đang tải...' : 'Tải ảnh lên'}
+                            <input
+                              type="file"
+                              accept="image/*"
+                              multiple
+                              className="hidden"
+                              disabled={uploadingImages}
+                              onChange={async (e) => {
+                                const files = Array.from(e.target.files || []);
+                                if (!files.length || !editForm) return;
+                                setUploadingImages(true);
+                                try {
+                                  const urls = await packageService.uploadPackageImages(files);
+                                  setEditForm(f => f ? { ...f, packageImageUrls: [...f.packageImageUrls, ...urls] } : f);
+                                } catch (err) {
+                                  toast.error('Lỗi upload ảnh: ' + (err instanceof Error ? err.message : 'Unknown'));
+                                } finally {
+                                  setUploadingImages(false);
+                                  e.target.value = '';
+                                }
+                              }}
+                            />
+                          </label>
+                        </div>
+                        {editForm.packageImageUrls.length === 0 ? (
+                          <div className="w-full h-28 border-2 border-dashed border-gray-200 rounded-2xl flex flex-col items-center justify-center text-gray-300 bg-gray-50">
+                            <i className="fas fa-image text-3xl mb-1 opacity-40"></i>
+                            <span className="text-xs text-gray-400">Chưa có ảnh</span>
+                          </div>
+                        ) : (
+                          <div className="flex flex-wrap gap-2">
+                            {editForm.packageImageUrls.map((url, i) => (
+                              <div key={i} className="relative group">
+                                <img
+                                  src={url}
+                                  alt={`preview-${i}`}
+                                  className={`w-20 h-20 object-cover rounded-2xl border-2 transition ${editForm.primaryImageIndex === i ? 'border-yellow-400 shadow-md' : 'border-gray-200'
+                                    }`}
+                                  onError={(e) => { (e.target as HTMLImageElement).src = fallbackProductImage; }}
+                                />
+                                <div className="absolute inset-0 flex gap-1 items-start justify-end p-1 opacity-0 group-hover:opacity-100 transition">
+                                  <button
+                                    onClick={() => setEditForm(f => f ? { ...f, primaryImageIndex: i } : f)}
+                                    title="Đặt làm ảnh đại diện"
+                                    className={`w-5 h-5 rounded-full text-xs flex items-center justify-center shadow ${editForm.primaryImageIndex === i ? 'bg-yellow-400 text-white' : 'bg-white text-gray-400 hover:bg-yellow-100'
+                                      }`}
+                                  >★</button>
+                                  <button
+                                    onClick={() => {
+                                      const urls = editForm.packageImageUrls.filter((_, idx) => idx !== i);
+                                      const newPrimary = editForm.primaryImageIndex >= urls.length ? Math.max(0, urls.length - 1) : editForm.primaryImageIndex === i ? 0 : editForm.primaryImageIndex > i ? editForm.primaryImageIndex - 1 : editForm.primaryImageIndex;
+                                      setEditForm(f => f ? { ...f, packageImageUrls: urls, primaryImageIndex: newPrimary } : f);
+                                    }}
+                                    className="w-5 h-5 rounded-full bg-red-500 text-white text-xs flex items-center justify-center shadow"
+                                  >×</button>
+                                </div>
+                                {editForm.primaryImageIndex === i && (
+                                  <div className="absolute bottom-0 left-0 right-0 bg-yellow-400 text-white text-[9px] font-black text-center rounded-b-xl">CHÍNH</div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>

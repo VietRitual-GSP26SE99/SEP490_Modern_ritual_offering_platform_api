@@ -143,6 +143,56 @@ class PackageService {
   }
 
   /**
+   * Phê duyệt package (Staff/Admin)
+   * @param id - Package ID
+   */
+  async approvePackage(id: string | number): Promise<boolean> {
+    try {
+      const token = getAuthToken();
+      const normalizedId = Number(String(id).trim());
+      const response = await fetch(`${API_BASE_URL}/packages/${normalizedId}/approve`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json, text/plain, */*',
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return true;
+    } catch (error) {
+      console.error('Failed to approve package:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Từ chối package (Staff/Admin)
+   * @param id - Package ID
+   * @param reason - Lý do từ chối
+   */
+  async rejectPackage(id: string | number, reason: string): Promise<boolean> {
+    try {
+      const token = getAuthToken();
+      const normalizedId = Number(String(id).trim());
+      const response = await fetch(`${API_BASE_URL}/packages/${normalizedId}/reject`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json, text/plain, */*',
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ reason }),
+      });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return true;
+    } catch (error) {
+      console.error('Failed to reject package:', error);
+      return false;
+    }
+  }
+
+  /**
    * Lấy packages theo category
    * @param categoryId - Category ID (string hoặc number)
    * @returns Promise<ApiPackage[]>
@@ -268,8 +318,12 @@ class PackageService {
       description: apiPackage.description || 'Mâm cúng truyền thống với đầy đủ lễ vật',
       category: this.mapCategoryIdToOccasion(apiPackage.categoryId?.toString() || '1'),
       price: defaultVariant?.price || 2500000,
-      image: (apiPackage as any).imageUrl || this.generatePlaceholderImage(pkgId),
-      gallery: this.generateGalleryImages(pkgId),
+      image: ((apiPackage as any).imageUrls && (apiPackage as any).imageUrls.length > 0)
+        ? ((apiPackage as any).imageUrls[(apiPackage as any).primaryImageIndex || 0] || (apiPackage as any).imageUrls[0])
+        : ((apiPackage as any).imageUrl || this.generatePlaceholderImage(pkgId)),
+      gallery: ((apiPackage as any).imageUrls && (apiPackage as any).imageUrls.length > 0)
+        ? (apiPackage as any).imageUrls
+        : this.generateGalleryImages(pkgId),
       rating: 4.8,
       reviews: 128,
       tag: apiPackage.isActive ? 'NEW' : undefined,
@@ -375,7 +429,8 @@ class PackageService {
       packageName: string;
       description: string;
       categoryId: number;
-      packageImageUrl: string;
+      packageImageUrls: string[];
+      primaryImageIndex: number;
       action: string;
       variants: { variantName: string; description: string; price: number }[];
     }
@@ -405,7 +460,8 @@ class PackageService {
     packageName: string;
     description: string;
     categoryId: number;
-    packageImageUrl: string;
+    packageImageUrls: string[];
+    primaryImageIndex: number;
     action: string;
     variants: { variantName: string; description: string; price: number }[];
   }): Promise<any> {
@@ -425,6 +481,57 @@ class PackageService {
     }
     const data: any = await response.json().catch(() => ({}));
     return data;
+  }
+
+  /**
+   * Upload nhiều ảnh package, trả về danh sách URL ảnh - POST /api/packages/upload-images
+   */
+  async uploadPackageImages(files: File[]): Promise<string[]> {
+    const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB 
+    const isAnyFileLarge = files.some(f => f.size > MAX_FILE_SIZE);
+    if (isAnyFileLarge) {
+      throw new Error('Dung lượng ảnh tải lên vượt quá giới hạn 1MB. Vui lòng nén hoặc chọn ảnh nhẹ hơn.');
+    }
+
+    const token = getAuthToken();
+    const formData = new FormData();
+    files.forEach((file) => formData.append('Images', file));
+
+    return new Promise<string[]>((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${API_BASE_URL}/packages/upload-images`, true);
+      xhr.setRequestHeader('Accept', 'application/json, text/plain, */*');
+      if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            if (data?.result?.imageUrls && Array.isArray(data.result.imageUrls)) { resolve(data.result.imageUrls); return; }
+            if (Array.isArray(data?.result)) { resolve(data.result); return; }
+            if (Array.isArray(data?.urls)) { resolve(data.urls); return; }
+            if (Array.isArray(data)) { resolve(data); return; }
+            resolve([]);
+          } catch {
+            resolve([]);
+          }
+        } else {
+          try {
+            const errObj = JSON.parse(xhr.responseText);
+            reject(new Error(errObj.message || errObj.title || `HTTP error! status: ${xhr.status}`));
+          } catch {
+            reject(new Error(xhr.responseText || `HTTP error! status: ${xhr.status}`));
+          }
+        }
+      };
+      
+      xhr.onerror = () => {
+        console.error('XHR Upload Error');
+        reject(new Error('Lỗi mạng khi upload ảnh (Vite Proxy ProxyRes Error). Hãy chắc chắn server Backend đang chạy và ổn định.'));
+      };
+      
+      xhr.send(formData);
+    });
   }
 }
 

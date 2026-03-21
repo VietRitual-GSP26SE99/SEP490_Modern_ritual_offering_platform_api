@@ -13,6 +13,17 @@ export default defineConfig(({ mode }) => {
             target: 'https://vietritual.click',
             changeOrigin: true,
             secure: false,
+            timeout: 300000,
+            proxyTimeout: 300000,
+            configure: (proxy, _options) => {
+              proxy.on('error', (err, _req, res) => {
+                console.error('Proxy error:', err);
+                if (!res.headersSent) {
+                  res.writeHead(502, { 'Content-Type': 'application/json' });
+                }
+                res.end(JSON.stringify({ error: err.message, code: (err as any).code }));
+              });
+            }
           }
         }
       },
