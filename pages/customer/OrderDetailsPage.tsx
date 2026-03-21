@@ -5,6 +5,7 @@ import { refundService, RefundRecord } from '../../services/refundService';
 import toast from '../../services/toast';
 import RefundModal from '../../components/customer/RefundModal';
 import ReviewModal from '../../components/customer/ReviewModal';
+import ImageModal from '../../components/ImageModal';
 
 const OrderDetailsPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
@@ -19,6 +20,7 @@ const OrderDetailsPage: React.FC = () => {
     const [refundInfo, setRefundInfo] = useState<RefundRecord | null>(null);
     const [escalating, setEscalating] = useState(false);
     const [refundDismissed, setRefundDismissed] = useState(false);
+    const [isProofModalOpen, setIsProofModalOpen] = useState(false);
 
     const fetchOrder = async () => {
         if (!id) return;
@@ -92,7 +94,17 @@ const OrderDetailsPage: React.FC = () => {
     };
 
     const handleCancelOrder = async () => {
-        if (!order || window.confirm('Bạn có chắc chắn muốn hủy đơn hàng này không? Không thể hoàn tác!') === false) {
+        if (!order) return;
+
+        const confirmResult = await toast.confirm({
+            title: 'Xác nhận hủy đơn hàng',
+            text: 'Bạn có chắc chắn muốn hủy đơn hàng này không? Không thể hoàn tác!',
+            icon: 'warning',
+            confirmButtonText: 'Hủy đơn',
+            cancelButtonText: 'Không',
+        });
+
+        if (!confirmResult.isConfirmed) {
             return;
         }
 
@@ -114,7 +126,17 @@ const OrderDetailsPage: React.FC = () => {
     };
 
     const handleCompleteOrder = async () => {
-        if (!order || window.confirm('Bạn xác nhận đã nhận đủ hàng và hài lòng với dịch vụ? Thao tác này sẽ hoàn thành đơn hàng.') === false) {
+        if (!order) return;
+
+        const confirmResult = await toast.confirm({
+            title: 'Xác nhận hoàn thành đơn',
+            text: 'Bạn xác nhận đã nhận đủ hàng và hài lòng với dịch vụ? Thao tác này sẽ hoàn thành đơn hàng.',
+            icon: 'question',
+            confirmButtonText: 'Hoàn thành',
+            cancelButtonText: 'Hủy',
+        });
+
+        if (!confirmResult.isConfirmed) {
             return;
         }
 
@@ -182,6 +204,8 @@ const OrderDetailsPage: React.FC = () => {
     }
 
     if (!order) return null;
+
+    const deliveryProofUrl = order.delivery?.deliveryProofImageUrl || (order as any).deliveryProofImageUrl || '';
 
     return (
         <div className="bg-gray-50 min-h-screen py-10">
@@ -421,6 +445,18 @@ const OrderDetailsPage: React.FC = () => {
                                     <p className="text-xs text-gray-500 mb-1">Địa chỉ giao mâm</p>
                                     <p className="font-medium text-sm text-gray-800 leading-relaxed">{order.delivery?.deliveryAddress || (order as any).deliveryAddress}</p>
                                 </div>
+
+                                {deliveryProofUrl && (
+                                    <div>
+                                        <p className="text-xs text-gray-500 mb-2">Ảnh giao hàng</p>
+                                        <button
+                                            onClick={() => setIsProofModalOpen(true)}
+                                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold bg-primary text-white hover:bg-primary/90 transition"
+                                        >
+                                            Xem ảnh
+                                        </button>
+                                    </div>
+                                )}
                             </div>
                         </div>
 
@@ -450,6 +486,13 @@ const OrderDetailsPage: React.FC = () => {
                     packageName={selectedItemForReview.packageName}
                 />
             )}
+
+            <ImageModal
+                isOpen={isProofModalOpen}
+                imageSrc={deliveryProofUrl}
+                altText="Ảnh giao hàng"
+                onClose={() => setIsProofModalOpen(false)}
+            />
         </div>
     );
 };

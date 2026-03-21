@@ -36,6 +36,30 @@ export interface Review {
 }
 
 class ReviewService {
+    private extractReviewArray(data: any): Review[] {
+        if (Array.isArray(data)) {
+            return data as Review[];
+        }
+
+        if (Array.isArray(data?.result)) {
+            return data.result as Review[];
+        }
+
+        if (Array.isArray(data?.result?.reviews)) {
+            return data.result.reviews as Review[];
+        }
+
+        if (Array.isArray(data?.data)) {
+            return data.data as Review[];
+        }
+
+        if (Array.isArray(data?.items)) {
+            return data.items as Review[];
+        }
+
+        return [];
+    }
+
     private getHeaders(isMultipart = false): HeadersInit {
         const token = getAuthToken();
         const headers: HeadersInit = {
@@ -98,10 +122,7 @@ class ReviewService {
             }
 
             const data = await response.json();
-            if (data.isSuccess && Array.isArray(data.result)) {
-                return data.result;
-            }
-            return [];
+            return this.extractReviewArray(data);
         } catch (error) {
             console.error('Failed to fetch reviews by variant:', error);
             return [];
@@ -120,10 +141,7 @@ class ReviewService {
             }
 
             const data = await response.json();
-            if (data.isSuccess && Array.isArray(data.result)) {
-                return data.result;
-            }
-            return [];
+            return this.extractReviewArray(data);
         } catch (error) {
             console.error('Failed to fetch vendor reviews:', error);
             return [];
@@ -142,10 +160,7 @@ class ReviewService {
             }
 
             const data = await response.json();
-            if (data.isSuccess && Array.isArray(data.result)) {
-                return data.result;
-            }
-            return [];
+            return this.extractReviewArray(data);
         } catch (error) {
             console.error('Failed to fetch reviews by vendor ID:', error);
             return [];

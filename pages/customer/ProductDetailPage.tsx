@@ -154,12 +154,28 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
   const isOwnerVendor = isVendor || isModerator; // Simplified for now but could be refined to check vendorId match if needed.
 
   const fetchReviews = useCallback(async () => {
-    const selectedVariant = product?.variants?.[selectedVariantIndex];
+    const selectedVariant = product?.variants?.[selectedVariantIndex]
+      ?? (Array.isArray(packageMeta?.packageVariants)
+        ? packageMeta.packageVariants[selectedVariantIndex]
+        : null);
     if (!selectedVariant || !selectedVariant.variantId) return;
+
+    const normalizedVariantId = typeof selectedVariant.variantId === 'string'
+      ? selectedVariant.variantId.trim()
+      : selectedVariant.variantId;
+
+    console.log('🔎 Review variantId:', normalizedVariantId, {
+      selectedVariant,
+      packageVariantIds: Array.isArray(packageMeta?.packageVariants)
+        ? packageMeta.packageVariants.map((v: any) => v.variantId)
+        : [],
+      productId: product?.id
+    });
 
     setLoadingReviews(true);
     try {
-      const data = await reviewService.getReviewsByVariant(selectedVariant.variantId);
+      const data = await reviewService.getReviewsByVariant(normalizedVariantId);
+      console.log('✅ Reviews fetched:', normalizedVariantId, data.length);
       setReviews(data);
     } catch (error) {
       console.error('Error fetching reviews:', error);
@@ -213,7 +229,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
     }
   };
 
-  const reviewsToDisplay = reviews.filter(r => r.isVisible || isOwnerVendor);
+  const reviewsToDisplay = reviews.filter(r => (r.isVisible !== false) || isOwnerVendor);
   const averageRating = reviewsToDisplay.length > 0
     ? (reviewsToDisplay.reduce((acc, r) => acc + r.rating, 0) / reviewsToDisplay.length).toFixed(1)
     : '0.0';

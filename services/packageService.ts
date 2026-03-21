@@ -198,8 +198,14 @@ class PackageService {
     const defaultVariant = apiPackage.packageVariants?.[0];
     
     // Parse variants và chuyển description thành items array
+    const packageId = apiPackage.packageId ?? (apiPackage as any).id;
     const parsedVariants = apiPackage.packageVariants?.map(variant => {
       console.log('🔍 Processing variant:', variant.variantName, 'Description:', variant.description);
+
+      const rawVariantId = (variant as any).variantId ?? (variant as any).id ?? (variant as any).packageVariantId;
+      const resolvedVariantId = (variant as any).id && packageId != null && Number((variant as any).variantId) === Number(packageId)
+        ? (variant as any).id
+        : rawVariantId;
       
       // Extract items from description
       let items: string[] = [];
@@ -237,7 +243,7 @@ class PackageService {
       }
       
       return {
-        variantId: variant.variantId,
+        variantId: resolvedVariantId,
         packageId: variant.packageId,
         tier: variant.variantName,
         price: variant.price,
