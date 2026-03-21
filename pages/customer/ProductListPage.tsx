@@ -366,13 +366,13 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
               {filteredProducts.map((p) => (
                 <div
                   key={p.id}
-                  className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-2xl transition-all border border-gold/10 group"
+                  className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-2xl transition-all border border-gold/10 group flex flex-col h-full"
                 >
                   <div
-                    className="relative aspect-square overflow-hidden cursor-pointer"
+                    className="relative w-full pt-[100%] overflow-hidden cursor-pointer shrink-0"
                     onClick={() => handleNavigateToProductDetail(p.id)}
                   >
-                    <img className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" src={p.image} alt={p.name} />
+                    <img className="absolute top-0 left-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" src={p.image} alt={p.name} />
                     <div className="absolute top-4 left-4 flex flex-col gap-2">
                       {p.tag && (
                         <span className="bg-primary/90 backdrop-blur-sm text-white text-[10px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-lg">
@@ -382,7 +382,7 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
                     </div>
                   </div>
                   <div
-                    className="p-6 cursor-pointer"
+                    className="p-6 cursor-pointer flex-1 flex flex-col"
                     onClick={() => handleNavigateToProductDetail(p.id)}
                   >
                     <div className="flex items-center gap-1 mb-2 text-gold">
@@ -398,7 +398,7 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
                       </p>
                     )}
                     {/* <p className="text-slate-500 text-xs line-clamp-2 mb-6">{p.description}</p> */}
-                    <div className="pt-4 border-t border-gold/10 flex items-center justify-between">
+                    <div className="pt-4 mt-auto border-t border-gold/10 flex items-center justify-between">
                       <p className="text-xl font-black text-primary tracking-tight">{p.price.toLocaleString()}đ</p>
                       <button
                         className="bg-primary text-white p-2.5 rounded-xl hover:scale-105 transition-transform z-10"

@@ -240,17 +240,19 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
     return { stars, count, percentage };
   });
 
-  const thumbnailImages = product?.gallery || [
-    'https://picsum.photos/400/400?random=1',
-    'https://picsum.photos/400/400?random=2',
-    'https://picsum.photos/400/400?random=3',
-    'https://picsum.photos/400/400?random=4',
-  ];
+  const thumbnailImages = product?.gallery && product.gallery.length > 0 
+    ? product.gallery 
+    : [
+        'https://picsum.photos/400/400?random=1',
+        'https://picsum.photos/400/400?random=2',
+        'https://picsum.photos/400/400?random=3',
+        'https://picsum.photos/400/400?random=4',
+      ];
 
-  const productImages = [
+  const productImages = Array.from(new Set([
     product?.image || '',
     ...thumbnailImages
-  ].filter(img => img);
+  ])).filter(img => img);
 
   const selectedVariantMeta = Array.isArray(packageMeta?.packageVariants)
     ? packageMeta.packageVariants[selectedVariantIndex]

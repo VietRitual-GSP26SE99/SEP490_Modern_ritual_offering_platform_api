@@ -230,7 +230,7 @@ const OrderDetailsPage: React.FC = () => {
                     </button>
                     <div>
                         <h1 className="text-2xl font-black text-gray-900 font-display">Chi tiết đơn hàng</h1>
-                        <p className="text-sm text-gray-500">Mã: #{order.orderId.substring(0, 8).toUpperCase()}</p>
+                        {/* <p className="text-sm text-gray-500">Mã: #{order.orderId.substring(0, 8).toUpperCase()}</p> */}
                     </div>
                 </div>
 

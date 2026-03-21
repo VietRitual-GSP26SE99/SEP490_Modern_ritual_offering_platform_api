@@ -132,10 +132,10 @@ const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
             {products.map((product) => (
             <div
               key={product.id}
-              className="bg-white rounded-3xl overflow-hidden shadow-md hover:shadow-2xl transition-all border border-gray-200 group cursor-pointer"
+              className="bg-white rounded-3xl overflow-hidden shadow-md hover:shadow-2xl transition-all border border-gray-200 group cursor-pointer flex flex-col h-full"
               onClick={() => handleNavigateToProductDetail(product.id)}
             >
-                    <div className="relative h-72 overflow-hidden">
+                    <div className="relative h-72 overflow-hidden shrink-0">
                         <img alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src={product.image} />
                         {product.tag && (
                             <div className="absolute top-4 left-4 bg-primary text-white text-[10px] font-black tracking-widest px-3 py-1.5 rounded-full uppercase">
@@ -143,7 +143,7 @@ const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
                             </div>
                         )}
                     </div>
-                    <div className="p-8">
+                    <div className="p-8 flex-1 flex flex-col">
                         <h3 className="text-xl font-black mb-2 group-hover:text-primary transition-colors leading-tight">{product.name}</h3>
                         {product.vendorName && (
                             <p className="text-xs text-slate-600 mb-2 flex items-center gap-1">
@@ -152,7 +152,7 @@ const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
                             </p>
                         )}
                         <p className="text-gray-500 text-sm mb-6 line-clamp-2">{product.description}</p>
-                        <div className="flex items-center justify-between">
+                        <div className="flex items-center justify-between mt-auto">
                             <span className="text-primary text-2xl font-black tracking-tight">{product.price.toLocaleString()}đ</span>
                           <button
                             onClick={(event) => {

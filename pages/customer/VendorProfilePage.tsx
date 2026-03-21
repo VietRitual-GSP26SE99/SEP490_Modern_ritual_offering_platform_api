@@ -15,15 +15,15 @@ const MinimalProductCard: React.FC<{
   onNavigate: (path: string) => void;
 }> = ({ id, name, price, image, rating, onNavigate }) => (
   <div
-    className="bg-white rounded-none overflow-hidden border border-slate-100 hover:border-slate-300 transition-all cursor-pointer group"
+    className="bg-white rounded-none overflow-hidden border border-slate-100 hover:border-slate-300 transition-all cursor-pointer group flex flex-col h-full"
     onClick={() => onNavigate(`/product/${id}`)}
   >
-    <div className="relative aspect-square overflow-hidden bg-slate-50">
-      <img src={image} alt={name} className="w-full h-full object-cover grayscale-[0.5] group-hover:grayscale-0 transition-all duration-500" />
+    <div className="relative w-full pt-[100%] overflow-hidden bg-slate-50 shrink-0">
+      <img src={image} alt={name} className="absolute top-0 left-0 w-full h-full object-cover grayscale-[0.5] group-hover:grayscale-0 transition-all duration-500" />
     </div>
-    <div className="p-4 space-y-2">
-      <h4 className="text-sm font-bold text-slate-800 line-clamp-2 min-h-[40px] leading-snug">{name}</h4>
-      <div className="flex items-center justify-between items-baseline pt-2">
+    <div className="p-4 flex-1 flex flex-col">
+      <h4 className="text-sm font-bold text-slate-800 line-clamp-2 min-h-[40px] leading-snug mb-2">{name}</h4>
+      <div className="flex justify-between items-baseline pt-2 mt-auto">
         <p className="text-slate-900 font-bold text-sm tracking-tight">{price.toLocaleString('vi-VN')}đ</p>
         <span className="text-[10px] font-bold text-slate-400">★ {rating}</span>
       </div>
