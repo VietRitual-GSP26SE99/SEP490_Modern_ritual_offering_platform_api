@@ -15,6 +15,8 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
   const navigate = useNavigate();
   const [product, setProduct] = useState<Product | null>(null);
   const [vendor, setVendor] = useState<VendorProfile | null>(null);
+  const [vendorProducts, setVendorProducts] = useState<Product[]>([]);
+  const [vendorOverallReviews, setVendorOverallReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
   const [showImageModal, setShowImageModal] = useState(false);
@@ -62,18 +64,23 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
   }, []);
 
   const buildVendorFromPackage = (pkg: any): VendorProfile | null => {
-    const vendorId = String(pkg?.vendorProfileId || pkg?.vendorId || pkg?.vendor?.vendorProfileId || pkg?.vendor?.vendorId || '').trim();
+    const profileId = String(pkg?.vendorProfileId || pkg?.vendorId || pkg?.vendor?.profileId || pkg?.vendor?.vendorProfileId || pkg?.vendor?.vendorId || '').trim();
     const shopName = String(pkg?.shopName || pkg?.vendorName || pkg?.vendor?.shopName || pkg?.vendor?.vendorName || '').trim();
-    if (!vendorId || !shopName) return null;
+    if (!profileId || !shopName) return null;
 
     return {
-      vendorProfileId: vendorId,
-      shopName,
-      description: pkg?.vendor?.description,
-      address: pkg?.vendor?.address || pkg?.vendor?.addressText,
-      phoneNumber: pkg?.vendor?.phoneNumber,
-      rating: typeof pkg?.vendor?.rating === 'number' ? pkg.vendor.rating : undefined,
-      isActive: typeof pkg?.vendor?.isActive === 'boolean' ? pkg.vendor.isActive : true,
+      profileId: profileId,
+      shopName: shopName,
+      shopDescription: pkg?.vendor?.description,
+      avatarUrl: pkg?.vendor?.avatarUrl,
+      businessType: pkg?.vendor?.businessType,
+      shopAddressText: pkg?.vendor?.address || pkg?.vendor?.addressText,
+      ratingAvg: typeof pkg?.vendor?.ratingAvg === 'number' ? pkg.vendor.ratingAvg : (typeof pkg?.vendor?.rating === 'number' ? pkg.vendor.rating : undefined),
+      dailyCapacity: pkg?.vendor?.dailyCapacity,
+      tierName: pkg?.vendor?.tierName,
+      createdAt: pkg?.vendor?.createdAt || new Date().toISOString(), // Fallback to current date if not available
+      // Legacy fields for compatibility
+      vendorProfileId: profileId,
       responseRate: pkg?.vendor?.responseRate,
       joinedDate: pkg?.vendor?.joinedDate || pkg?.vendor?.createdAt,
       productCount: pkg?.vendor?.productCount,
@@ -97,18 +104,34 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
         const apiPackage = await packageService.getPackageById(numericId);
         if (apiPackage) {
           setPackageMeta(apiPackage as any);
+          // Sau khi lấy được API Package, lấy thông tin Vendor để hiển thị Shop Name
           const vendorId = apiPackage.vendorProfileId || (apiPackage as any).vendorId;
-          const vendorFromPackage = buildVendorFromPackage(apiPackage as any);
-          const vendorInfo = vendorFromPackage || (vendorId ? await vendorService.getVendorCached(vendorId) : null);
-          const vendorMap = new Map();
-          if (vendorInfo && vendorId) {
-            vendorMap.set(vendorId, vendorInfo);
-            setVendor(vendorInfo);
-          } else {
-            setVendor(null);
+          let vendorMap = new Map();
+
+          if (vendorId) {
+            try {
+              const vendorData = await vendorService.getVendorCached(vendorId);
+              if (vendorData) {
+                vendorMap = new Map([[vendorId, vendorData]]);
+                setVendor(vendorData); // Set vendor state here
+                console.log('✅ Vendor profile included for mapping:', vendorData.shopName);
+
+                // Concurrent fetch for vendor meta
+                Promise.all([
+                  packageService.getPackagesByVendor(vendorId),
+                  reviewService.getReviewsByVendorId(vendorId)
+                ]).then(([pkgs, reviews]) => {
+                  packageService.mapToProductsWithVendors(pkgs).then(setVendorProducts);
+                  setVendorOverallReviews(reviews);
+                }).catch(e => console.warn('⚠️ Error fetching vendor extra data:', e));
+              }
+            } catch (vError) {
+              console.warn('⚠️ Could not fetch vendor for package:', vError);
+            }
           }
 
           const mappedProduct = packageService.mapToProduct(apiPackage, vendorMap);
+          console.log('✅ Found API Package:', mappedProduct);
           setProduct(mappedProduct);
         } else {
           setPackageMeta(null);
@@ -193,7 +216,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
   const reviewsToDisplay = reviews.filter(r => r.isVisible || isOwnerVendor);
   const averageRating = reviewsToDisplay.length > 0
     ? (reviewsToDisplay.reduce((acc, r) => acc + r.rating, 0) / reviewsToDisplay.length).toFixed(1)
-    : (product?.rating || '0.0');
+    : '0.0';
 
   const ratingDistribution = [5, 4, 3, 2, 1].map(stars => {
     const count = reviewsToDisplay.filter(r => Math.round(r.rating) === stars).length;
@@ -335,6 +358,11 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
     );
   }
 
+  const vendorRatingCount = vendorOverallReviews.length;
+  const vendorAvgRating = vendorRatingCount > 0
+    ? (vendorOverallReviews.reduce((acc, r) => acc + r.rating, 0) / vendorRatingCount).toFixed(1)
+    : (vendor?.ratingAvg || '0.0');
+
   return (
     <div className="max-w-7xl mx-auto px-6 md:px-10 py-12">
       <nav className="flex items-center gap-2 mb-10 text-[13px] font-medium text-slate-400">
@@ -375,12 +403,12 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
               <span className="px-2.5 py-1 bg-gold/10 text-gold text-[10px] font-black uppercase tracking-widest rounded-md">Truyền thống</span>
             </div>
             <h1 className="text-4xl font-display font-black leading-tight text-primary">{product.name}</h1>
-            {product.vendorName && (
+            {/* {product.vendorName && (
               <p className="text-sm text-slate-600 flex items-center gap-2">
                 <span className="text-slate-400">Được đăng bởi</span>
                 <span className="font-bold text-primary">{product.vendorName}</span>
               </p>
-            )}
+            )} */}
             <div className="flex items-baseline gap-4">
               <p className="text-4xl font-black text-primary tracking-tight">
                 {(product.variants && product.variants[selectedVariantIndex]
@@ -391,10 +419,10 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                 <p className="text-lg text-slate-400 line-through">{product.originalPrice.toLocaleString()}đ</p>
               )}
             </div>
-            <div className="flex items-center gap-2">
+            {/* <div className="flex items-center gap-2">
               <span style={{ color: '#FFD700' }}>★</span>
               <span className="text-sm font-bold text-slate-600">{averageRating} ({reviewsToDisplay.length > 0 ? reviewsToDisplay.length : product.reviews} đánh giá)</span>
-            </div>
+            </div> */}
           </div>
 
           <div className="p-6 bg-white rounded-3xl border border-gold/10 shadow-sm space-y-6">
@@ -473,33 +501,82 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
       </div>
 
       {vendor && (
-        <div className="mt-8 bg-white rounded-3xl p-8 border border-gold/10 shadow-sm">
-          <div className="flex flex-col md:flex-row gap-6">
-            <div className="flex items-center gap-4 md:w-1/3 pb-6 md:pb-0 md:border-r border-gold/10">
-              <div className="w-20 h-20 rounded-full bg-gradient-to-br from-primary to-orange-400 flex items-center justify-center text-white text-2xl font-black shadow-lg">
-                {vendor.shopName.charAt(0).toUpperCase()}
-              </div>
-              <div>
-                <h3 className="font-bold text-lg text-slate-900">{vendor.shopName}</h3>
-                <p className="text-xs text-green-600 mt-1">● Online</p>
-                <div className="flex gap-2 mt-3">
-                  <button className="px-4 py-1.5 border-2 border-primary text-primary text-xs font-bold rounded-lg hover:bg-primary hover:text-white transition">💬 Chat Ngay</button>
-                  <button onClick={() => vendor.vendorProfileId && onNavigate(`/vendor/${vendor.vendorProfileId}`)} className="px-4 py-1.5 border-2 border-slate-300 text-slate-700 text-xs font-bold rounded-lg hover:bg-slate-50 transition">🏪 Xem Shop</button>
+        <div className="mt-8 bg-white border border-slate-200 overflow-hidden rounded-2xl">
+          {/* Compact High Contrast Shop Header Section */}
+          <div className="bg-slate-900 p-6 text-white text-sm ">
+            <div className="flex flex-col lg:flex-row gap-8 items-center lg:items-center">
+              {/* Left side: Shop Identity Compact */}
+              <div className="flex items-center gap-6 lg:w-[35%] shrink-0">
+                <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center text-slate-900 text-xl font-display font-black border-2 border-white/20 shrink-0">
+                  {vendor.avatarUrl ? (
+                    <img src={vendor.avatarUrl} alt={vendor.shopName} className="w-full h-full object-cover" />
+                  ) : (
+                    vendor.shopName.charAt(0).toUpperCase()
+                  )}
+                </div>
+
+                <div className="space-y-2 flex-1 min-w-0">
+                  <div>
+                    <h3 className="text-xl font-display font-black tracking-tight italic truncate">
+                      {vendor.shopName}
+                    </h3>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
+                      <p className="text-[9px] font-black text-white/40 uppercase tracking-widest">Hoạt động</p>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 pt-1">
+                    <button className="px-4 py-1.5 bg-white text-slate-900 text-[10px] font-black rounded-none uppercase tracking-widest hover:bg-slate-100 transition-all">
+                      Nhắn tin
+                    </button>
+                    <button
+                      onClick={() => (vendor.profileId || (vendor as any).vendorProfileId) && onNavigate(`/vendor/${vendor.profileId || (vendor as any).vendorProfileId}`)}
+                      className="px-4 py-1.5 bg-transparent border border-white/30 text-white text-[10px] font-black rounded-none uppercase tracking-widest hover:bg-white/10 transition-all"
+                    >
+                      Xem Shop
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-            <div className="md:w-2/3 grid grid-cols-2 md:grid-cols-3 gap-6 md:pl-6">
-              <div>
-                <span className="text-slate-500 text-xs">Đánh giá</span>
-                <p className="text-primary font-bold">{vendor.rating ? `${vendor.rating}/5` : '4.8/5'}</p>
-              </div>
-              <div>
-                <span className="text-slate-500 text-xs">Tỉ lệ phản hồi</span>
-                <p className="text-primary font-bold">{vendor.responseRate ? `${vendor.responseRate}%` : '96%'}</p>
-              </div>
-              <div>
-                <span className="text-slate-500 text-xs">Tham gia</span>
-                <p className="font-bold text-slate-700">{vendor.joinedDate || '5 năm trước'}</p>
+
+              {/* Right side: Compact High Contrast Stats */}
+              <div className="flex-1 w-full lg:border-l border-white/10 lg:pl-10">
+                <div className="grid grid-cols-3 sm:grid-cols-6 gap-y-6 gap-x-4">
+                  <div className="space-y-1 text-center lg:text-left">
+                    <span className="text-[8px] font-black text-white/40 uppercase tracking-widest block">Đánh giá</span>
+                    <p className="text-base font-display font-black border-l border-white/30 pl-2 leading-none whitespace-nowrap">
+                      {vendorAvgRating} <span className="text-[9px] font-bold text-white/30">({vendorRatingCount})</span>
+                    </p>
+                  </div>
+
+                  <div className="space-y-1 text-center lg:text-left">
+                    <span className="text-[8px] font-black text-white/40 uppercase tracking-widest block">Hạng</span>
+                    <p className="text-base font-display font-black border-l border-white/30 pl-2 leading-none uppercase">{vendor.tierName || 'Bạc'}</p>
+                  </div>
+
+                  <div className="space-y-1 text-center lg:text-left">
+                    <span className="text-[8px] font-black text-white/40 uppercase tracking-widest block">Sản phẩm</span>
+                    <p className="text-base font-display font-black border-l border-white/30 pl-2 leading-none">{vendorProducts.length || '0'}</p>
+                  </div>
+
+                  <div className="space-y-1 text-center lg:text-left">
+                    <span className="text-[8px] font-black text-white/40 uppercase tracking-widest block">Phản hồi</span>
+                    <p className="text-base font-display font-black border-l border-white/30 pl-2 leading-none">98%</p>
+                  </div>
+
+                  <div className="space-y-1 text-center lg:text-left">
+                    <span className="text-[8px] font-black text-white/40 uppercase tracking-widest block">Tham gia</span>
+                    <p className="text-base font-display font-black border-l border-white/30 pl-2 leading-none">
+                      {vendor.joinedDate || (vendor.createdAt ? `${Math.floor((new Date().getTime() - new Date(vendor.createdAt).getTime()) / (1000 * 60 * 60 * 24 * 30))}` : '0')} <span className="text-[9px] font-bold text-white/30">Tháng</span>
+                    </p>
+                  </div>
+
+                  <div className="space-y-1 text-center lg:text-left">
+                    <span className="text-[8px] font-black text-white/40 uppercase tracking-widest block">Xác thực</span>
+                    <p className="text-base font-display font-black border-l border-white/30 pl-2 leading-none">Đã xác thực</p>
+                  </div>
+                </div>
               </div>
             </div>
           </div>

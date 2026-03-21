@@ -130,6 +130,28 @@ class ReviewService {
         }
     }
 
+    async getReviewsByVendorId(vendorId: string): Promise<Review[]> {
+        try {
+            const response = await fetch(`${API_BASE_URL}/reviews/vendor/${vendorId}`, {
+                method: 'GET',
+                headers: this.getHeaders(),
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            if (data.isSuccess && Array.isArray(data.result)) {
+                return data.result;
+            }
+            return [];
+        } catch (error) {
+            console.error('Failed to fetch reviews by vendor ID:', error);
+            return [];
+        }
+    }
+
     async updateVendorReply(reviewId: string | number, vendorReply: string): Promise<boolean> {
         try {
             const response = await fetch(`${API_BASE_URL}/reviews/${reviewId}/vendor-reply`, {

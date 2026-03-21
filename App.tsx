@@ -16,6 +16,7 @@ import CustomerProfile from './pages/customer/ProfilePage';
 import CartPage from './pages/customer/CartPage';
 import MyOrdersPage from './pages/customer/MyOrdersPage';
 import OrderDetailsPage from './pages/customer/OrderDetailsPage';
+import CustomerVendorProfile from './pages/customer/VendorProfilePage';
 
 // Vendor Pages
 import VendorDashboard from './pages/vendor/VendorDashboard';
@@ -131,6 +132,7 @@ const AppContent: React.FC<{
       <Route path="/" element={isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><CustomerHomePage onNavigate={handleNavigate} /></Layout>} />
       <Route path="/shop" element={isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/shop" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><CustomerProductList onNavigate={handleNavigate} /></Layout>} />
       <Route path="/product/:id" element={isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/product/:id" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><CustomerProductDetail onNavigate={handleNavigate} /></Layout>} />
+      <Route path="/vendor/:id" element={isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/vendor/:id" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><CustomerVendorProfile onNavigate={handleNavigate} /></Layout>} />
       <Route path="/cart" element={isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/cart" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><CartPage onNavigate={handleNavigate} /></Layout>} />
       <Route path="/checkout" element={isAuthenticated && hasCustomerRole ? (isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/checkout" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><CustomerCheckout onNavigate={handleNavigate} /></Layout>) : <Navigate to="/auth" />} />
       <Route path="/payment-success" element={isAuthenticated && hasCustomerRole ? (isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <PaymentSuccessPage onNavigate={handleNavigate} />) : <Navigate to="/auth" />} />

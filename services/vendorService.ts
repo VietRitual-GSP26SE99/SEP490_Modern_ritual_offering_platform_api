@@ -3,24 +3,31 @@ import { ApiResponse } from '../types';
 const API_BASE_URL = '/api';
 
 export interface VendorProfile {
-  vendorProfileId: string;
+  profileId: string;
   shopName: string;
-  description?: string;
-  address?: string;
-  phoneNumber?: string;
-  rating?: number;
-  isActive: boolean;
-  // Additional stats for shop display
+  shopDescription?: string;
+  avatarUrl?: string | null;
+  businessType?: string;
+  shopAddressText?: string;
+  ratingAvg?: number;
+  dailyCapacity?: number;
+  tierName?: string;
+  createdAt: string;
+  
+  // Optional/Legacy fields (keep for compatibility or if used elsewhere)
+  vendorProfileId?: string; 
   responseRate?: number;
   joinedDate?: string;
   productCount?: number;
   responseTime?: string;
   followerCount?: number;
+  rating?: number; // legacy
+  isActive?: boolean; // legacy
 }
 
 class VendorService {
-  // Feature flag: disable vendor API if endpoint doesn't exist
-  private enableVendorApi = false; // Set to true when vendor API is ready
+  // Feature flag: enable vendor API since it is now available
+  private enableVendorApi = true;
   
   /**
    * Lấy thông tin vendor theo ID
