@@ -191,7 +191,23 @@ const MyOrdersPage: React.FC = () => {
                                             </svg>
                                         </div>
                                         <div>
-                                            <h4 className="font-bold text-gray-900">{order.vendor?.shopName || (order as any).shopName || "Tiệm Cúng Bái"}</h4>
+                                            {(() => {
+                                                const vendorId = String(
+                                                    order.vendor?.profileId
+                                                    || (order as any).vendorProfileId
+                                                    || (order as any).vendorId
+                                                    || ''
+                                                ).trim();
+                                                return (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => vendorId && navigate(`/vendor/${vendorId}`)}
+                                                        className={`font-bold text-gray-900 text-left ${vendorId ? 'cursor-pointer hover:text-primary' : 'cursor-default'}`}
+                                                    >
+                                                        {order.vendor?.shopName || (order as any).shopName || "Tiệm Cúng Bái"}
+                                                    </button>
+                                                );
+                                            })()}
                                         </div>
                                     </div>
 

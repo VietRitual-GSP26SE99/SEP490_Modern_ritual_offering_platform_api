@@ -192,6 +192,13 @@ const OrderDetailsPage: React.FC = () => {
         }
     };
 
+    const vendorProfileId = String(
+        order?.vendor?.profileId
+        || (order as any)?.vendorProfileId
+        || (order as any)?.vendorId
+        || ''
+    ).trim();
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -321,7 +328,13 @@ const OrderDetailsPage: React.FC = () => {
                                 Người cung cấp
                             </h3>
                             <div>
-                                <p className="font-bold text-xl text-primary">{order.vendor?.shopName || (order as any).shopName || "Cúng Bái Tâm Linh"}</p>
+                                <button
+                                    type="button"
+                                    onClick={() => vendorProfileId && navigate(`/vendor/${vendorProfileId}`)}
+                                    className={`font-bold text-xl text-primary text-left ${vendorProfileId ? 'cursor-pointer hover:text-primary/80' : 'cursor-default'}`}
+                                >
+                                    {order.vendor?.shopName || (order as any).shopName || "Cúng Bái Tâm Linh"}
+                                </button>
                                 <p className="text-sm text-gray-500 mt-2">Dịch vụ mâm cúng trọn gói và trang trí tận nhà.</p>
                             </div>
                         </div>
