@@ -92,9 +92,9 @@ class CheckoutService {
    */
   async getSummary(cartItemIds: number[]): Promise<CheckoutSummary | null> {
     try {
-      // Trying simple array of numbers if object array fails with 400
-      const requestBody = cartItemIds;
-      console.log(' Fetching checkout summary (IDs):', requestBody);
+      // Backend expects: Array of { cartItemId: number }
+      const requestBody = cartItemIds.map(id => ({ cartItemId: id }));
+      console.log(' Fetching checkout summary (body):', requestBody);
       const response = await fetch(`${API_BASE_URL}/checkout/summary`, {
         method: 'POST',
         headers: this.getHeaders(),
@@ -102,6 +102,13 @@ class CheckoutService {
       });
 
       if (!response.ok) {
+        let errorText = '';
+        try {
+          errorText = await response.text();
+        } catch {
+          // ignore
+        }
+        console.error('❌ Checkout summary error:', response.status, errorText);
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
