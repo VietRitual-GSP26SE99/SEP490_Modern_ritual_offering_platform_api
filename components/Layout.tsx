@@ -82,9 +82,28 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
     const title = (item.title || '').toLowerCase();
     const message = (item.message || '').toLowerCase();
 
-    // Đặc thù: Thông báo liên quan đến Đăng ký Vendor -> chuyển hướng về tab tương ứng trong profile
+    // 1. Đăng ký Vendor -> chuyển hướng về tab tương ứng trong profile
     if (title.includes('đăng ký vendor') || message.includes('đăng ký vendor') || (rawUrl && rawUrl.includes('vendor/registration'))) {
       return '/profile?tab=vendor-register';
+    }
+
+    // 2. Yêu cầu hoàn tiền mới (Vendor)
+    if (isVendor && (title.includes('hoàn tiền') || message.includes('hoàn tiền'))) {
+      return '/vendor/orders?tab=refunds';
+    }
+
+    // 3. Quyết toán đơn hàng / Giao dịch ví
+    if (title.includes('quyết toán') || title.includes('ví') || message.includes('quyết toán')) {
+      return '/wallet/transactions';
+    }
+
+    // 4. Đơn hàng mới (Vendor) - Cố gắng trích xuất OrderID từ nội dung (ví dụ: #abc123)
+    if (isVendor && title.includes('đơn hàng mới')) {
+      const orderIdMatch = message.match(/#([a-zA-Z0-9]+)/);
+      if (orderIdMatch) {
+        return `/vendor/orders?orderId=${encodeURIComponent(orderIdMatch[1])}`;
+      }
+      return '/vendor/orders';
     }
 
     if (!rawUrl) return '';
