@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { cartService, CartApi } from '../services/cartService';
 import { checkoutService, CheckoutSummary } from '../services/checkoutService';
+import toast from '../services/toast';
 
 interface CartDropdownProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose, onNavigate
   const [cart, setCart] = useState<CartApi | null>(null);
   const [checkoutSummary, setCheckoutSummary] = useState<CheckoutSummary | null>(null);
   const [loading, setLoading] = useState(false);
+  const [removingId, setRemovingId] = useState<number | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -56,6 +58,26 @@ const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose, onNavigate
       console.error('Failed to fetch cart:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleRemoveItem = async (cartItemId: number) => {
+    if (removingId !== null) return;
+    setRemovingId(cartItemId);
+    try {
+      const success = await cartService.removeCartItem(cartItemId);
+      if (success) {
+        await fetchCart();
+        window.dispatchEvent(new Event('cartUpdated'));
+        toast.success('Đã xóa sản phẩm khỏi giỏ hàng');
+      } else {
+        toast.error('Không thể xóa sản phẩm');
+      }
+    } catch (error) {
+      console.error(' Failed to remove item from dropdown:', error);
+      toast.error('Đã xảy ra lỗi khi xóa sản phẩm');
+    } finally {
+      setRemovingId(null);
     }
   };
 
@@ -143,13 +165,27 @@ const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose, onNavigate
                     <p className="text-xs text-slate-500 line-clamp-1 mb-2">
                       {item.variantName || 'Gói tiêu chuẩn'}
                     </p>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-2">
                       <span className="text-xs text-slate-500">
                         x{item.quantity}
                       </span>
                       <span className="text-sm font-bold text-primary">
                         {displayPrice.toLocaleString()}đ
                       </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRemoveItem(item.cartItemId);
+                        }}
+                        disabled={removingId === item.cartItemId}
+                        className="ml-2 flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        aria-label="Xóa sản phẩm khỏi giỏ hàng"
+                      >
+                        <span className="material-symbols-outlined text-base">
+                          close
+                        </span>
+                      </button>
                     </div>
                   </div>
                 </div>
