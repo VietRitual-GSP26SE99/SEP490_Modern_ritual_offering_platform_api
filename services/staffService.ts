@@ -58,6 +58,13 @@ export const BUSINESS_TYPE_LABELS: Record<string, string> = {
     'Enterprise': 'Doanh nghiệp'
 };
 
+export interface CeremonyCategory {
+  categoryId: number;
+  name: string;
+  description: string;
+  isActive: boolean;
+}
+
 class StaffService {
     private getHeaders(): HeadersInit {
         const token = getAuthToken();
@@ -157,6 +164,59 @@ class StaffService {
             console.error('Failed to reject vendor:', error);
             throw error;
         }
+    }
+
+    // --- Ceremony Categories ---
+    async getCeremonyCategories(): Promise<CeremonyCategory[]> {
+        const response = await fetch(`${API_BASE_URL}/ceremony-categories/all`, {
+            method: 'GET',
+            headers: this.getHeaders(),
+        });
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const data = await response.json();
+        return data.result || [];
+    }
+
+    async createCeremonyCategory(category: { name: string; description: string }): Promise<CeremonyCategory> {
+        const response = await fetch(`${API_BASE_URL}/ceremony-categories`, {
+            method: 'POST',
+            headers: this.getHeaders(),
+            body: JSON.stringify(category),
+        });
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const data = await response.json();
+        return data.result;
+    }
+
+    async updateCeremonyCategory(id: number, category: { name: string; description: string }): Promise<boolean> {
+        const response = await fetch(`${API_BASE_URL}/ceremony-categories/${id}`, {
+            method: 'PUT',
+            headers: this.getHeaders(),
+            body: JSON.stringify(category),
+        });
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const data = await response.json();
+        return data.isSuccess || data.isSucceeded;
+    }
+
+    async deleteCeremonyCategory(id: number): Promise<boolean> {
+        const response = await fetch(`${API_BASE_URL}/ceremony-categories/${id}`, {
+            method: 'DELETE',
+            headers: this.getHeaders(),
+        });
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const data = await response.json();
+        return data.isSuccess || data.isSucceeded;
+    }
+
+    async reactivateCeremonyCategory(id: number): Promise<boolean> {
+        const response = await fetch(`${API_BASE_URL}/ceremony-categories/${id}/reactivate`, {
+            method: 'PUT',
+            headers: this.getHeaders(),
+        });
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const data = await response.json();
+        return data.isSuccess || data.isSucceeded;
     }
 }
 
