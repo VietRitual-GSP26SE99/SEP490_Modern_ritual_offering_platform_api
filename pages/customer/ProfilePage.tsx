@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { getProfile, UserProfile, getCurrentUser, getAuthToken, updateProfile, UpdateProfileRequest, changePassword, logoutComplete, logoutApi, logout } from '../../services/auth';
+import { getProfile, UserProfile, getCurrentUser, getAuthToken, updateProfile, UpdateProfileRequest, changePassword, logoutComplete, logoutApi, logout, registerVendor, RegisterVendorRequest, getVendorRegistration, VendorRegistrationResponse, resubmitVendorRegistration } from '../../services/auth';
 import toast from '../../services/toast';
 import Swal from 'sweetalert2';
 import {
@@ -63,7 +63,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
     return genderMap[gender] || gender;
   };
 
-  const [activeTab, setActiveTab] = useState<'info' | 'reviews'>('info');
+  const [activeTab, setActiveTab] = useState<'info' | 'reviews' | 'vendor-register'>('info');
   const [isEditing, setIsEditing] = useState(false);
   const [isProfileSetupRequired, setIsProfileSetupRequired] = useState(isFirstTimeSetup);
   const [loading, setLoading] = useState(true);
@@ -136,9 +136,55 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
   const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
   const [loadingAddressSuggestions, setLoadingAddressSuggestions] = useState(false);
 
-  const mapPickerPosition = mapPreview ?? {
+  const mapPickerPosition: { latitude: number; longitude: number } = mapPreview ?? {
     latitude: Number(editForm.latitude) || DEFAULT_MAP_POSITION.latitude,
     longitude: Number(editForm.longitude) || DEFAULT_MAP_POSITION.longitude,
+  };
+
+  const [registerForm, setRegisterForm] = useState({
+    shopName: '',
+    shopDescription: '',
+    shopAvatarUrl: null as File | null,
+    businessType: '1',
+    taxCode: '',
+    shopAddressText: '',
+    shopLatitude: 0,
+    shopLongitude: 0,
+    dailyCapacity: 5,
+    documents: [
+      { documentType: 1, file: null as File | null, label: 'CMND/CCCD mặt trước', mandatory: true },
+      { documentType: 2, file: null as File | null, label: 'CMND/CCCD mặt sau', mandatory: true },
+      { documentType: 3, file: null as File | null, label: 'Ảnh selfie cầm CMND/CCCD', mandatory: true },
+      { documentType: 4, file: null as File | null, label: 'Giấy chứng nhận đăng ký thuế', mandatory: false },
+      { documentType: 5, file: null as File | null, label: 'Giấy phép kinh doanh', mandatory: false },
+    ]
+  });
+  const [registering, setRegistering] = useState(false);
+  const [vendorRegistration, setVendorRegistration] = useState<VendorRegistrationResponse | null>(null);
+  const [loadingRegistration, setLoadingRegistration] = useState(false);
+  const [isResubmitting, setIsResubmitting] = useState(false);
+
+  // Registration Address states
+  const [regDistricts, setRegDistricts] = useState<District[]>([]);
+  const [regWards, setRegWards] = useState<Ward[]>([]);
+  const [loadingRegDistricts, setLoadingRegDistricts] = useState(false);
+  const [loadingRegWards, setLoadingRegWards] = useState(false);
+  const [regSelectedProvince, setRegSelectedProvince] = useState<number | null>(null);
+  const [regSelectedDistrict, setRegSelectedDistrict] = useState<number | null>(null);
+  const [regSelectedWard, setRegSelectedWard] = useState<number | null>(null);
+  const [regDetailedAddress, setRegDetailedAddress] = useState('');
+  const [regMapPreviewLoading, setRegMapPreviewLoading] = useState(false);
+  const [regMapPreviewError, setRegMapPreviewError] = useState<string | null>(null);
+  const [regMapConfirmLoading, setRegMapConfirmLoading] = useState(false);
+  const [regMapPreview, setRegMapPreview] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [regIsMapSelectionLocked, setRegIsMapSelectionLocked] = useState(false);
+  const [regAddressSuggestions, setRegAddressSuggestions] = useState<AddressSuggestion[]>([]);
+  const [regLoadingAddressSuggestions, setRegLoadingAddressSuggestions] = useState(false);
+  const [regProvinceSearch, setRegProvinceSearch] = useState('');
+
+  const regMapPickerPosition: { latitude: number; longitude: number } = regMapPreview ?? {
+    latitude: Number(registerForm.shopLatitude) || DEFAULT_MAP_POSITION.latitude,
+    longitude: Number(registerForm.shopLongitude) || DEFAULT_MAP_POSITION.longitude,
   };
 
   const isSameAddressId = (
@@ -151,6 +197,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
 
     return String(left) === String(right);
   };
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    if (tab && ['info', 'reviews', 'vendor-register'].includes(tab)) {
+      setActiveTab(tab as any);
+    }
+  }, [searchParams]);
 
   const normalizeAddressText = (value?: string | null): string => {
     if (!value) return '';
@@ -618,15 +671,15 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
         // Note: User will need to re-select address using dropdowns when editing
         // The addressText will be displayed as read-only text in view mode
 
-        console.log('✅ Profile loaded successfully:', profileWithAddress);
-        console.log('📍 Coordinates:', {
+        console.log('Profile loaded successfully:', profileWithAddress);
+        console.log(' Coordinates:', {
           latitude: profileWithAddress.latitude,
           longitude: profileWithAddress.longitude
         });
 
         // If profile is empty (first-time user), log it
         if (!profileWithAddress.fullName || !profileWithAddress.phoneNumber) {
-          console.log('⚠️ Profile is incomplete - first-time setup required');
+          console.log('Profile is incomplete - first-time setup required');
         }
 
         // Profile already completed: remove firstTime mode for current and next visits.
@@ -643,6 +696,24 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
 
     fetchProfile();
   }, [isFirstTimeSetup, navigate]);
+
+  // Fetch registration details when tab changes or on mount
+  useEffect(() => {
+    const fetchRegistration = async () => {
+      if (activeTab === 'vendor-register') {
+        try {
+          setLoadingRegistration(true);
+          const data = await getVendorRegistration();
+          setVendorRegistration(data);
+        } catch (err) {
+          console.error('Failed to fetch vendor registration:', err);
+        } finally {
+          setLoadingRegistration(false);
+        }
+      }
+    };
+    fetchRegistration();
+  }, [activeTab]);
 
   // Block browser back button during first-time setup
   useEffect(() => {
@@ -664,6 +735,606 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
       };
     }
   }, [isProfileSetupRequired]);
+
+  const handleRegisterInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value, type } = e.target;
+
+    if (type === 'file') {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file && file.size > 5 * 1024 * 1024) {
+        toast.error(`File ảnh đại diện quá lớn. Vui lòng chọn file dưới 5MB.`);
+        return;
+      }
+      setRegisterForm(prev => ({
+        ...prev,
+        [name]: file || null
+      }));
+      return;
+    }
+
+    setRegisterForm(prev => ({
+      ...prev,
+      [name]: (name === 'shopLatitude' || name === 'shopLongitude' || name === 'dailyCapacity') ? Number(value) : value
+    }));
+  };
+
+  const compressImage = (file: File): Promise<File> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          let width = img.width;
+          let height = img.height;
+
+          // Max dimension 1280px
+          const MAX_SIZE = 1280;
+          if (width > height) {
+            if (width > MAX_SIZE) {
+              height *= MAX_SIZE / width;
+              width = MAX_SIZE;
+            }
+          } else {
+            if (height > MAX_SIZE) {
+              width *= MAX_SIZE / height;
+              height = MAX_SIZE;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          canvas.toBlob((blob) => {
+            if (blob) {
+              const compressedFile = new File([blob], file.name, {
+                type: 'image/jpeg',
+                lastModified: Date.now(),
+              });
+              resolve(compressedFile);
+            } else {
+              resolve(file);
+            }
+          }, 'image/jpeg', 0.8); // 80% quality
+        };
+        img.src = e.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleDocumentChange = (index: number, file: File | null) => {
+    if (file && file.size > 5 * 1024 * 1024) {
+      toast.error(`File "${file.name}" quá lớn. Vui lòng chọn file dưới 5MB.`);
+      return;
+    }
+    const newDocs = [...registerForm.documents];
+    newDocs[index].file = file;
+    setRegisterForm(prev => ({ ...prev, documents: newDocs }));
+  };
+
+  // --- Registration Address Effects ---
+
+  // Load registration districts when province changes
+  useEffect(() => {
+    if (regSelectedProvince) {
+      const loadDistricts = async () => {
+        try {
+          setLoadingRegDistricts(true);
+          setRegDistricts([]);
+          setRegWards([]);
+          setRegSelectedDistrict(null);
+          setRegSelectedWard(null);
+          const data = await getDistrictsByProvince(regSelectedProvince);
+          setRegDistricts(data);
+        } catch (err) {
+          console.error('Failed to load registration districts:', err);
+        } finally {
+          setLoadingRegDistricts(false);
+        }
+      };
+      loadDistricts();
+    } else {
+      setRegDistricts([]);
+      setRegWards([]);
+    }
+  }, [regSelectedProvince]);
+
+  // Load registration wards when district changes
+  useEffect(() => {
+    if (regSelectedDistrict) {
+      const loadWards = async () => {
+        try {
+          setLoadingRegWards(true);
+          setRegWards([]);
+          setRegSelectedWard(null);
+          const data = await getWardsByDistrict(regSelectedDistrict);
+          setRegWards(data);
+        } catch (err) {
+          console.error('Failed to load registration wards:', err);
+        } finally {
+          setLoadingRegWards(false);
+        }
+      };
+      loadWards();
+    } else {
+      setRegWards([]);
+    }
+  }, [regSelectedDistrict]);
+
+  // Auto-update registerForm.shopAddressText when components change
+  useEffect(() => {
+    if (regSelectedProvince || regSelectedDistrict || regSelectedWard || regDetailedAddress) {
+      const provinceName = provinces.find(p => p.code === regSelectedProvince)?.name || '';
+      const districtName = regDistricts.find(d => d.code === regSelectedDistrict)?.name || '';
+      const wardName = regWards.find(w => w.code === regSelectedWard)?.name || '';
+      const parts = [regDetailedAddress, wardName, districtName, provinceName].filter(Boolean);
+      const fullAddress = parts.join(', ');
+      setRegisterForm(prev => ({ ...prev, shopAddressText: fullAddress }));
+    }
+  }, [regSelectedProvince, regSelectedDistrict, regSelectedWard, regDetailedAddress, provinces, regDistricts, regWards]);
+
+  // Auto-preview registration map
+  useEffect(() => {
+    if (activeTab !== 'vendor-register') return;
+
+    if (regIsMapSelectionLocked && regMapPreview) {
+      setRegMapPreviewLoading(false);
+      return;
+    }
+
+    const provinceName = provinces.find(p => p.code === regSelectedProvince)?.name;
+    const districtName = regDistricts.find(d => d.code === regSelectedDistrict)?.name;
+    const wardName = regWards.find(w => w.code === regSelectedWard)?.name;
+    const hasEnoughAddress = !!regDetailedAddress.trim() && !!provinceName && !!districtName;
+
+    if (!hasEnoughAddress) {
+      setRegMapPreview(null);
+      setRegMapPreviewLoading(false);
+      setRegMapPreviewError(null);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      try {
+        setRegMapPreviewLoading(true);
+        setRegMapPreviewError(null);
+
+        const result = await geocodingService.geocodeAddressComponents({
+          detailedAddress: regDetailedAddress.trim(),
+          wardName,
+          districtName,
+          provinceName,
+        });
+
+        if (cancelled) return;
+
+        if (result) {
+          setRegMapPreview({ latitude: result.latitude, longitude: result.longitude });
+          setRegisterForm((prev) => ({
+            ...prev,
+            shopLatitude: result.latitude,
+            shopLongitude: result.longitude,
+          }));
+        } else {
+          setRegMapPreview(null);
+          setRegMapPreviewError('Không tìm thấy vị trí chính xác cho địa chỉ này.');
+        }
+      } catch {
+        if (cancelled) return;
+        setRegMapPreview(null);
+        setRegMapPreviewError('Không thể tìm thấy vị trí trên bản đồ cho địa chỉ đã nhập.');
+      } finally {
+        if (!cancelled) {
+          setRegMapPreviewLoading(false);
+        }
+      }
+    }, 650);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [
+    activeTab,
+    regIsMapSelectionLocked,
+    regDetailedAddress,
+    regSelectedProvince,
+    regSelectedDistrict,
+    regSelectedWard,
+    provinces,
+    regDistricts,
+    regWards,
+  ]);
+
+  // Registration address suggestions
+  useEffect(() => {
+    if (activeTab !== 'vendor-register' || !regDetailedAddress.trim()) {
+      setRegAddressSuggestions([]);
+      return;
+    }
+
+    const provinceName = provinces.find((p) => p.code === regSelectedProvince)?.name;
+    const districtName = regDistricts.find((d) => d.code === regSelectedDistrict)?.name;
+
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      try {
+        setRegLoadingAddressSuggestions(true);
+        const suggestions = await geocodingService.suggestAddresses(
+          regDetailedAddress,
+          districtName,
+          provinceName
+        );
+        if (!cancelled) {
+          setRegAddressSuggestions(suggestions);
+        }
+      } catch (error) {
+        console.error('Failed to fetch registration address suggestions:', error);
+      } finally {
+        if (!cancelled) {
+          setRegLoadingAddressSuggestions(false);
+        }
+      }
+    }, 500);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [regDetailedAddress, regSelectedProvince, regSelectedDistrict, provinces, regDistricts, activeTab]);
+
+  const handleRegPickAddressSuggestion = (suggestion: AddressSuggestion) => {
+    setRegIsMapSelectionLocked(true);
+    const display = suggestion.displayName;
+    const firstPart = display.split(',')[0]?.trim() || regDetailedAddress;
+    setRegDetailedAddress(firstPart);
+    setRegMapPreview({ latitude: suggestion.latitude, longitude: suggestion.longitude });
+    setRegisterForm((prev) => ({
+      ...prev,
+      shopLatitude: suggestion.latitude,
+      shopLongitude: suggestion.longitude,
+    }));
+    setRegAddressSuggestions([]);
+  };
+
+  const handleRegConfirmMapSelection = async () => {
+    if (!regMapPreview) return;
+
+    try {
+      setRegMapConfirmLoading(true);
+      const address = await geocodingService.reverseGeocodeDetails(
+        regMapPreview.latitude,
+        regMapPreview.longitude
+      );
+
+      if (address) {
+        const province = provinces.find((p) => isNameMatch(p.name, address.provinceName));
+        if (province) {
+          setRegSelectedProvince(province.code);
+          const districtsData = await getDistrictsByProvince(province.code);
+          setRegDistricts(districtsData);
+
+          const district = districtsData.find((d) => isNameMatch(d.name, address.districtName));
+          if (district) {
+            setRegSelectedDistrict(district.code);
+            const wardsData = await getWardsByDistrict(district.code);
+            setRegWards(wardsData);
+
+            const ward = wardsData.find((w) => isNameMatch(w.name, address.wardName));
+            if (ward) {
+              setRegSelectedWard(ward.code);
+            }
+          }
+        }
+
+        if (!isPinnedCoordinateLabel(address.detailedAddress)) {
+          setRegDetailedAddress(address.detailedAddress);
+        }
+
+        setRegisterForm((prev) => ({
+          ...prev,
+          shopLatitude: regMapPreview.latitude,
+          shopLongitude: regMapPreview.longitude,
+        }));
+        setRegIsMapSelectionLocked(true);
+        toast.success('Đã xác nhận vị trí trên bản đồ.');
+      }
+    } catch (error) {
+      console.error('Failed to confirm registration map selection:', error);
+      toast.error('Không thể xác định địa chỉ từ vị trí đã chọn.');
+    } finally {
+      setRegMapConfirmLoading(false);
+    }
+  };
+
+  const handleRegMapPositionChange = ({ latitude, longitude }: { latitude: number; longitude: number }) => {
+    setRegMapPreview({ latitude, longitude });
+    setRegIsMapSelectionLocked(true);
+    setRegMapPreviewError(null);
+    setRegisterForm((prev) => ({
+      ...prev,
+      shopLatitude: latitude,
+      shopLongitude: longitude,
+    }));
+  };
+
+  const handleRegUseCurrentLocation = async () => {
+    if (!navigator.geolocation) {
+      toast.error('Trình duyệt của bạn không hỗ trợ định vị.');
+      return;
+    }
+
+    try {
+      setRegMapPreviewLoading(true);
+      setRegMapPreviewError(null);
+
+      const position = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject);
+      });
+
+      const { latitude, longitude } = position.coords;
+      setRegMapPreview({ latitude, longitude });
+      setRegIsMapSelectionLocked(true);
+      setRegisterForm((prev) => ({
+        ...prev,
+        shopLatitude: latitude,
+        shopLongitude: longitude,
+      }));
+
+      const reverseAddress = await geocodingService.reverseGeocode(latitude, longitude);
+      if (reverseAddress) {
+        setRegDetailedAddress(reverseAddress);
+      }
+    } catch (error) {
+      console.error('❌ Failed to get current location for registration:', error);
+      setRegMapPreviewError('Không thể lấy vị trí hiện tại. Vui lòng kiểm tra quyền truy cập vị trí.');
+    } finally {
+      setRegMapPreviewLoading(false);
+    }
+  };
+
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // Check mandatory documents
+    const missingDocs = registerForm.documents.filter(doc => doc.mandatory && !doc.file);
+    if (missingDocs.length > 0) {
+      toast.error(`Vui lòng tải lên các tài liệu bắt buộc: ${missingDocs.map(d => d.label).join(', ')}`);
+      return;
+    }
+
+    if (!registerForm.shopAvatarUrl) {
+      toast.error('Vui lòng tải lên ảnh đại diện cửa hàng');
+      return;
+    }
+
+    // Check total size
+    let totalSize = registerForm.shopAvatarUrl.size;
+    registerForm.documents.forEach(doc => {
+      if (doc.file) totalSize += doc.file.size;
+    });
+
+    const MAX_TOTAL_SIZE = 15 * 1024 * 1024; // 15MB total to be safe
+    if (totalSize > MAX_TOTAL_SIZE) {
+      Swal.fire({
+        title: 'Tổng dung lượng quá lớn!',
+        text: `Tổng dung lượng các ảnh (${(totalSize / 1024 / 1024).toFixed(2)} MB) vượt quá giới hạn 15MB. Vui lòng nén ảnh hoặc giảm kích thước ảnh trước khi gửi.`,
+        icon: 'warning',
+        confirmButtonColor: '#B3913E',
+      });
+      return;
+    }
+
+    try {
+      setRegistering(true);
+
+      // Fallback geocoding before submission
+      const provinceName = provinces.find(p => p.code === regSelectedProvince)?.name;
+      const districtName = regDistricts.find(d => d.code === regSelectedDistrict)?.name;
+      const wardName = regWards.find(w => w.code === regSelectedWard)?.name;
+
+      let currentLat = registerForm.shopLatitude;
+      let currentLng = registerForm.shopLongitude;
+
+      if (provinceName && districtName && regDetailedAddress.trim()) {
+        try {
+          const geoResult = await geocodingService.geocodeAddressComponents({
+            detailedAddress: regDetailedAddress.trim(),
+            wardName,
+            districtName,
+            provinceName,
+          });
+          if (geoResult) {
+            currentLat = geoResult.latitude;
+            currentLng = geoResult.longitude;
+          }
+        } catch (e) {
+          console.warn('Registration fallback geocoding failed:', e);
+        }
+      }
+
+      // Compress all images
+      console.log('🖼️ Compressing images...');
+      const compressedAvatar = await compressImage(registerForm.shopAvatarUrl);
+      const compressedDocs = await Promise.all(
+        registerForm.documents
+          .filter(doc => !!doc.file)
+          .map(async (doc) => ({
+            documentType: doc.documentType,
+            file: await compressImage(doc.file!)
+          }))
+      );
+
+      // Map business type ID to string name as seen in Swagger
+      const businessTypeMap: Record<string, string> = {
+        '1': 'Individual',
+        '2': 'HouseholdBusiness',
+        '3': 'Enterprises'
+      };
+
+      const payload: RegisterVendorRequest = {
+        shopName: registerForm.shopName,
+        shopDescription: registerForm.shopDescription,
+        shopAvatarUrl: compressedAvatar,
+        businessType: businessTypeMap[registerForm.businessType] || 'Individual',
+        taxCode: registerForm.taxCode,
+        shopAddressText: registerForm.shopAddressText,
+        shopLatitude: currentLat,
+        shopLongitude: currentLng,
+        dailyCapacity: registerForm.dailyCapacity,
+        documents: compressedDocs
+      };
+
+      await registerVendor(payload);
+      Swal.fire({
+        title: 'Đăng ký thành công!',
+        text: 'Yêu cầu của bạn đã được gửi và đang chờ quản trị viên phê duyệt.',
+        icon: 'success',
+        confirmButtonColor: '#B3913E',
+      });
+
+      // Refresh profile to see "Pending" status
+      const updatedProfile = await getProfile();
+      setProfile(updatedProfile);
+      setActiveTab('info');
+    } catch (err: any) {
+      toast.error(err.message || 'Đăng ký vendor thất bại');
+    } finally {
+      setRegistering(false);
+    }
+  };
+
+  const handleResubmitSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    try {
+      setRegistering(true);
+
+      // Fallback geocoding before submission
+      const provinceName = provinces.find(p => p.code === regSelectedProvince)?.name;
+      const districtName = regDistricts.find(d => d.code === regSelectedDistrict)?.name;
+      const wardName = regWards.find(w => w.code === regSelectedWard)?.name;
+
+      let currentLat = registerForm.shopLatitude;
+      let currentLng = registerForm.shopLongitude;
+
+      if (provinceName && districtName && regDetailedAddress.trim()) {
+        try {
+          const geoResult = await geocodingService.geocodeAddressComponents({
+            detailedAddress: regDetailedAddress.trim(),
+            wardName,
+            districtName,
+            provinceName,
+          });
+          if (geoResult) {
+            currentLat = geoResult.latitude;
+            currentLng = geoResult.longitude;
+          }
+        } catch (e) {
+          console.warn('Resubmit fallback geocoding failed:', e);
+        }
+      }
+
+      // Map business type ID to string name
+      const businessTypeMap: Record<string, string> = {
+        '1': 'Individual',
+        '2': 'HouseholdBusiness',
+        '3': 'Enterprises'
+      };
+
+      const payload: Partial<RegisterVendorRequest> = {
+        shopName: registerForm.shopName,
+        shopDescription: registerForm.shopDescription,
+        businessType: businessTypeMap[registerForm.businessType] || 'Individual',
+        taxCode: registerForm.taxCode,
+        shopAddressText: registerForm.shopAddressText,
+        shopLatitude: currentLat,
+        shopLongitude: currentLng,
+        dailyCapacity: registerForm.dailyCapacity,
+      };
+
+      // Only add avatar if it's a new file
+      if (registerForm.shopAvatarUrl instanceof File) {
+        payload.shopAvatarUrl = await compressImage(registerForm.shopAvatarUrl);
+      }
+
+      // Only add documents that have a new file attached
+      const updatedDocs = await Promise.all(
+        registerForm.documents
+          .filter(doc => !!doc.file && doc.file instanceof File)
+          .map(async (doc) => ({
+            documentType: doc.documentType,
+            file: await compressImage(doc.file!)
+          }))
+      );
+
+      if (updatedDocs.length > 0) {
+        payload.documents = updatedDocs;
+      }
+
+      await resubmitVendorRegistration(payload);
+
+      Swal.fire({
+        title: 'Gửi lại thành công!',
+        text: 'Hồ sơ của bạn đã được cập nhật và đang chờ phê duyệt lại.',
+        icon: 'success',
+        confirmButtonColor: '#B3913E',
+      });
+
+      // Refresh data
+      const data = await getVendorRegistration();
+      setVendorRegistration(data);
+      setIsResubmitting(false);
+    } catch (err: any) {
+      toast.error(err.message || 'Gửi lại đơn thất bại');
+    } finally {
+      setRegistering(false);
+    }
+  };
+
+  const handleEditRejectedRegistration = () => {
+    if (!vendorRegistration) return;
+
+    // Helper map to find business type id
+    const businessTypeIdMap: Record<string, string> = {
+      'Individual': '1',
+      'HouseholdBusiness': '2',
+      'Enterprises': '3'
+    };
+
+    setRegisterForm({
+      shopName: vendorRegistration.shopName,
+      shopDescription: vendorRegistration.shopDescription,
+      shopAvatarUrl: null, // Keep null to signify "no new file"
+      businessType: businessTypeIdMap[vendorRegistration.businessType] || '1',
+      taxCode: vendorRegistration.taxCode,
+      shopAddressText: vendorRegistration.shopAddressText,
+      shopLatitude: vendorRegistration.shopLatitude,
+      shopLongitude: vendorRegistration.shopLongitude,
+      dailyCapacity: vendorRegistration.dailyCapacity,
+      documents: [
+        { documentType: 1, file: null as File | null, label: 'CMND/CCCD mặt trước', mandatory: false }, // Mandatory is false because we already have the old one
+        { documentType: 2, file: null as File | null, label: 'CMND/CCCD mặt sau', mandatory: false },
+        { documentType: 3, file: null as File | null, label: 'Ảnh selfie cầm CMND/CCCD', mandatory: false },
+        { documentType: 4, file: null as File | null, label: 'Giấy chứng nhận đăng ký thuế', mandatory: false },
+        { documentType: 5, file: null as File | null, label: 'Giấy phép kinh doanh', mandatory: false },
+      ]
+    });
+
+    // Also populate geocoding fields if possible
+    setRegDetailedAddress(vendorRegistration.shopAddressText);
+    setRegMapPreview({
+      latitude: vendorRegistration.shopLatitude,
+      longitude: vendorRegistration.shopLongitude
+    });
+    setRegIsMapSelectionLocked(true);
+
+    setIsResubmitting(true);
+  };
 
   // Handle avatar file selection
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -856,7 +1527,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
     const firstPart = display.split(',')[0]?.trim() || detailedAddress;
 
     setSelectedExistingAddressId(null);
-    setDetailedAddress(firstPart);
+    setDetailedAddress(display);
     setMapPreview({ latitude: suggestion.latitude, longitude: suggestion.longitude });
     setIsMapSelectionLocked(true);
     setMapPreviewError(null);
@@ -967,11 +1638,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
 
       let nextDetailedAddress =
         effectiveReverseData.detailedAddress ||
-        effectiveReverseData.formattedAddress.split(',')[0]?.trim() ||
+        effectiveReverseData.formattedAddress ||
         detailedAddress;
 
       if (isPinnedCoordinateLabel(nextDetailedAddress)) {
-        nextDetailedAddress = effectiveReverseData.formattedAddress.split(',')[0]?.trim() || '';
+        nextDetailedAddress = effectiveReverseData.formattedAddress || '';
       }
 
       let resolvedDetailedAddress = nextDetailedAddress;
@@ -994,7 +1665,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
 
           const nearestDistanceKm = calculateDistanceKm(targetLat, targetLng, nearest.latitude, nearest.longitude);
           if (nearestDistanceKm <= 0.8) {
-            resolvedDetailedAddress = nearest.displayName.split(',')[0]?.trim() || resolvedDetailedAddress;
+            resolvedDetailedAddress = nearest.displayName || resolvedDetailedAddress;
             resolvedAddressTextFromSuggestion = nearest.displayName;
           }
         }
@@ -1006,14 +1677,16 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
 
       if (!resolvedDetailedAddress || !resolvedDetailedAddress.trim()) {
         resolvedDetailedAddress =
-          effectiveReverseData.formattedAddress.split(',')[0]?.trim() ||
+          effectiveReverseData.formattedAddress ||
           detailedAddress.trim() ||
           'Địa điểm đã chọn trên bản đồ';
       }
 
-      const composedAddressText = [resolvedDetailedAddress, wardText, districtText, provinceText]
-        .filter(Boolean)
-        .join(', ');
+      const composedAddressText = resolvedDetailedAddress.includes(provinceText)
+        ? resolvedDetailedAddress
+        : [resolvedDetailedAddress, wardText, districtText, provinceText]
+          .filter(Boolean)
+          .join(', ');
 
       setDetailedAddress(resolvedDetailedAddress);
 
@@ -1327,6 +2000,439 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
     }
   };
 
+  const renderVendorRegistrationTab = () => {
+    if (loadingRegistration) {
+      return (
+        <div className="bg-white rounded-[2.5rem] border border-gray-200 shadow-xl overflow-hidden relative z-10 p-12 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-slate-600">Đang tải thông tin đăng ký...</p>
+        </div>
+      );
+    }
+
+    const showForm = isResubmitting || !vendorRegistration;
+
+    return (
+      <div className="bg-white rounded-[2.5rem] border border-gray-200 shadow-xl overflow-hidden relative z-10">
+        <div className="bg-primary p-8 text-white">
+          <h3 className="text-3xl font-bold mb-2">Đăng Ký Thành Vendor</h3>
+          <p className="opacity-90">Hoàn thành các thông tin dưới đây để bắt đầu kinh doanh trên Modern Ritual</p>
+        </div>
+
+        {!showForm ? (
+          <div className="p-8 md:p-12 space-y-8">
+            {/* Banner trạng thái */}
+            <div className={`p-6 rounded-2xl border flex items-center gap-4 ${vendorRegistration?.verificationStatus === 'Pending'
+              ? 'bg-amber-50 border-amber-200 text-amber-700'
+              : vendorRegistration?.verificationStatus === 'Rejected'
+                ? 'bg-red-50 border-red-200 text-red-700'
+                : 'bg-green-50 border-green-200 text-green-700'
+              }`}>
+              <div className="text-3xl">
+                {vendorRegistration?.verificationStatus === 'Pending' ? '' : vendorRegistration?.verificationStatus === 'Rejected' ? '❌' : '✅'}
+              </div>
+              <div>
+                <h4 className="font-bold text-lg">
+                  Trạng thái: {
+                    vendorRegistration?.verificationStatus === 'Pending' ? 'Đang chờ phê duyệt' :
+                      vendorRegistration?.verificationStatus === 'Rejected' ? 'Bị từ chối' :
+                        vendorRegistration?.verificationStatus === 'Verified' ? 'Đã xác minh' : vendorRegistration?.verificationStatus
+                  }
+                </h4>
+                <p className="text-sm opacity-90">
+                  {vendorRegistration?.verificationStatus === 'Pending'
+                    ? 'Hồ sơ của bạn đang được đội ngũ quản trị kiểm tra. Vui lòng chờ phản hồi.'
+                    : vendorRegistration?.verificationStatus === 'Rejected'
+                      ? 'Hồ sơ của bạn không được phê duyệt. Vui lòng kiểm tra lý do từ chối bên dưới và cập nhật lại.'
+                      : 'Chúc mừng! Bạn đã trở thành Vendor trên hệ thống.'}
+                </p>
+              </div>
+            </div>
+
+            {vendorRegistration && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Shop Info Summary */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 border-b border-gray-100 pb-2">
+                    <h4 className="font-bold text-slate-800 uppercase tracking-wide text-sm">Thông tin shop</h4>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="w-20 h-20 rounded-2xl overflow-hidden shadow-md">
+                      <img
+                        src={vendorRegistration.shopAvatarUrl}
+                        alt="Shop Avatar"
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    <div>
+                      <h5 className="font-bold text-slate-900">{vendorRegistration.shopName}</h5>
+                      <p className="text-sm text-slate-500 line-clamp-2">{vendorRegistration.shopDescription}</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="p-3 bg-gray-50 rounded-xl">
+                      <span className="block text-xs text-slate-400 font-bold uppercase">MST</span>
+                      <span className="font-semibold">{vendorRegistration.taxCode}</span>
+                    </div>
+                    <div className="p-3 bg-gray-50 rounded-xl">
+                      <span className="block text-xs text-slate-400 font-bold uppercase">Loại hình</span>
+                      <span className="font-semibold">{
+                        vendorRegistration.businessType === 'Individual' ? 'Cá nhân' :
+                          (vendorRegistration.businessType === 'HouseholdBusiness' || vendorRegistration.businessType === 'HouseholdBussiness') ? 'Hộ gia đình kinh doanh' :
+                            (vendorRegistration.businessType === 'Enterprises' || vendorRegistration.businessType === 'Enterprise') ? 'Doanh nghiệp' : vendorRegistration.businessType
+                      }</span>
+                    </div>
+                  </div>
+                  <div className="p-3 bg-gray-50 rounded-xl text-sm">
+                    <span className="block text-xs text-slate-400 font-bold uppercase">Địa chỉ</span>
+                    <span className="font-semibold">{vendorRegistration.shopAddressText}</span>
+                  </div>
+                </div>
+
+                {/* Documents Status */}
+                <div className="space-y-6">
+                  <div className="flex items-center gap-3 border-b border-gray-100 pb-2">
+                    <h4 className="font-bold text-slate-800 uppercase tracking-wide text-sm">Trạng thái tài liệu</h4>
+                  </div>
+                  <div className="space-y-4">
+                    {vendorRegistration.documents.map((doc) => (
+                      <div key={doc.documentId} className="p-4 bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-md transition-all">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-lg bg-gray-100 flex items-center justify-center text-xl overflow-hidden shadow-inner border border-gray-50">
+                              <img src={doc.fileUrl} alt={doc.documentTypeName} className="w-full h-full object-cover" />
+                            </div>
+                            <div>
+                              <h6 className="font-bold text-slate-800 text-sm">{doc.documentTypeName}</h6>
+                              <p className="text-[10px] text-slate-400">{new Date(doc.uploadedAt).toLocaleString('vi-VN')}</p>
+                            </div>
+                          </div>
+                          <span className={`px-2 py-1 rounded-full text-[10px] font-bold uppercase ${doc.status === 'Approved' ? 'bg-green-100 text-green-700' :
+                            doc.status === 'Rejected' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
+                            }`}>
+                            {doc.status === 'Approved' ? 'Đã duyệt' : doc.status === 'Rejected' ? 'Từ chối' : 'Chờ duyệt'}
+                          </span>
+                        </div>
+                        {doc.rejectionReason && (
+                          <div className="mt-3 p-3 bg-red-50 border border-red-100 rounded-xl text-xs text-red-700">
+                            <span className="font-bold">Lý do từ chối:</span> {doc.rejectionReason}
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {vendorRegistration?.verificationStatus === 'Rejected' && (
+              <div className="pt-6 border-t border-gray-100 text-center">
+                <button
+                  onClick={handleEditRejectedRegistration}
+                  className="px-8 py-3 bg-primary text-white rounded-xl font-bold hover:scale-105 transition-all shadow-lg text-sm"
+                >
+                  Chỉnh sửa và Gửi lại hồ sơ
+                </button>
+              </div>
+            )}
+
+            <div className="pt-6 text-center">
+              <button
+                onClick={() => {
+                  setActiveTab('info');
+                  setIsResubmitting(false);
+                }}
+                className="text-primary font-bold hover:underline py-2"
+              >
+                Quay lại Profile
+              </button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={isResubmitting ? handleResubmitSubmit : handleRegisterSubmit} className="p-8 md:p-12 space-y-12">
+            {isResubmitting && (
+              <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex items-center justify-between">
+                <p className="text-blue-700 text-sm">
+                  <span className="font-bold">Chế độ chỉnh sửa:</span> Bạn chỉ cần tải lên lại những tài liệu bị từ chối hoặc thay đổi thông tin sai sót.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setIsResubmitting(false)}
+                  className="text-blue-700 hover:underline font-bold text-xs"
+                >
+                  Hủy chỉnh sửa
+                </button>
+              </div>
+            )}
+
+            {/* Section 1: Shop Information */}
+            <div>
+              <div className="flex items-center gap-3 mb-8 border-b border-gray-100 pb-4">
+                <span className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">1</span>
+                <h4 className="text-xl font-bold text-slate-800 uppercase tracking-wide">Thông tin cửa hàng</h4>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {/* Shop Avatar */}
+                <div className="md:col-span-2 flex flex-col items-center justify-center p-6 bg-gray-50 rounded-3xl border-2 border-dashed border-gray-200 hover:border-primary/30 transition-all group">
+                  <label className="cursor-pointer flex flex-col items-center">
+                    {registerForm.shopAvatarUrl ? (
+                      <img
+                        src={URL.createObjectURL(registerForm.shopAvatarUrl)}
+                        alt="Shop Avatar Preview"
+                        className="w-32 h-32 rounded-3xl object-cover border-4 border-white shadow-xl mb-4"
+                      />
+                    ) : isResubmitting && vendorRegistration?.shopAvatarUrl ? (
+                      <img
+                        src={vendorRegistration.shopAvatarUrl}
+                        alt="Current Shop Avatar"
+                        className="w-32 h-32 rounded-3xl object-cover border-4 border-white shadow-xl mb-4 opacity-70"
+                      />
+                    ) : (
+                      <div className="w-32 h-32 rounded-3xl bg-white shadow-sm flex items-center justify-center text-5xl mb-4 group-hover:scale-110 transition-transform">
+                        🏪
+                      </div>
+                    )}
+                    <span className="bg-primary text-white px-6 py-2 rounded-full font-bold text-sm shadow-md hover:bg-primary/90">
+                      {registerForm.shopAvatarUrl ? 'Đổi ảnh đại diện shop' : isResubmitting ? 'Thay đổi ảnh đại diện shop' : 'Tải lên ảnh đại diện shop *'}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={(e) => setRegisterForm({ ...registerForm, shopAvatarUrl: e.target.files?.[0] || null })}
+                    />
+                  </label>
+                  <p className="text-xs text-slate-400 mt-4">Kích thước tối ưu 512x512px. JPG, PNG hoặc WEBP.</p>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-slate-500 tracking-widest">Tên Cửa Hàng *</label>
+                    <input
+                      type="text"
+                      name="shopName"
+                      value={registerForm.shopName}
+                      onChange={handleRegisterInputChange}
+                      required
+                      placeholder="VD: Mâm Cúng Tâm Linh Sài Gòn"
+                      className="w-full px-5 py-4 rounded-2xl bg-gray-50 border border-gray-200 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-slate-500 tracking-widest">Loại hình kinh doanh *</label>
+                    <select
+                      name="businessType"
+                      value={registerForm.businessType}
+                      onChange={handleRegisterInputChange}
+                      required
+                      className="w-full px-5 py-4 rounded-2xl bg-gray-50 border border-gray-200 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all"
+                    >
+                      <option value="1">Cá nhân (Individual)</option>
+                      <option value="2">Hộ gia đình kinh doanh (Household Business)</option>
+                      <option value="3">Doanh nghiệp (Enterprise)</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-slate-500 tracking-widest">Mã số thuế / MST Cá nhân *</label>
+                    <input
+                      type="text"
+                      name="taxCode"
+                      value={registerForm.taxCode}
+                      onChange={handleRegisterInputChange}
+                      required
+                      placeholder="Nhập mã số thuế"
+                      className="w-full px-5 py-4 rounded-2xl bg-gray-50 border border-gray-200 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-slate-500 tracking-widest">Mô tả cửa hàng *</label>
+                    <textarea
+                      name="shopDescription"
+                      value={registerForm.shopDescription}
+                      onChange={handleRegisterInputChange}
+                      required
+                      rows={4}
+                      placeholder="Giới thiệu ngắn gọn về thế mạnh và dịch vụ của shop bạn..."
+                      className="w-full px-5 py-4 rounded-2xl bg-gray-50 border border-gray-200 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all resize-none"
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <label className="text-xs font-bold uppercase text-slate-500 tracking-widest">Đơn Hàng tối đa/1 ngày *</label>
+                    <input
+                      type="number"
+                      name="dailyCapacity"
+                      value={registerForm.dailyCapacity}
+                      onChange={handleRegisterInputChange}
+                      required
+                      min={1}
+                      className="w-full px-5 py-4 rounded-2xl bg-gray-50 border border-gray-200 focus:border-primary focus:ring-4 focus:ring-primary/10 outline-none transition-all"
+                    />
+                  </div>
+                </div>
+
+                <div className="md:col-span-2 space-y-6">
+                  {!regIsMapSelectionLocked ? (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase text-slate-500 tracking-widest">Tỉnh/Thành phố *</label>
+                        <select
+                          value={regSelectedProvince || ''}
+                          onChange={(e) => {
+                            setRegIsMapSelectionLocked(false);
+                            const code = e.target.value ? Number(e.target.value) : null;
+                            setRegSelectedProvince(code);
+                            setRegProvinceSearch('');
+                          }}
+                          required
+                          className="w-full px-5 py-4 rounded-2xl bg-gray-50 border border-gray-200 outline-none"
+                        >
+                          <option value="">Chọn Tỉnh/Thành phố</option>
+                          {provinces.map(p => <option key={p.code} value={p.code}>{p.name}</option>)}
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase text-slate-500 tracking-widest">Quận/Huyện *</label>
+                        <select
+                          value={regSelectedDistrict || ''}
+                          onChange={(e) => {
+                            setRegIsMapSelectionLocked(false);
+                            const code = e.target.value ? Number(e.target.value) : null;
+                            setRegSelectedDistrict(code);
+                          }}
+                          disabled={!regSelectedProvince}
+                          className="w-full px-5 py-4 rounded-2xl bg-gray-50 border border-gray-200 outline-none"
+                        >
+                          <option value="">Chọn Quận/Huyện</option>
+                          {regDistricts.map(d => <option key={d.code} value={d.code}>{d.name}</option>)}
+                        </select>
+                      </div>
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase text-slate-500 tracking-widest">Phường/Xã *</label>
+                        <select
+                          value={regSelectedWard || ''}
+                          onChange={(e) => {
+                            setRegIsMapSelectionLocked(false);
+                            const code = e.target.value ? Number(e.target.value) : null;
+                            setRegSelectedWard(code);
+                          }}
+                          disabled={!regSelectedDistrict}
+                          className="w-full px-5 py-4 rounded-2xl bg-gray-50 border border-gray-200 outline-none"
+                        >
+                          <option value="">Chọn Phường/Xã</option>
+                          {regWards.map(w => <option key={w.code} value={w.code}>{w.name}</option>)}
+                        </select>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="bg-primary/5 border border-primary/20 rounded-2xl p-6 flex items-center justify-between">
+                      <div className="text-sm">
+                        <span className="font-bold">Địa chỉ đã chọn:</span> {registerForm.shopAddressText}
+                      </div>
+                      <button type="button" onClick={() => setRegIsMapSelectionLocked(false)} className="text-primary font-bold text-xs uppercase underline">Thay đổi</button>
+                    </div>
+                  )}
+
+                  <div className="space-y-2 relative">
+                    <label className="text-xs font-bold uppercase text-slate-500 tracking-widest">Địa chỉ cụ thể *</label>
+                    <input
+                      type="text"
+                      value={regDetailedAddress}
+                      onChange={(e) => {
+                        setRegIsMapSelectionLocked(false);
+                        setRegDetailedAddress(e.target.value);
+                      }}
+                      required
+                      placeholder="Số nhà, tên đường..."
+                      className="w-full px-5 py-4 rounded-2xl bg-gray-50 border border-gray-200 outline-none"
+                    />
+                    {!regLoadingAddressSuggestions && regAddressSuggestions.length > 0 && (
+                      <div className="absolute z-[110] left-0 right-0 mt-1 max-h-52 overflow-auto bg-white border border-gray-200 rounded-xl shadow-xl">
+                        {regAddressSuggestions.map((suggestion, index) => (
+                          <button
+                            key={index}
+                            type="button"
+                            onClick={() => handleRegPickAddressSuggestion(suggestion)}
+                            className="w-full px-4 py-3 text-left text-sm hover:bg-primary/5 border-b border-gray-50 last:border-b-0"
+                          >
+                            {suggestion.displayName}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label className="text-xs font-bold uppercase text-slate-500 tracking-widest">Vị trí trên bản đồ *</label>
+                      <button type="button" onClick={handleRegUseCurrentLocation} className="text-xs font-bold text-primary underline">📍 Vị trí hiện tại</button>
+                    </div>
+                    <div className="rounded-2xl border border-gray-200 overflow-hidden h-[300px]">
+                      <AddressMapPicker position={regMapPickerPosition} onPositionChange={handleRegMapPositionChange} />
+                    </div>
+                    <div className="flex items-center justify-end gap-4 mt-2">
+                      <button type="button" onClick={handleRegConfirmMapSelection} className="bg-primary text-white px-6 py-2 rounded-xl font-bold text-xs uppercase">Xác nhận ghim</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 2: Verification Documents */}
+            <div>
+              <div className="flex items-center gap-3 mb-8 border-b border-gray-100 pb-4">
+                <span className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">2</span>
+                <h4 className="text-xl font-bold text-slate-800 uppercase tracking-wide">Giấy tờ xác thực</h4>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {registerForm.documents.map((doc, index) => (
+                  <div key={doc.documentType} className="flex flex-col">
+                    <label className="text-xs font-bold uppercase text-slate-500 tracking-tight mb-3">
+                      {doc.label} {doc.mandatory && <span className="text-red-500">*</span>}
+                    </label>
+                    <div className="relative h-48 rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 overflow-hidden flex flex-col items-center justify-center">
+                      {doc.file ? (
+                        <>
+                          <img src={URL.createObjectURL(doc.file)} alt="Preview" className="absolute inset-0 w-full h-full object-cover" />
+                          <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <label className="cursor-pointer bg-white text-primary px-4 py-2 rounded-full font-bold text-xs">Thay đổi</label>
+                          </div>
+                        </>
+                      ) : (
+                        <label className="cursor-pointer flex flex-col items-center">
+                          <span className="text-3xl mb-2">📄</span>
+                          <span className="text-[10px] font-bold text-primary bg-primary/10 px-3 py-1 rounded-full uppercase">Chọn ảnh</span>
+                        </label>
+                      )}
+                      <input type="file" accept="image/*" className="hidden" onChange={(e) => handleDocumentChange(index, e.target.files?.[0] || null)} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="pt-8 flex flex-col items-center">
+              <button
+                type="submit"
+                disabled={registering}
+                className="w-full md:w-auto min-w-[300px] bg-primary text-white py-5 px-12 rounded-[2rem] font-bold text-lg uppercase shadow-xl hover:scale-105 transition-all disabled:opacity-50"
+              >
+                {registering ? 'Đang xử lý...' : isResubmitting ? 'Cập nhật & Gửi lại hồ sơ' : 'Hoàn tất đăng ký & Gửi duyệt'}
+              </button>
+            </div>
+          </form>
+        )}
+      </div>
+    );
+  };
+
   const mockReviews = [
     {
       id: 1,
@@ -1351,9 +2457,11 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
               </h1>
               <p className="text-slate-500">{loading ? '...' : getCurrentUser()?.email || profile?.userId}</p>
               <div className="flex gap-2 mt-4">
-                <span className="px-3 py-1 bg-gray-100 text-primary text-xs font-bold uppercase rounded-lg">
-                  {profile?.isVendor ? 'Vendor' : 'Customer'}
-                </span>
+                {profile?.isVendor && (
+                  <span className="px-3 py-1 bg-gray-100 text-primary text-xs font-bold uppercase rounded-lg">
+                    Vendor
+                  </span>
+                )}
                 {profile?.isVendor && profile?.ratingAvg > 0 && (
                   <span className="px-3 py-1 bg-yellow-100 text-yellow-700 text-xs font-bold uppercase rounded-lg">
                     ⭐ {profile.ratingAvg.toFixed(1)}
@@ -1401,8 +2509,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
             }}
             disabled={loading}
             className={`px-6 py-3 rounded-xl font-bold text-sm uppercase tracking-wider hover:scale-105 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed ${isProfileSetupRequired && isEditing
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                : 'bg-primary text-white'
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+              : 'bg-primary text-white'
               }`}
           >
             {isEditing ? (isProfileSetupRequired ? 'Bắt buộc hoàn thành' : 'Hủy') : 'Chỉnh sửa'}
@@ -1480,7 +2588,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
             {/* Tabs */}
             <div className="-mx-6 md:-mx-10 px-6 md:px-10 mb-8 bg-white/98 backdrop-blur-sm py-4 border-y border-gray-200 shadow-md sticky top-[88px] z-[100]">
               <div className="flex gap-2 max-w-7xl mx-auto">
-                {['info', 'reviews'].map((tab) => (
+                {(() => {
+                  const tabs = ['info', 'reviews'];
+                  if (!profile?.isVendor) {
+                    tabs.push('vendor-register');
+                  }
+                  return tabs;
+                })().map((tab) => (
                   <button
                     key={tab}
                     onClick={() => {
@@ -1492,14 +2606,18 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                     }}
                     disabled={isProfileSetupRequired && tab !== 'info'}
                     className={`flex-1 py-3 rounded-xl font-bold text-sm uppercase transition-all tracking-wider ${activeTab === tab
-                        ? 'bg-primary text-white shadow-md'
-                        : isProfileSetupRequired && tab !== 'info'
-                          ? 'text-slate-300 cursor-not-allowed opacity-50'
-                          : 'text-slate-500 hover:text-primary'
+                      ? 'bg-primary text-white shadow-md'
+                      : isProfileSetupRequired && tab !== 'info'
+                        ? 'text-slate-300 cursor-not-allowed opacity-50'
+                        : 'text-slate-500 hover:text-primary'
                       }`}
                   >
                     {tab === 'info' && 'Thông tin cá nhân'}
                     {tab === 'reviews' && `Đánh giá (${mockReviews.length})`}
+                    {tab === 'vendor-register' && (
+                      profile?.verificationStatus === 'Pending' ? 'Đang xác minh ' :
+                        profile?.verificationStatus === 'Rejected' ? 'Đăng ký lại (Bị từ chối)' : 'Đăng ký Vendor '
+                    )}
                     {isProfileSetupRequired && tab !== 'info' && ' 🔒'}
                   </button>
                 ))}
@@ -1633,8 +2751,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                                   }));
                                 }}
                                 className={`text-xs font-semibold ${selectedExistingAddressId === null
-                                    ? 'text-slate-400 cursor-default'
-                                    : 'text-primary hover:underline'
+                                  ? 'text-slate-400 cursor-default'
+                                  : 'text-primary hover:underline'
                                   }`}
                               >
                                 {selectedExistingAddressId === null ? 'Đang nhập địa chỉ mới' : 'Nhập địa chỉ mới'}
@@ -1665,8 +2783,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                                     key={id}
                                     onClick={handleSelectAddress}
                                     className={`text-left p-3 rounded-xl border transition-all ${isSelected
-                                        ? 'border-primary bg-primary/5'
-                                        : 'border-gray-200 hover:border-primary/50'
+                                      ? 'border-primary bg-primary/5'
+                                      : 'border-gray-200 hover:border-primary/50'
                                       } cursor-pointer`}
                                   >
                                     <div className="flex items-center justify-between gap-2 mb-2">
@@ -1695,8 +2813,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                                           type="button"
                                           onClick={handleSelectAddress}
                                           className={`w-full rounded-lg px-3 py-2 text-xs font-bold transition-all ${isSelected
-                                              ? 'bg-primary text-white'
-                                              : 'bg-primary/10 text-primary hover:bg-primary/20'
+                                            ? 'bg-primary text-white'
+                                            : 'bg-primary/10 text-primary hover:bg-primary/20'
                                             }`}
                                         >
                                           {isSelected ? 'Đang chọn' : 'Dùng địa chỉ này'}
@@ -1725,8 +2843,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                                             }}
                                             disabled={!!addr.isDefault}
                                             className={`w-full rounded-lg px-3 py-2 text-xs font-bold border transition-all ${addr.isDefault
-                                                ? 'border-gray-200 text-gray-400 cursor-not-allowed'
-                                                : 'border-amber-200 text-amber-700 hover:bg-amber-50'
+                                              ? 'border-gray-200 text-gray-400 cursor-not-allowed'
+                                              : 'border-amber-200 text-amber-700 hover:bg-amber-50'
                                               }`}
                                           >
                                             {addr.isDefault ? 'Đang mặc định' : 'Đặt mặc định'}
@@ -1803,108 +2921,128 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                           </div>
                         )}
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          {/* Province */}
-                          <div className="space-y-2">
-                            <label className="text-xs font-bold uppercase text-slate-400 tracking-widest">
-                              Tỉnh/Thành phố <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                              value={selectedProvince || ''}
-                              onChange={(e) => {
-                                setSelectedExistingAddressId(null);
-                                setIsMapSelectionLocked(false);
-                                const code = e.target.value ? Number(e.target.value) : null;
-                                setSelectedProvince(code);
-                                setSelectedDistrict(null);
-                                setSelectedWard(null);
-                                setProvinceSearch('');
-                                setDistrictSearch('');
-                                setWardSearch('');
-                              }}
-                              required={selectedExistingAddressId === null}
-                              disabled={loadingProvinces}
-                              className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
-                            >
-                              <option value="">{loadingProvinces ? 'Đang tải...' : 'Chọn Tỉnh/Thành phố'}</option>
-                              {provinces
-                                .filter(province =>
-                                  province.name.toLowerCase().includes(provinceSearch.toLowerCase())
-                                )
-                                .map(province => (
-                                  <option key={province.code} value={province.code}>{province.name}</option>
+                        {!isMapSelectionLocked ? (
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {/* Province */}
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold uppercase text-slate-400 tracking-widest">
+                                Tỉnh/Thành phố <span className="text-red-500">*</span>
+                              </label>
+                              <select
+                                value={selectedProvince || ''}
+                                onChange={(e) => {
+                                  setSelectedExistingAddressId(null);
+                                  setIsMapSelectionLocked(false);
+                                  const code = e.target.value ? Number(e.target.value) : null;
+                                  setSelectedProvince(code);
+                                  setSelectedDistrict(null);
+                                  setSelectedWard(null);
+                                  setProvinceSearch('');
+                                  setDistrictSearch('');
+                                  setWardSearch('');
+                                }}
+                                required={selectedExistingAddressId === null}
+                                disabled={loadingProvinces}
+                                className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                              >
+                                <option value="">{loadingProvinces ? 'Đang tải...' : 'Chọn Tỉnh/Thành phố'}</option>
+                                {provinces
+                                  .filter(province =>
+                                    province.name.toLowerCase().includes(provinceSearch.toLowerCase())
+                                  )
+                                  .map(province => (
+                                    <option key={province.code} value={province.code}>{province.name}</option>
+                                  ))}
+                              </select>
+                              {!loadingProvinces && provinces.length > 0 && (
+                                <input
+                                  type="text"
+                                  placeholder="Nhập tỉnh, thành phố để tìm"
+                                  value={provinceSearch}
+                                  onChange={(e) => setProvinceSearch(e.target.value)}
+                                  className="w-full mt-2 px-4 py-2 rounded-lg bg-white border border-gray-300 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                                />
+                              )}
+                            </div>
+
+                            {/* District */}
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold uppercase text-slate-400 tracking-widest">
+                                Quận/Huyện <span className="text-red-500">*</span>
+                              </label>
+                              <select
+                                value={selectedDistrict || ''}
+                                onChange={(e) => {
+                                  setSelectedExistingAddressId(null);
+                                  setIsMapSelectionLocked(false);
+                                  const code = e.target.value ? Number(e.target.value) : null;
+                                  setSelectedDistrict(code);
+                                  setSelectedWard(null);
+                                  setWardSearch('');
+                                }}
+                                disabled={!selectedProvince || loadingDistricts}
+                                required={selectedExistingAddressId === null}
+                                className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                              >
+                                <option value="">
+                                  {loadingDistricts ? 'Đang tải...' : 'Vui lòng chọn Quận/Huyện'}
+                                </option>
+                                {districts.map(district => (
+                                  <option key={district.code} value={district.code}>{district.name}</option>
                                 ))}
-                            </select>
-                            {!loadingProvinces && provinces.length > 0 && (
-                              <input
-                                type="text"
-                                placeholder="Nhập tỉnh, thành phố để tìm"
-                                value={provinceSearch}
-                                onChange={(e) => setProvinceSearch(e.target.value)}
-                                className="w-full mt-2 px-4 py-2 rounded-lg bg-white border border-gray-300 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
-                              />
-                            )}
-                          </div>
+                              </select>
+                            </div>
 
-                          {/* District */}
-                          <div className="space-y-2">
-                            <label className="text-xs font-bold uppercase text-slate-400 tracking-widest">
-                              Quận/Huyện <span className="text-red-500">*</span>
-                            </label>
-                            <select
-                              value={selectedDistrict || ''}
-                              onChange={(e) => {
-                                setSelectedExistingAddressId(null);
-                                setIsMapSelectionLocked(false);
-                                const code = e.target.value ? Number(e.target.value) : null;
-                                setSelectedDistrict(code);
-                                setSelectedWard(null);
-                                setWardSearch('');
-                              }}
-                              disabled={!selectedProvince || loadingDistricts}
-                              required={selectedExistingAddressId === null}
-                              className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
-                            >
-                              <option value="">
-                                {loadingDistricts ? 'Đang tải...' : 'Vui lòng chọn Quận/Huyện'}
-                              </option>
-                              {districts.map(district => (
-                                <option key={district.code} value={district.code}>{district.name}</option>
-                              ))}
-                            </select>
+                            {/* Ward */}
+                            <div className="space-y-2">
+                              <label className="text-xs font-bold uppercase text-slate-400 tracking-widest">
+                                Phường/Xã {wards.length > 0 ? <span className="text-red-500">*</span> : '(Tùy chọn)'}
+                              </label>
+                              <select
+                                value={selectedWard || ''}
+                                onChange={(e) => {
+                                  setSelectedExistingAddressId(null);
+                                  setIsMapSelectionLocked(false);
+                                  const code = e.target.value ? Number(e.target.value) : null;
+                                  setSelectedWard(code);
+                                }}
+                                disabled={!selectedDistrict || loadingWards}
+                                required={selectedExistingAddressId === null && wards.length > 0}
+                                className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                              >
+                                <option value="">
+                                  {loadingWards ? 'Đang tải...' : 'Chọn Phường/Xã'}
+                                </option>
+                                {wards.map(ward => (
+                                  <option key={ward.code} value={ward.code}>{ward.name}</option>
+                                ))}
+                              </select>
+                              {selectedDistrict && !loadingWards && wards.length === 0 && (
+                                <p className="text-xs text-amber-600 mt-1">
+                                  ⚠️ Chưa có dữ liệu phường/xã cho quận/huyện này. Vui lòng nhập trực tiếp vào "Địa chỉ cụ thể".
+                                </p>
+                              )}
+                            </div>
                           </div>
-
-                          {/* Ward */}
-                          <div className="space-y-2">
-                            <label className="text-xs font-bold uppercase text-slate-400 tracking-widest">
-                              Phường/Xã {wards.length > 0 ? <span className="text-red-500">*</span> : '(Tùy chọn)'}
-                            </label>
-                            <select
-                              value={selectedWard || ''}
-                              onChange={(e) => {
-                                setSelectedExistingAddressId(null);
-                                setIsMapSelectionLocked(false);
-                                const code = e.target.value ? Number(e.target.value) : null;
-                                setSelectedWard(code);
-                              }}
-                              disabled={!selectedDistrict || loadingWards}
-                              required={selectedExistingAddressId === null && wards.length > 0}
-                              className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                        ) : (
+                          <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="space-y-1">
+                              <label className="text-[10px] font-bold uppercase text-slate-400 tracking-widest block">Khu vực đã chọn</label>
+                              <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-700">
+                                <p><span className="font-semibold text-slate-500">Tỉnh:</span> {provinces.find(p => p.code === selectedProvince)?.name || '---'}</p>
+                                <p><span className="font-semibold text-slate-500">Quận/Huyện:</span> {districts.find(d => d.code === selectedDistrict)?.name || '---'}</p>
+                                <p><span className="font-semibold text-slate-500">Phường/Xã:</span> {wards.find(w => w.code === selectedWard)?.name || '---'}</p>
+                              </div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setIsMapSelectionLocked(false)}
+                              className="text-xs font-bold text-primary hover:text-white hover:bg-primary px-4 py-2 border border-primary/30 rounded-xl transition-all self-start md:self-center"
                             >
-                              <option value="">
-                                {loadingWards ? 'Đang tải...' : 'Chọn Phường/Xã'}
-                              </option>
-                              {wards.map(ward => (
-                                <option key={ward.code} value={ward.code}>{ward.name}</option>
-                              ))}
-                            </select>
-                            {selectedDistrict && !loadingWards && wards.length === 0 && (
-                              <p className="text-xs text-amber-600 mt-1">
-                                ⚠️ Chưa có dữ liệu phường/xã cho quận/huyện này. Vui lòng nhập trực tiếp vào "Địa chỉ cụ thể".
-                              </p>
-                            )}
+                              Thay đổi khu vực
+                            </button>
                           </div>
-                        </div>
+                        )}
 
                         {/* Detailed Address */}
                         <div className="space-y-2">
@@ -2343,6 +3481,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                   ))}
                 </div>
               )}
+
+              {activeTab === 'vendor-register' && renderVendorRegistrationTab()}
             </div>
           </>
         )}

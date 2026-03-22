@@ -72,7 +72,8 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
       profileId: profileId,
       shopName: shopName,
       shopDescription: pkg?.vendor?.description,
-      avatarUrl: pkg?.vendor?.avatarUrl,
+      avatarUrl: pkg?.vendor?.shopAvatarUrl || pkg?.vendor?.avatarUrl,
+      shopAvatarUrl: pkg?.vendor?.shopAvatarUrl,
       businessType: pkg?.vendor?.businessType,
       shopAddressText: pkg?.vendor?.address || pkg?.vendor?.addressText,
       ratingAvg: typeof pkg?.vendor?.ratingAvg === 'number' ? pkg.vendor.ratingAvg : (typeof pkg?.vendor?.rating === 'number' ? pkg.vendor.rating : undefined),
@@ -525,9 +526,9 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
             <div className="flex flex-col lg:flex-row gap-8 items-center lg:items-center">
               {/* Left side: Shop Identity Compact */}
               <div className="flex items-center gap-6 lg:w-[35%] shrink-0">
-                <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center text-slate-900 text-xl font-display font-black border-2 border-white/20 shrink-0">
-                  {vendor.avatarUrl ? (
-                    <img src={vendor.avatarUrl} alt={vendor.shopName} className="w-full h-full object-cover" />
+                <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center text-slate-900 text-xl font-display font-black border-2 border-white/20 shrink-0 overflow-hidden">
+                  {(vendor.shopAvatarUrl || vendor.avatarUrl) ? (
+                    <img src={vendor.shopAvatarUrl || vendor.avatarUrl || ''} alt={vendor.shopName} className="w-full h-full object-cover" />
                   ) : (
                     vendor.shopName.charAt(0).toUpperCase()
                   )}

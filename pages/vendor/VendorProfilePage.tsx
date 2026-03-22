@@ -35,6 +35,13 @@ interface VendorProfilePageProps {
   onNavigate: (path: string) => void;
 }
 
+const BUSINESS_TYPE_MAP: Record<string, string> = {
+  'Individual': 'Cá nhân',
+  'HouseholdBusiness': 'Hộ gia đình kinh doanh',
+  'HouseholdBussiness': 'Hộ gia đình kinh doanh',
+  'Enterprise': 'Doanh nghiệp'
+};
+
 const VendorProfilePage: React.FC<VendorProfilePageProps> = ({ onNavigate }) => {
   const { id } = useParams<{ id: string }>();
   const [vendor, setVendor] = useState<VendorProfile | null>(null);
@@ -115,8 +122,8 @@ const VendorProfilePage: React.FC<VendorProfilePageProps> = ({ onNavigate }) => 
             {/* Identity */}
             <div className="flex flex-col lg:flex-row items-center gap-8 w-full lg:w-1/2">
                <div className="w-32 h-32 rounded-full bg-white flex items-center justify-center text-slate-900 text-4xl font-display font-black border-4 border-white/20 overflow-hidden shrink-0 shadow-2xl">
-                  {vendor.avatarUrl ? (
-                    <img src={vendor.avatarUrl} alt={vendor.shopName} className="w-full h-full object-cover" />
+                  {(vendor.shopAvatarUrl || vendor.avatarUrl) ? (
+                    <img src={vendor.shopAvatarUrl || vendor.avatarUrl || ''} alt={vendor.shopName} className="w-full h-full object-cover" />
                   ) : (
                     vendor.shopName.charAt(0).toUpperCase()
                   )}
@@ -257,7 +264,7 @@ const VendorProfilePage: React.FC<VendorProfilePageProps> = ({ onNavigate }) => 
               <div className="space-y-4">
                 <h4 className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Chi tiết</h4>
                 <div className="space-y-2 text-sm font-bold text-slate-800">
-                  <p className="flex justify-between"><span>Loại hình:</span> <span>{vendor.businessType || 'Cá nhân'}</span></p>
+                  <p className="flex justify-between"><span>Loại hình:</span> <span>{BUSINESS_TYPE_MAP[vendor.businessType || 'Individual'] || vendor.businessType || 'Cá nhân'}</span></p>
                   <p className="flex justify-between"><span>Hạng:</span> <span className="uppercase">{vendor.tierName || 'Bạc'}</span></p>
                 </div>
               </div>
