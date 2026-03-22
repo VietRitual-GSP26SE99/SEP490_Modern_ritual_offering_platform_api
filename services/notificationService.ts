@@ -29,6 +29,8 @@ interface NotificationApiItem {
   redirectUrl?: string;
   isRead?: boolean;
   createdAt?: string;
+  // Backend hiện đang dùng createAt (thiếu d)
+  createAt?: string;
 }
 
 interface NotificationListApiResponse {
@@ -55,7 +57,7 @@ function normalizeNotificationItem(raw: NotificationApiItem): NotificationItem {
     target: raw.target ?? '',
     redirectUrl: raw.redirectUrl ?? null,
     isRead: Boolean(raw.isRead),
-    createdAt: raw.createdAt ?? '',
+    createdAt: raw.createdAt ?? (raw as any).createAt ?? '',
   };
 }
 
