@@ -10,7 +10,7 @@ import {
   UpdateProfileRequest,
   UpdateVendorProfileRequest,
 } from '../../services/auth';
-import { geocodingService } from '../../services/geocodingService';
+import { geocodingService, AddressSuggestion, ReverseGeocodingAddress } from '../../services/geocodingService';
 import {
   Province,
   District,
@@ -52,7 +52,7 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
   const [vendorProfile, setVendorProfile] = useState<VendorCurrentProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
   const [saveLoading, setSaveLoading] = useState(false);
-  const [coordinateLoading, setCoordinateLoading] = useState(false);
+  const [coordinateError, setCoordinateError] = useState<string | null>(null);
   const [provinces, setProvinces] = useState<Province[]>([]);
   const [districts, setDistricts] = useState<District[]>([]);
   const [wards, setWards] = useState<Ward[]>([]);
@@ -66,7 +66,10 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
   const [mapPreview, setMapPreview] = useState<{ latitude: number; longitude: number } | null>(null);
   const [mapPreviewLoading, setMapPreviewLoading] = useState(false);
   const [mapPreviewError, setMapPreviewError] = useState<string | null>(null);
-  const [searchMapLoading, setSearchMapLoading] = useState(false);
+  const [addressSuggestions, setAddressSuggestions] = useState<AddressSuggestion[]>([]);
+  const [loadingAddressSuggestions, setLoadingAddressSuggestions] = useState(false);
+  const [isMapSelectionLocked, setIsMapSelectionLocked] = useState(false);
+  const [mapConfirmLoading, setMapConfirmLoading] = useState(false);
 
   const [shopInfo, setShopInfo] = useState({
     shopName: '',
@@ -82,6 +85,9 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
     latitude: 0,
     longitude: 0,
     avatarFile: null as File | null,
+    avatarUrl: '' as string,
+    dailyCapacity: 100,
+    businessType: 'Individual',
   });
 
   const [bankInfo, setBankInfo] = useState({
@@ -91,29 +97,70 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
     branch: 'Chi nhánh Quận 1',
   });
 
+  const [provinceSearch, setProvinceSearch] = useState('');
+  const [districtSearch, setDistrictSearch] = useState('');
+  const [wardSearch, setWardSearch] = useState('');
+
   const [isEditing, setIsEditing] = useState(false);
-  const [initialShopInfo, setInitialShopInfo] = useState<{ shopName: string; address: string; description: string; tax: string; latitude: number; longitude: number } | null>(null);
+  const [initialShopInfo, setInitialShopInfo] = useState<{
+    shopName: string;
+    address: string;
+    description: string;
+    tax: string;
+    latitude: number;
+    longitude: number;
+    dailyCapacity: number;
+    businessType: string;
+    avatarUrl: string;
+  } | null>(null);
+  const isNameMatch = (name1: string | undefined, name2: string | undefined): boolean => {
+    if (!name1 || !name2) return false;
+    const normalize = (s: string) =>
+      s
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\b(tinh|thanh pho|quan|huyen|phuong|xa|thi tran|thi xa|city|district|ward)\b/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    const s1 = normalize(name1);
+    const s2 = normalize(name2);
+    return s1.includes(s2) || s2.includes(s1);
+  };
+
+  const isPinnedCoordinateLabel = (text: string): boolean => {
+    return text.includes('Vị trí đã ghim') || text.includes('Địa điểm đã chọn');
+  };
 
   const mapPickerPosition = mapPreview ?? {
     latitude: Number(shopInfo.latitude) || DEFAULT_MAP_POSITION.latitude,
     longitude: Number(shopInfo.longitude) || DEFAULT_MAP_POSITION.longitude,
   };
 
-  const findProvinceByReverse = (provinceName?: string): Province | undefined => {
+  const findProvinceByReverse = (reverseData: ReverseGeocodingAddress): Province | undefined => {
     return provinces.find((province) =>
-      isNameMatch(provinceName, province.name) || isNameMatch(provinceName, province.full_name)
+      isNameMatch(reverseData.provinceName, province.name) ||
+      isNameMatch(reverseData.provinceName, province.full_name) ||
+      isNameMatch(reverseData.formattedAddress, province.name) ||
+      isNameMatch(reverseData.formattedAddress, province.full_name)
     );
   };
 
-  const findDistrictByReverse = (districtName: string | undefined, districtList: District[]): District | undefined => {
+  const findDistrictByReverse = (reverseData: ReverseGeocodingAddress, districtList: District[]): District | undefined => {
     return districtList.find((district) =>
-      isNameMatch(districtName, district.name) || isNameMatch(districtName, district.full_name)
+      isNameMatch(reverseData.districtName, district.name) ||
+      isNameMatch(reverseData.districtName, district.full_name) ||
+      isNameMatch(reverseData.formattedAddress, district.name) ||
+      isNameMatch(reverseData.formattedAddress, district.full_name)
     );
   };
 
-  const findWardByReverse = (wardName: string | undefined, wardList: Ward[]): Ward | undefined => {
+  const findWardByReverse = (reverseData: ReverseGeocodingAddress, wardList: Ward[]): Ward | undefined => {
     return wardList.find((ward) =>
-      isNameMatch(wardName, ward.name) || isNameMatch(wardName, ward.full_name)
+      isNameMatch(reverseData.wardName, ward.name) ||
+      isNameMatch(reverseData.wardName, ward.full_name) ||
+      isNameMatch(reverseData.formattedAddress, ward.name) ||
+      isNameMatch(reverseData.formattedAddress, ward.full_name)
     );
   };
 
@@ -149,6 +196,9 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
           dateOfBirth: formattedDate,
           latitude: vendorData?.shopLatitude ?? data.latitude ?? 0,
           longitude: vendorData?.shopLongitude ?? data.longitude ?? 0,
+          dailyCapacity: vendorData?.dailyCapacity ?? 100,
+          businessType: vendorData?.businessType || 'Individual',
+          avatarUrl: vendorData?.shopAvatarUrl || vendorData?.avatarUrl || '',
         }));
 
         setInitialShopInfo({
@@ -158,6 +208,9 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
           tax: vendorData?.taxCode || data.businessLicenseNo || '',
           latitude: vendorData?.shopLatitude ?? data.latitude ?? 0,
           longitude: vendorData?.shopLongitude ?? data.longitude ?? 0,
+          dailyCapacity: vendorData?.dailyCapacity ?? 100,
+          businessType: vendorData?.businessType || 'Individual',
+          avatarUrl: vendorData?.shopAvatarUrl || vendorData?.avatarUrl || '',
         });
 
         const resolvedAddress = vendorData?.shopAddressText || data.addressText || '';
@@ -270,21 +323,30 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
         resolvedWardName = resolvedWardName || reverseData?.wardName;
       }
 
-      const matchedProvince = findProvinceByReverse(resolvedProvinceName);
+      const matchedProvince = findProvinceByReverse({
+        provinceName: resolvedProvinceName,
+        formattedAddress: resolvedProvinceName || '',
+      });
       if (!matchedProvince) return;
 
       setSelectedProvince(matchedProvince.code);
       const districtList = await getDistrictsByProvince(matchedProvince.code);
       setDistricts(districtList);
 
-      const matchedDistrict = findDistrictByReverse(resolvedDistrictName, districtList);
+      const matchedDistrict = findDistrictByReverse({
+        districtName: resolvedDistrictName,
+        formattedAddress: resolvedDistrictName || '',
+      }, districtList);
       if (!matchedDistrict) return;
 
       setSelectedDistrict(matchedDistrict.code);
       const wardList = await getWardsByDistrict(matchedDistrict.code);
       setWards(wardList);
 
-      const matchedWard = findWardByReverse(resolvedWardName, wardList);
+      const matchedWard = findWardByReverse({
+        wardName: resolvedWardName,
+        formattedAddress: resolvedWardName || '',
+      }, wardList);
       if (matchedWard) {
         setSelectedWard(matchedWard.code);
       }
@@ -295,47 +357,162 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
     });
   }, [isEditing, initialShopInfo, provinces, selectedProvince, shopInfo.latitude, shopInfo.longitude]);
 
-  // Handle get coordinates from address
-  const handleSearchOnMap = async () => {
-    const selectedProvinceName = provinces.find((p) => p.code === selectedProvince)?.name;
-    const selectedDistrictName = districts.find((d) => d.code === selectedDistrict)?.name;
-    const selectedWardName = wards.find((w) => w.code === selectedWard)?.name;
+  // Auto-update map preview when address components change (Like ProfilePage)
+  useEffect(() => {
+    if (!isEditing) return;
 
-    if (!selectedProvinceName || !selectedDistrictName) {
-      setMapPreviewError('Vui lòng chọn Tỉnh/Thành phố và Quận/Huyện trước khi tìm trên bản đồ.');
+    // Keep user-picked map location stable; only recalculate when address fields are changed manually.
+    if (isMapSelectionLocked && mapPreview) {
+      setMapPreviewLoading(false);
       return;
     }
 
-    if (!detailedAddress.trim()) {
-      setMapPreviewError('Vui lòng nhập địa chỉ chi tiết trước khi tìm trên bản đồ.');
-      return;
-    }
+    const provinceName = provinces.find(p => p.code === selectedProvince)?.name;
+    const districtName = districts.find(d => d.code === selectedDistrict)?.name;
+    const wardName = wards.find(w => w.code === selectedWard)?.name;
+    const hasEnoughAddress = !!detailedAddress.trim() && !!provinceName && !!districtName;
 
-    try {
-      setSearchMapLoading(true);
+    if (!hasEnoughAddress) {
+      setMapPreview(null);
+      setMapPreviewLoading(false);
       setMapPreviewError(null);
+      return;
+    }
 
-      const geoResult = await geocodingService.geocodeAddressComponents({
-        detailedAddress: detailedAddress.trim(),
-        wardName: selectedWardName,
-        districtName: selectedDistrictName,
-        provinceName: selectedProvinceName,
-      });
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      try {
+        setMapPreviewLoading(true);
+        setMapPreviewError(null);
 
-      if (!geoResult) {
-        setMapPreviewError('Không tìm thấy vị trí phù hợp. Bạn thử nhập chi tiết hơn nhé.');
-        return;
+        const result = await geocodingService.geocodeAddressComponents({
+          detailedAddress: detailedAddress.trim(),
+          wardName,
+          districtName,
+          provinceName,
+        });
+
+        if (cancelled) return;
+
+        if (result) {
+          setMapPreview({ latitude: result.latitude, longitude: result.longitude });
+          setShopInfo((prev) => ({
+            ...prev,
+            latitude: result.latitude,
+            longitude: result.longitude,
+          }));
+        } else {
+          setMapPreview(null);
+          setMapPreviewError('Không tìm thấy vị trí chính xác cho địa chỉ này.');
+        }
+      } catch {
+        if (cancelled) return;
+        setMapPreview(null);
+        setMapPreviewError('Không thể tìm thấy vị trí trên bản đồ cho địa chỉ đã nhập.');
+      } finally {
+        if (!cancelled) {
+          setMapPreviewLoading(false);
+        }
       }
+    }, 650);
 
-      setMapPreview({ latitude: geoResult.latitude, longitude: geoResult.longitude });
-      setShopInfo((prev) => ({ ...prev, latitude: geoResult.latitude, longitude: geoResult.longitude }));
-    } catch (error) {
-      console.error('Failed to search address on map:', error);
-      setMapPreviewError('Không thể tìm vị trí trên bản đồ lúc này. Vui lòng thử lại.');
-    } finally {
-      setSearchMapLoading(false);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [
+    isEditing,
+    isMapSelectionLocked,
+    detailedAddress,
+    selectedProvince,
+    selectedDistrict,
+    selectedWard,
+    provinces,
+    districts,
+    wards,
+  ]);
+
+  // Address suggestions logic (Like ProfilePage)
+  useEffect(() => {
+    if (!isEditing) {
+      setAddressSuggestions([]);
+      setLoadingAddressSuggestions(false);
+      return;
+    }
+
+    const keyword = detailedAddress.trim();
+    if (keyword.length < 3) {
+      setAddressSuggestions([]);
+      setLoadingAddressSuggestions(false);
+      return;
+    }
+
+    const districtName = districts.find((d) => d.code === selectedDistrict)?.name;
+    const provinceName = provinces.find((p) => p.code === selectedProvince)?.name;
+
+    let cancelled = false;
+    const timer = window.setTimeout(async () => {
+      try {
+        setLoadingAddressSuggestions(true);
+        const suggestions = await geocodingService.suggestAddresses(keyword, districtName, provinceName);
+        if (cancelled) return;
+        setAddressSuggestions(suggestions);
+      } finally {
+        if (!cancelled) {
+          setLoadingAddressSuggestions(false);
+        }
+      }
+    }, 350);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [isEditing, detailedAddress, selectedDistrict, selectedProvince, districts, provinces]);
+
+  const handlePickAddressSuggestion = async (suggestion: AddressSuggestion) => {
+    const display = suggestion.displayName;
+
+    setDetailedAddress(display);
+    setMapPreview({ latitude: suggestion.latitude, longitude: suggestion.longitude });
+    setIsMapSelectionLocked(true);
+    setMapPreviewError(null);
+    setAddressSuggestions([]);
+    setShopInfo((prev) => ({
+      ...prev,
+      address: display,
+      latitude: suggestion.latitude,
+      longitude: suggestion.longitude,
+    }));
+
+    // Tự động tìm và điền Tỉnh/Huyện/Xã dựa trên tọa độ của gợi ý
+    try {
+      const reverseData = await geocodingService.reverseGeocodeDetails(suggestion.latitude, suggestion.longitude);
+      if (reverseData) {
+        const matchedProvince = findProvinceByReverse(reverseData);
+        if (matchedProvince) {
+          setSelectedProvince(matchedProvince.code);
+          const provinceDistricts = await getDistrictsByProvince(matchedProvince.code);
+          setDistricts(provinceDistricts);
+
+          const matchedDistrict = findDistrictByReverse(reverseData, provinceDistricts);
+          if (matchedDistrict) {
+            setSelectedDistrict(matchedDistrict.code);
+            const districtWards = await getWardsByDistrict(matchedDistrict.code);
+            setWards(districtWards);
+
+            const matchedWard = findWardByReverse(reverseData, districtWards);
+            if (matchedWard) {
+              setSelectedWard(matchedWard.code);
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Failed to reverse geocode suggestion:', err);
     }
   };
+
 
   const handleUseCurrentLocation = async () => {
     if (!navigator.geolocation) {
@@ -374,6 +551,7 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
 
   const handleMapPositionChange = ({ latitude, longitude }: { latitude: number; longitude: number }) => {
     setMapPreview({ latitude, longitude });
+    setIsMapSelectionLocked(true);
     setMapPreviewError(null);
     setShopInfo((prev) => ({ ...prev, latitude, longitude }));
   };
@@ -383,12 +561,42 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
     const targetLng = mapPickerPosition.longitude;
 
     try {
-      setCoordinateLoading(true);
+      setMapConfirmLoading(true);
       setMapPreviewError(null);
 
       const reverseData = await geocodingService.reverseGeocodeDetails(targetLat, targetLng);
 
-      const matchedProvince = findProvinceByReverse(reverseData?.provinceName);
+      const fallbackProvinceName = provinces.find((p) => p.code === selectedProvince)?.name;
+      const fallbackDistrictName = districts.find((d) => d.code === selectedDistrict)?.name;
+      const fallbackWardName = wards.find((w) => w.code === selectedWard)?.name;
+
+      const effectiveReverseData: ReverseGeocodingAddress = reverseData || {
+        formattedAddress: '',
+        provinceName: fallbackProvinceName,
+        districtName: fallbackDistrictName,
+        wardName: fallbackWardName,
+        detailedAddress: detailedAddress?.trim() || '',
+      };
+
+      const calculateDistanceKm = (
+        lat1: number,
+        lng1: number,
+        lat2: number,
+        lng2: number
+      ): number => {
+        const toRad = (value: number) => (value * Math.PI) / 180;
+        const earthRadiusKm = 6371;
+        const dLat = toRad(lat2 - lat1);
+        const dLng = toRad(lng2 - lng1);
+        const a =
+          Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+          Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+          Math.sin(dLng / 2) * Math.sin(dLng / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return earthRadiusKm * c;
+      };
+
+      const matchedProvince = findProvinceByReverse(effectiveReverseData);
       let matchedDistrict: District | undefined;
       let matchedWard: Ward | undefined;
 
@@ -397,45 +605,82 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
         const provinceDistricts = await getDistrictsByProvince(matchedProvince.code);
         setDistricts(provinceDistricts);
 
-        matchedDistrict = findDistrictByReverse(reverseData?.districtName, provinceDistricts);
+        matchedDistrict = findDistrictByReverse(effectiveReverseData, provinceDistricts);
         if (matchedDistrict) {
           setSelectedDistrict(matchedDistrict.code);
           const districtWards = await getWardsByDistrict(matchedDistrict.code);
           setWards(districtWards);
 
-          matchedWard = findWardByReverse(reverseData?.wardName, districtWards);
+          matchedWard = findWardByReverse(effectiveReverseData, districtWards);
           if (matchedWard) {
             setSelectedWard(matchedWard.code);
           }
         }
       }
 
-      const nextDetailedAddress =
-        reverseData?.detailedAddress ||
-        reverseData?.formattedAddress.split(',')[0]?.trim() ||
-        detailedAddress ||
-        'Địa điểm đã chọn trên bản đồ';
+      let nextDetailedAddress =
+        effectiveReverseData.detailedAddress ||
+        effectiveReverseData.formattedAddress ||
+        detailedAddress;
 
-      const provinceText = matchedProvince?.name || reverseData?.provinceName || '';
-      const districtText = matchedDistrict?.name || reverseData?.districtName || '';
-      const wardText = matchedWard?.name || reverseData?.wardName || '';
-      const composedAddressText = [nextDetailedAddress, wardText, districtText, provinceText]
-        .filter(Boolean)
-        .join(', ');
+      let resolvedDetailedAddress = nextDetailedAddress;
+      let resolvedAddressTextFromSuggestion = '';
 
-      setDetailedAddress(nextDetailedAddress);
+      // Prefer nearest suggestion around the selected pin
+      if (detailedAddress.trim().length >= 3) {
+        const nearbySuggestions = await geocodingService.suggestAddresses(
+          detailedAddress.trim(),
+          matchedDistrict?.name || effectiveReverseData.districtName || fallbackDistrictName,
+          matchedProvince?.name || effectiveReverseData.provinceName || fallbackProvinceName
+        );
+
+        if (nearbySuggestions.length > 0) {
+          const nearest = [...nearbySuggestions].sort((a, b) => {
+            const distA = calculateDistanceKm(targetLat, targetLng, a.latitude, a.longitude);
+            const distB = calculateDistanceKm(targetLat, targetLng, b.latitude, b.longitude);
+            return distA - distB;
+          })[0];
+
+          const nearestDistanceKm = calculateDistanceKm(targetLat, targetLng, nearest.latitude, nearest.longitude);
+          if (nearestDistanceKm <= 0.8) {
+            resolvedDetailedAddress = nearest.displayName || resolvedDetailedAddress;
+            resolvedAddressTextFromSuggestion = nearest.displayName;
+          }
+        }
+      }
+
+      const provinceText = matchedProvince?.name || effectiveReverseData.provinceName || fallbackProvinceName || '';
+      const districtText = matchedDistrict?.name || effectiveReverseData.districtName || fallbackDistrictName || '';
+      const wardText = matchedWard?.name || effectiveReverseData.wardName || fallbackWardName || '';
+
+      if (!resolvedDetailedAddress || !resolvedDetailedAddress.trim()) {
+        resolvedDetailedAddress =
+          effectiveReverseData.formattedAddress.split(',')[0]?.trim() ||
+          detailedAddress.trim() ||
+          'Địa điểm đã chọn trên bản đồ';
+      }
+
+      const composedAddressText = resolvedDetailedAddress.includes(provinceText)
+        ? resolvedDetailedAddress
+        : [resolvedDetailedAddress, wardText, districtText, provinceText]
+          .filter(Boolean)
+          .join(', ');
+
+      setDetailedAddress(resolvedDetailedAddress);
       setMapPreview({ latitude: targetLat, longitude: targetLng });
+      setIsMapSelectionLocked(true);
       setShopInfo((prev) => ({
         ...prev,
         latitude: targetLat,
         longitude: targetLng,
-        address: composedAddressText || reverseData?.formattedAddress || prev.address,
+        address: resolvedAddressTextFromSuggestion || composedAddressText || effectiveReverseData.formattedAddress || prev.address,
       }));
+      toast.success('Đã xác nhận vị trí pin và tự động điền địa chỉ vào form.');
     } catch (error) {
       console.error('Failed to confirm map selection:', error);
       setMapPreviewError('Không thể xác nhận vị trí trên bản đồ. Vui lòng thử lại.');
     } finally {
-      setCoordinateLoading(false);
+      setMapConfirmLoading(false);
     }
   };
 
@@ -462,6 +707,33 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
           payload.shopAddressText = shopInfo.address.trim();
         }
 
+        // Auto-fetch coordinates from address before saving (Like ProfilePage fallback)
+        const provinceName = provinces.find(p => p.code === selectedProvince)?.name;
+        const districtName = districts.find(d => d.code === selectedDistrict)?.name;
+        const wardName = wards.find(w => w.code === selectedWard)?.name;
+
+        if (provinceName && districtName && detailedAddress.trim()) {
+          try {
+            const geoResult = await geocodingService.geocodeAddressComponents({
+              detailedAddress: detailedAddress.trim(),
+              wardName,
+              districtName,
+              provinceName,
+            });
+            if (geoResult) {
+              shopInfo.latitude = geoResult.latitude;
+              shopInfo.longitude = geoResult.longitude;
+              setShopInfo(prev => ({
+                ...prev,
+                latitude: geoResult.latitude,
+                longitude: geoResult.longitude
+              }));
+            }
+          } catch (e) {
+            console.warn('Fallback geocoding failed, using existing coordinates:', e);
+          }
+        }
+
         const latitudeChanged = Number(shopInfo.latitude) !== Number(initialShopInfo.latitude);
         const longitudeChanged = Number(shopInfo.longitude) !== Number(initialShopInfo.longitude);
         if (latitudeChanged || longitudeChanged) {
@@ -471,6 +743,18 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
 
         if (shopInfo.tax.trim() !== initialShopInfo.tax.trim()) {
           payload.taxCode = shopInfo.tax.trim();
+        }
+
+        if (shopInfo.dailyCapacity !== initialShopInfo.dailyCapacity) {
+          payload.dailyCapacity = Number(shopInfo.dailyCapacity);
+        }
+
+        if (shopInfo.businessType !== initialShopInfo.businessType) {
+          payload.businessType = shopInfo.businessType;
+        }
+
+        if (shopInfo.avatarFile) {
+          payload.shopAvatarFile = shopInfo.avatarFile;
         }
 
         if (Object.keys(payload).length === 0) {
@@ -483,33 +767,20 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
 
         if (updatedVendor) {
           setVendorProfile(updatedVendor);
-          setShopInfo((prev) => ({
-            ...prev,
-            shopName: updatedVendor.shopName || prev.shopName,
-            description: updatedVendor.shopDescription || prev.description,
-            address: updatedVendor.shopAddressText || prev.address,
-            tax: updatedVendor.taxCode || prev.tax,
-            latitude: updatedVendor.shopLatitude ?? prev.latitude,
-            longitude: updatedVendor.shopLongitude ?? prev.longitude,
-          }));
-
-          setInitialShopInfo({
+          const newShopInfo = {
+            ...shopInfo,
             shopName: updatedVendor.shopName || shopInfo.shopName,
-            address: updatedVendor.shopAddressText || shopInfo.address,
             description: updatedVendor.shopDescription || shopInfo.description,
+            address: updatedVendor.shopAddressText || shopInfo.address,
             tax: updatedVendor.taxCode || shopInfo.tax,
             latitude: updatedVendor.shopLatitude ?? shopInfo.latitude,
             longitude: updatedVendor.shopLongitude ?? shopInfo.longitude,
-          });
-        } else {
-          setInitialShopInfo({
-            shopName: payload.shopName ?? initialShopInfo.shopName,
-            address: payload.shopAddressText ?? initialShopInfo.address,
-            description: payload.shopDescription ?? initialShopInfo.description,
-            tax: payload.taxCode ?? initialShopInfo.tax,
-            latitude: payload.shopLatitude ?? initialShopInfo.latitude,
-            longitude: payload.shopLongitude ?? initialShopInfo.longitude,
-          });
+            dailyCapacity: updatedVendor.dailyCapacity ?? shopInfo.dailyCapacity,
+            businessType: updatedVendor.businessType || shopInfo.businessType,
+            avatarUrl: updatedVendor.shopAvatarUrl || updatedVendor.avatarUrl || shopInfo.avatarUrl,
+          };
+          setShopInfo(newShopInfo);
+          setInitialShopInfo(newShopInfo);
         }
 
         toast.success('Cập nhật thông tin cửa hàng thành công!');
@@ -517,22 +788,26 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
         return;
       }
 
-      const apiData: UpdateProfileRequest = {
+      // If other tabs might need personal profile updates (e.g. Owner name, Phone, etc.)
+      const personalPayload: UpdateProfileRequest = {
         fullName: shopInfo.ownerName,
         gender: shopInfo.gender,
         phoneNumber: shopInfo.phone,
         dateOfBirth: shopInfo.dateOfBirth,
-        addressText: shopInfo.address,
-        latitude: shopInfo.latitude,
-        longitude: shopInfo.longitude,
+        addressText: profile?.addressText || '', // Keep existing personal address!
+        latitude: profile?.latitude || 0,
+        longitude: profile?.longitude || 0,
         avatarFile: shopInfo.avatarFile,
       };
-      await updateProfile(apiData);
-      toast.success('Cập nhật thông tin thành công!');
+
+      await updateProfile(personalPayload);
+      toast.success('Cập nhật thông tin cá nhân thành công!');
       setIsEditing(false);
-      window.location.reload();
+      // Optional: Refresh data to sync
+      const refreshedProfile = await getProfile();
+      setProfile(refreshedProfile);
     } catch (err) {
-      console.error('Failed to update profile:', err);
+      console.error('Failed to update settings:', err);
       toast.error('Cập nhật thất bại: ' + (err instanceof Error ? err.message : 'Lỗi không xác định'));
     } finally {
       setSaveLoading(false);
@@ -556,454 +831,631 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
             </div>
           </div>
         ) : (<>
-        {/* Tabs */}
-        <div className="flex gap-2 mb-8 border-b-2 border-gold/20 flex-wrap">
-          {[
-            { id: 'shop', label: ' Thông Tin Cửa Hàng' },
-            { id: 'bank', label: ' Thông Tin Ngân Hàng' },
-            { id: 'commission', label: ' Hoa Hồng & Phí' },
-            { id: 'notifications', label: ' Thông Báo' },
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-6 py-3 font-bold transition-all border-b-4 ${
-                activeTab === tab.id
-                  ? 'text-primary border-primary'
-                  : 'text-gray-600 border-transparent hover:text-primary'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Shop Info Tab */}
-        {activeTab === 'shop' && (
-          <div className="bg-white rounded-2xl shadow-lg p-8 border-2 border-gold/20">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-primary">Thông Tin Cửa Hàng</h2>
+          {/* Tabs */}
+          <div className="flex gap-2 mb-8 border-b-2 border-gold/20 flex-wrap">
+            {[
+              { id: 'shop', label: ' Thông Tin Cửa Hàng' },
+              { id: 'bank', label: ' Thông Tin Ngân Hàng' },
+              { id: 'commission', label: ' Hoa Hồng & Phí' },
+              { id: 'notifications', label: ' Thông Báo' },
+            ].map((tab) => (
               <button
-                onClick={() => setIsEditing(!isEditing)}
-                className={`px-6 py-2 rounded-lg font-bold transition-all border-2 ${
-                  isEditing
-                    ? 'border-red-600 text-red-600 hover:bg-red-50'
-                    : 'border-slate-400 text-slate-600 hover:bg-slate-50'
-                }`}
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`px-6 py-3 font-bold transition-all border-b-4 ${activeTab === tab.id
+                    ? 'text-primary border-primary'
+                    : 'text-gray-600 border-transparent hover:text-primary'
+                  }`}
               >
-                {isEditing ? 'Hủy' : 'Chỉnh Sửa'}
+                {tab.label}
               </button>
-            </div>
+            ))}
+          </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  Tên Cửa Hàng
-                  
-                </label>
-                <input
-                  type="text"
-                  value={shopInfo.shopName}
-                  onChange={(e) => setShopInfo({ ...shopInfo, shopName: e.target.value })}
-                  disabled={!isEditing}
-                  className="w-full px-4 py-3 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed"
-                />
+          {/* Shop Info Tab */}
+          {activeTab === 'shop' && (
+            <div className="bg-white rounded-2xl shadow-lg p-8 border-2 border-gold/20">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-primary">Thông Tin Cửa Hàng</h2>
+                <button
+                  disabled={profile?.verificationStatus === 'Banned'}
+                  onClick={() => setIsEditing(!isEditing)}
+                  className={`px-6 py-2 rounded-lg font-bold transition-all border-2 ${profile?.verificationStatus === 'Banned'
+                      ? 'border-gray-200 text-gray-400 cursor-not-allowed'
+                      : isEditing
+                        ? 'border-red-600 text-red-600 hover:bg-red-50'
+                        : 'border-slate-400 text-slate-600 hover:bg-slate-50'
+                    }`}
+                >
+                  {isEditing ? 'Hủy' : 'Chỉnh Sửa'}
+                </button>
               </div>
 
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Tên Chủ Cửa Hàng</label>
-                <input
-                  type="text"
-                  value={shopInfo.ownerName}
-                  onChange={(e) => setShopInfo({ ...shopInfo, ownerName: e.target.value })}
-                  disabled={!isEditing}
-                  className="w-full px-4 py-3 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed"
-                />
-              </div>
+              {profile?.verificationStatus === 'Banned' && (
+                <div className="mb-6 p-4 bg-red-100 border border-red-300 rounded-xl text-red-700 font-bold flex items-center gap-3 shadow-sm animate-pulse">
+                  <span className="text-xl">🛑</span>
+                  <span>Tài khoản này đã bị KHÓA. Bạn không thể thực hiện bất kỳ thay đổi nào.</span>
+                </div>
+              )}
 
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Số Điện Thoại</label>
-                <input
-                  type="tel"
-                  value={shopInfo.phone}
-                  onChange={(e) => setShopInfo({ ...shopInfo, phone: e.target.value })}
-                  disabled={!isEditing}
-                  className="w-full px-4 py-3 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed"
-                />
-              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    Tên Cửa Hàng
 
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  Email
-                  
-                </label>
-                <input
-                  type="email"
-                  value={shopInfo.email}
-                  readOnly
-                  disabled
-                  className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg bg-gray-100 cursor-not-allowed text-gray-500"
-                />
-              </div>
-
-              <div className="md:col-span-2">
-                <label className="block text-sm font-bold text-gray-700 mb-2">Địa Chỉ Cửa Hàng</label>
-                {!isEditing && (
+                  </label>
                   <input
                     type="text"
-                    value={shopInfo.address}
+                    value={shopInfo.shopName}
+                    onChange={(e) => setShopInfo({ ...shopInfo, shopName: e.target.value })}
+                    disabled={!isEditing}
+                    className="w-full px-4 py-3 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Tên Chủ Cửa Hàng</label>
+                  <input
+                    type="text"
+                    value={shopInfo.ownerName}
+                    onChange={(e) => setShopInfo({ ...shopInfo, ownerName: e.target.value })}
+                    disabled={!isEditing}
+                    className="w-full px-4 py-3 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Số Điện Thoại</label>
+                  <input
+                    type="tel"
+                    value={shopInfo.phone}
+                    onChange={(e) => setShopInfo({ ...shopInfo, phone: e.target.value })}
+                    disabled={!isEditing}
+                    className="w-full px-4 py-3 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    Email
+
+                  </label>
+                  <input
+                    type="email"
+                    value={shopInfo.email}
                     readOnly
                     disabled
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg bg-gray-100 cursor-not-allowed text-gray-500"
                   />
-                )}
+                </div>
 
-                {isEditing && (
-                  <div className="space-y-3">
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                      <select
-                        value={selectedProvince || ''}
-                        onChange={(e) => {
-                          const code = e.target.value ? Number(e.target.value) : null;
-                          setSelectedProvince(code);
-                          setSelectedDistrict(null);
-                          setSelectedWard(null);
-                        }}
-                        className="w-full px-3 py-3 bg-white border-2 border-gold/20 rounded-lg focus:outline-none focus:border-primary disabled:bg-gray-100"
-                        disabled={loadingProvinces}
-                      >
-                        <option value="">{loadingProvinces ? 'Đang tải tỉnh/thành...' : 'Chọn Tỉnh/Thành phố'}</option>
-                        {provinces.map((province) => (
-                          <option key={province.code} value={province.code}>{province.name}</option>
-                        ))}
-                      </select>
-
-                      <select
-                        value={selectedDistrict || ''}
-                        onChange={(e) => {
-                          const code = e.target.value ? Number(e.target.value) : null;
-                          setSelectedDistrict(code);
-                          setSelectedWard(null);
-                        }}
-                        className="w-full px-3 py-3 bg-white border-2 border-gold/20 rounded-lg focus:outline-none focus:border-primary disabled:bg-gray-100"
-                        disabled={!selectedProvince || loadingDistricts}
-                      >
-                        <option value="">{loadingDistricts ? 'Đang tải quận/huyện...' : 'Chọn Quận/Huyện'}</option>
-                        {districts.map((district) => (
-                          <option key={district.code} value={district.code}>{district.name}</option>
-                        ))}
-                      </select>
-
-                      <select
-                        value={selectedWard || ''}
-                        onChange={(e) => {
-                          const code = e.target.value ? Number(e.target.value) : null;
-                          setSelectedWard(code);
-                        }}
-                        className="w-full px-3 py-3 bg-white border-2 border-gold/20 rounded-lg focus:outline-none focus:border-primary disabled:bg-gray-100"
-                        disabled={!selectedDistrict || loadingWards}
-                      >
-                        <option value="">{loadingWards ? 'Đang tải phường/xã...' : 'Chọn Phường/Xã (tùy chọn)'}</option>
-                        {wards.map((ward) => (
-                          <option key={ward.code} value={ward.code}>{ward.name}</option>
-                        ))}
-                      </select>
-                    </div>
-
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Địa Chỉ Cửa Hàng</label>
+                  {!isEditing && (
                     <input
                       type="text"
-                      value={detailedAddress}
-                      onChange={(e) => {
-                        setDetailedAddress(e.target.value);
-                      }}
-                      placeholder="Số nhà, tên đường..."
-                      className="w-full px-4 py-3 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none"
+                      value={shopInfo.address}
+                      readOnly
+                      disabled
+                      className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg bg-gray-100 cursor-not-allowed text-gray-500"
                     />
+                  )}
 
-                    <div className="flex flex-wrap justify-end gap-2">
-                      <button
-                        type="button"
-                        onClick={handleSearchOnMap}
-                        disabled={searchMapLoading}
-                        className="px-4 py-2 border-2 border-primary text-primary rounded-lg font-bold text-xs uppercase hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {searchMapLoading ? 'Đang tìm...' : 'Tìm trên bản đồ'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleUseCurrentLocation}
-                        disabled={mapPreviewLoading}
-                        className="px-4 py-2 border-2 border-primary text-primary rounded-lg font-bold text-xs uppercase hover:bg-primary/5 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        {mapPreviewLoading ? 'Đang lấy vị trí...' : 'Dùng vị trí hiện tại'}
-                      </button>
-                    </div>
+                  {isEditing && (
+                    <div className="space-y-4">
+                      {!isMapSelectionLocked ? (
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          {/* Province */}
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold uppercase text-slate-400 tracking-widest">
+                              Tỉnh/Thành phố <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              value={selectedProvince || ''}
+                              onChange={(e) => {
+                                setIsMapSelectionLocked(false);
+                                const code = e.target.value ? Number(e.target.value) : null;
+                                setSelectedProvince(code);
+                                setSelectedDistrict(null);
+                                setSelectedWard(null);
+                                setProvinceSearch('');
+                                setDistrictSearch('');
+                                setWardSearch('');
+                              }}
+                              className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                              disabled={loadingProvinces}
+                            >
+                              <option value="">{loadingProvinces ? 'Đang tải...' : 'Chọn Tỉnh/Thành phố'}</option>
+                              {provinces
+                                .filter(province =>
+                                  province.name.toLowerCase().includes(provinceSearch.toLowerCase())
+                                )
+                                .map(province => (
+                                  <option key={province.code} value={province.code}>{province.name}</option>
+                                ))}
+                            </select>
+                            {!loadingProvinces && provinces.length > 0 && (
+                              <input
+                                type="text"
+                                placeholder="Nhập tỉnh, thành phố để tìm"
+                                value={provinceSearch}
+                                onChange={(e) => setProvinceSearch(e.target.value)}
+                                className="w-full mt-2 px-4 py-2 rounded-lg bg-white border border-gray-300 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                              />
+                            )}
+                          </div>
 
-                    <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
-                      {mapPreviewError && <p className="text-sm text-red-600 mb-2">{mapPreviewError}</p>}
+                          {/* District */}
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold uppercase text-slate-400 tracking-widest">
+                              Quận/Huyện <span className="text-red-500">*</span>
+                            </label>
+                            <select
+                              value={selectedDistrict || ''}
+                              onChange={(e) => {
+                                setIsMapSelectionLocked(false);
+                                const code = e.target.value ? Number(e.target.value) : null;
+                                setSelectedDistrict(code);
+                                setSelectedWard(null);
+                                setWardSearch('');
+                              }}
+                              disabled={!selectedProvince || loadingDistricts}
+                              className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                            >
+                              <option value="">
+                                {loadingDistricts ? 'Đang tải...' : 'Vui lòng chọn Quận/Huyện'}
+                              </option>
+                              {districts
+                                .filter(d => d.name.toLowerCase().includes(districtSearch.toLowerCase()))
+                                .map(district => (
+                                  <option key={district.code} value={district.code}>{district.name}</option>
+                                ))}
+                            </select>
+                            {!loadingDistricts && districts.length > 0 && (
+                              <input
+                                type="text"
+                                placeholder="Nhập quận, huyện để tìm"
+                                value={districtSearch}
+                                onChange={(e) => setDistrictSearch(e.target.value)}
+                                className="w-full mt-2 px-4 py-2 rounded-lg bg-white border border-gray-300 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                              />
+                            )}
+                          </div>
 
-                      <AddressMapPicker
-                        position={mapPickerPosition}
-                        onPositionChange={handleMapPositionChange}
-                      />
+                          {/* Ward */}
+                          <div className="space-y-2">
+                            <label className="text-xs font-bold uppercase text-slate-400 tracking-widest">
+                              Phường/Xã {wards.length > 0 ? <span className="text-red-500">*</span> : '(Tùy chọn)'}
+                            </label>
+                            <select
+                              value={selectedWard || ''}
+                              onChange={(e) => {
+                                setIsMapSelectionLocked(false);
+                                const code = e.target.value ? Number(e.target.value) : null;
+                                setSelectedWard(code);
+                              }}
+                              disabled={!selectedDistrict || loadingWards}
+                              className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none disabled:bg-gray-100 disabled:cursor-not-allowed"
+                            >
+                              <option value="">
+                                {loadingWards ? 'Đang tải...' : 'Chọn Phường/Xã'}
+                              </option>
+                              {wards
+                                .filter(w => w.name.toLowerCase().includes(wardSearch.toLowerCase()))
+                                .map(ward => (
+                                  <option key={ward.code} value={ward.code}>{ward.name}</option>
+                                ))}
+                            </select>
+                            {!loadingWards && wards.length > 0 && (
+                              <input
+                                type="text"
+                                placeholder="Nhập phường, xã để tìm"
+                                value={wardSearch}
+                                onChange={(e) => setWardSearch(e.target.value)}
+                                className="w-full mt-2 px-4 py-2 rounded-lg bg-white border border-gray-300 text-sm focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                              />
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                          <div className="space-y-1">
+                            <label className="text-[10px] font-bold uppercase text-slate-400 tracking-widest block">Khu vực đã chọn</label>
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-slate-700">
+                              <p><span className="font-semibold text-slate-500">Tỉnh:</span> {provinces.find(p => p.code === selectedProvince)?.name || '---'}</p>
+                              <p><span className="font-semibold text-slate-500">Quận/Huyện:</span> {districts.find(d => d.code === selectedDistrict)?.name || '---'}</p>
+                              <p><span className="font-semibold text-slate-500">Phường/Xã:</span> {wards.find(w => w.code === selectedWard)?.name || '---'}</p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setIsMapSelectionLocked(false)}
+                            className="text-xs font-bold text-primary hover:text-white hover:bg-primary px-4 py-2 border border-primary/30 rounded-xl transition-all self-start md:self-center"
+                          >
+                            Thay đổi khu vực
+                          </button>
+                        </div>
+                      )}
 
-                      <div className="mt-2 flex justify-end">
-                        <button
-                          type="button"
-                          onClick={handleConfirmMapSelection}
-                          disabled={coordinateLoading}
-                          className="rounded-lg bg-primary px-4 py-2 text-xs font-bold uppercase tracking-wide text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                          {coordinateLoading ? 'Đang xác nhận...' : 'Xác nhận vị trí đã chọn'}
-                        </button>
+                      {/* Detailed Address */}
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase text-slate-400 tracking-widest">
+                          Địa chỉ cụ thể <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="Số nhà, tên đường..."
+                          value={detailedAddress}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setDetailedAddress(val);
+                            setShopInfo(prev => ({ ...prev, address: val }));
+                          }}
+                          className="w-full px-4 py-3 rounded-xl bg-white border border-gray-300 focus:border-primary focus:ring-2 focus:ring-primary/20 outline-none"
+                        />
+                        {loadingAddressSuggestions && (
+                          <p className="text-xs text-slate-500">Đang tìm gợi ý địa chỉ...</p>
+                        )}
+                        {!loadingAddressSuggestions && addressSuggestions.length > 0 && (
+                          <div className="max-h-52 overflow-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+                            {addressSuggestions.map((suggestion, index) => (
+                              <button
+                                key={`${suggestion.latitude}-${suggestion.longitude}-${index}`}
+                                type="button"
+                                onClick={() => handlePickAddressSuggestion(suggestion)}
+                                className="w-full border-b border-gray-100 px-3 py-2 text-left text-sm text-slate-700 hover:bg-primary/5 last:border-b-0"
+                              >
+                                {suggestion.displayName}
+                              </button>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      <p className="mt-2 text-xs text-slate-500">
-                        Nhấn vào bản đồ hoặc kéo ghim để chỉnh vị trí chính xác trước khi lưu.
-                      </p>
-                    </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <input
-                        type="text"
-                        value={shopInfo.latitude ? shopInfo.latitude.toString() : ''}
-                        readOnly
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm text-gray-600"
-                        placeholder="Vĩ độ"
-                      />
-                      <input
-                        type="text"
-                        value={shopInfo.longitude ? shopInfo.longitude.toString() : ''}
-                        readOnly
-                        className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm text-gray-600"
-                        placeholder="Kinh độ"
-                      />
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold uppercase text-slate-400 tracking-widest">
+                          Bản đồ vị trí
+                        </label>
+                        <div className="rounded-xl border border-gray-200 bg-gray-50 p-3">
+                          <div className="flex justify-end mb-2">
+                            <button
+                              type="button"
+                              onClick={handleUseCurrentLocation}
+                              className="text-xs font-semibold text-primary hover:underline"
+                            >
+                              Dùng vị trí hiện tại
+                            </button>
+                          </div>
+                          {mapPreviewLoading && (
+                            <p className="text-sm text-slate-500 mb-2">Đang tìm vị trí trên bản đồ...</p>
+                          )}
+                          {!mapPreviewLoading && mapPreviewError && (
+                            <p className="text-sm text-red-600 mb-2">{mapPreviewError}</p>
+                          )}
+                          {!mapPreviewLoading && (
+                            <>
+                              <AddressMapPicker
+                                position={mapPickerPosition}
+                                onPositionChange={handleMapPositionChange}
+                              />
+                              <div className="mt-2 flex justify-end">
+                                <button
+                                  type="button"
+                                  onClick={handleConfirmMapSelection}
+                                  disabled={mapConfirmLoading}
+                                  className="rounded-lg bg-primary px-4 py-2 text-xs font-bold uppercase tracking-wide text-white hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                  {mapConfirmLoading ? 'Đang xác nhận...' : 'Xác nhận vị trí đã chọn'}
+                                </button>
+                              </div>
+                              <p className="mt-2 text-xs text-slate-500">
+                                Nhấn vào bản đồ hoặc kéo ghim để chỉnh vị trí chính xác trước khi lưu.
+                              </p>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <input
+                          type="text"
+                          value={shopInfo.latitude ? shopInfo.latitude.toString() : ''}
+                          readOnly
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm text-gray-600"
+                          placeholder="Vĩ độ"
+                        />
+                        <input
+                          type="text"
+                          value={shopInfo.longitude ? shopInfo.longitude.toString() : ''}
+                          readOnly
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-sm text-gray-600"
+                          placeholder="Kinh độ"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-bold text-gray-700 mb-2">
+                    Mô Tả Cửa Hàng
+                  </label>
+                  <textarea
+                    value={shopInfo.description}
+                    onChange={(e) => setShopInfo({ ...shopInfo, description: e.target.value })}
+                    disabled={!isEditing}
+                    rows={4}
+                    className="w-full px-4 py-3 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Giấy Phép Kinh Doanh</label>
+                  <input
+                    type="text"
+                    value={shopInfo.businessLicense}
+                    disabled
+                    className="w-full px-4 py-3 border-2 border-green-300 rounded-lg bg-green-50 cursor-not-allowed"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Mã Số Thuế</label>
+                  <input
+                    type="text"
+                    value={shopInfo.tax}
+                    onChange={(e) => setShopInfo({ ...shopInfo, tax: e.target.value })}
+                    disabled={!isEditing}
+                    className="w-full px-4 py-3 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Sức chứa hàng ngày (Daily Capacity)</label>
+                  <input
+                    type="number"
+                    value={shopInfo.dailyCapacity}
+                    onChange={(e) => setShopInfo({ ...shopInfo, dailyCapacity: Number(e.target.value) })}
+                    disabled={!isEditing}
+                    className="w-full px-4 py-3 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Loại hình kinh doanh</label>
+                  <select
+                    value={shopInfo.businessType}
+                    onChange={(e) => setShopInfo({ ...shopInfo, businessType: e.target.value })}
+                    disabled={!isEditing}
+                    className="w-full px-4 py-3 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed"
+                  >
+                    <option value="Individual">Cá nhân</option>
+                    <option value="HouseholdBusiness">Hộ gia đình kinh doanh</option>
+                    <option value="HouseholdBussiness">Hộ gia đình kinh doanh (Lỗi hệ thống)</option>
+                    <option value="Company">Doanh nghiệp</option>
+                    <option value="Enterprise">Doanh nghiệp</option>
+                  </select>
+                </div>
+
+                {isEditing && (
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-bold text-gray-700 mb-2">Ảnh Đại Diện Cửa Hàng</label>
+
+                    <div className="flex items-center gap-6 mb-4">
+                      {/* Current or Preview Image */}
+                      <div className="relative">
+                        {shopInfo.avatarFile ? (
+                          <img
+                            src={URL.createObjectURL(shopInfo.avatarFile)}
+                            alt="Preview"
+                            className="w-24 h-24 rounded-xl object-cover border-4 border-primary/30 shadow-md"
+                          />
+                        ) : shopInfo.avatarUrl ? (
+                          <img
+                            src={shopInfo.avatarUrl}
+                            alt="Current Shop Avatar"
+                            className="w-24 h-24 rounded-xl object-cover border-4 border-gold/30 shadow-md"
+                          />
+                        ) : (
+                          <div className="w-24 h-24 rounded-xl bg-gray-100 border-4 border-dashed border-gray-300 flex items-center justify-center text-3xl">
+                            🏪
+                          </div>
+                        )}
+                        {shopInfo.avatarFile && (
+                          <span className="absolute -top-2 -right-2 bg-primary text-white text-[10px] px-2 py-0.5 rounded-full font-bold uppercase">Mới</span>
+                        )}
+                      </div>
+
+                      <div className="flex-1">
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => setShopInfo({ ...shopInfo, avatarFile: e.target.files?.[0] || null })}
+                          className="w-full text-sm text-gray-500
+                          file:mr-4 file:py-2 file:px-4
+                          file:rounded-full file:border-0
+                          file:text-sm file:font-bold
+                          file:bg-primary/10 file:text-primary
+                          hover:file:bg-primary/20
+                          cursor-pointer"
+                        />
+                        <p className="text-xs text-gray-500 mt-2">Dung lượng tối đa 5MB. Định dạng: JPG, PNG, WEBP.</p>
+                      </div>
                     </div>
                   </div>
                 )}
               </div>
 
-              <div className="md:col-span-2">
-                <label className="block text-sm font-bold text-gray-700 mb-2">
-                  Mô Tả Cửa Hàng
-                 
-                </label>
-                <textarea
-                  value={shopInfo.description}
-                  onChange={(e) => setShopInfo({ ...shopInfo, description: e.target.value })}
-                  disabled={!isEditing}
-                  rows={4}
-                  className="w-full px-4 py-3 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed"
-                />
+              {isEditing && (
+                <button
+                  onClick={handleSave}
+                  disabled={saveLoading}
+                  className="mt-6 w-full px-6 py-2.5 border-2 border-primary text-primary rounded-lg font-bold transition-all hover:bg-primary/5 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {saveLoading ? ' Đang lưu...' : 'Lưu Thay Đổi'}
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Bank Info Tab */}
+          {activeTab === 'bank' && (
+            <div className="bg-white rounded-2xl shadow-lg p-8 border-2 border-gold/20">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-primary">Thông Tin Ngân Hàng</h2>
+                <button
+                  onClick={() => setIsEditing(!isEditing)}
+                  className={`px-6 py-2 rounded-lg font-bold transition-all border-2 ${isEditing
+                      ? 'border-red-600 text-red-600 hover:bg-red-50'
+                      : 'border-slate-400 text-slate-600 hover:bg-slate-50'
+                    }`}
+                >
+                  {isEditing ? ' Hủy' : ' Chỉnh Sửa'}
+                </button>
               </div>
 
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Giấy Phép Kinh Doanh</label>
-                <input
-                  type="text"
-                  value={shopInfo.businessLicense}
-                  disabled
-                  className="w-full px-4 py-3 border-2 border-green-300 rounded-lg bg-green-50 cursor-not-allowed"
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Tên Ngân Hàng</label>
+                  <input
+                    type="text"
+                    value={bankInfo.bankName}
+                    onChange={(e) => setBankInfo({ ...bankInfo, bankName: e.target.value })}
+                    disabled={!isEditing}
+                    className="w-full px-4 py-3 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Tên Chủ Tài Khoản</label>
+                  <input
+                    type="text"
+                    value={bankInfo.accountName}
+                    onChange={(e) => setBankInfo({ ...bankInfo, accountName: e.target.value })}
+                    disabled={!isEditing}
+                    className="w-full px-4 py-3 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Số Tài Khoản</label>
+                  <input
+                    type="text"
+                    value={bankInfo.accountNumber}
+                    onChange={(e) => setBankInfo({ ...bankInfo, accountNumber: e.target.value })}
+                    disabled={!isEditing}
+                    className="w-full px-4 py-3 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-bold text-gray-700 mb-2">Chi Nhánh</label>
+                  <input
+                    type="text"
+                    value={bankInfo.branch}
+                    onChange={(e) => setBankInfo({ ...bankInfo, branch: e.target.value })}
+                    disabled={!isEditing}
+                    className="w-full px-4 py-3 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed"
+                  />
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Mã Số Thuế</label>
-                <input
-                  type="text"
-                  value={shopInfo.tax}
-                  onChange={(e) => setShopInfo({ ...shopInfo, tax: e.target.value })}
-                  disabled={!isEditing}
-                  className="w-full px-4 py-3 border-2 border-green-300 rounded-lg bg-green-50 focus:border-primary focus:outline-none disabled:cursor-not-allowed"
-                />
+              <div className="mt-6 p-4 bg-yellow-50 border-2 border-yellow-200 rounded-lg">
+                <p className="text-sm text-yellow-800">
+                  <strong>Lưu ý:</strong> Thông tin ngân hàng được mã hóa an toàn. Hãy chắc chắn nhập đúng để tránh lỗi thanh toán.
+                </p>
               </div>
 
               {isEditing && (
-                <div className="md:col-span-2">
-                  <label className="block text-sm font-bold text-gray-700 mb-2">Ảnh Đại Diện</label>
-                  <input
-                    type="file"
-                    accept="image/*"
-                    onChange={(e) => setShopInfo({ ...shopInfo, avatarFile: e.target.files?.[0] || null })}
-                    className="w-full px-4 py-3 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none"
-                  />
-                  {shopInfo.avatarFile && (
-                    <p className="text-sm text-green-600 mt-1">Đã chọn: {shopInfo.avatarFile.name}</p>
-                  )}
-                </div>
+                <button
+                  onClick={handleSave}
+                  className="mt-6 w-full px-6 py-2.5 border-2 border-primary text-primary rounded-lg font-bold transition-all hover:bg-primary/5"
+                >
+                  Lưu Thay Đổi
+                </button>
               )}
             </div>
+          )}
 
-            {isEditing && (
-              <button
-                onClick={handleSave}
-                disabled={saveLoading}
-                className="mt-6 w-full px-6 py-2.5 border-2 border-primary text-primary rounded-lg font-bold transition-all hover:bg-primary/5 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {saveLoading ? ' Đang lưu...' : 'Lưu Thay Đổi'}
+          {/* Commission Tab */}
+          {activeTab === 'commission' && (
+            <div className="bg-white rounded-2xl shadow-lg p-8 border-2 border-gold/20">
+              <h2 className="text-2xl font-bold text-primary mb-6">Hoa Hồng & Phí</h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="p-6 bg-gradient-to-br from-primary/10 to-gold/10 rounded-xl border-2 border-primary/20">
+                  <p className="text-sm font-bold text-gray-700 mb-2">HTKH NỀN TẢNG</p>
+                  <p className="text-3xl font-black text-primary">5%</p>
+                  <p className="text-xs text-gray-600 mt-2">Được trừ từ mỗi đơn hàng</p>
+                </div>
+                <div className="p-6 bg-gradient-to-br from-blue-100 to-blue-50 rounded-xl border-2 border-blue-300">
+                  <p className="text-sm font-bold text-gray-700 mb-2">PHÍ GIAO DỊCH</p>
+                  <p className="text-3xl font-black text-blue-600">2.9% + 2k</p>
+                  <p className="text-xs text-gray-600 mt-2">Phí thanh toán qua cổng</p>
+                </div>
+                <div className="p-6 bg-gradient-to-br from-green-100 to-green-50 rounded-xl border-2 border-green-300">
+                  <p className="text-sm font-bold text-gray-700 mb-2">DOANH THU THỰC</p>
+                  <p className="text-3xl font-black text-green-600">92.1%</p>
+                  <p className="text-xs text-gray-600 mt-2">Nhận được từ mỗi đơn hàng</p>
+                </div>
+                <div className="p-6 bg-gradient-to-br from-orange-100 to-orange-50 rounded-xl border-2 border-orange-300">
+                  <p className="text-sm font-bold text-gray-700 mb-2">ĐÃ THU THÁNG NÀY</p>
+                  <p className="text-3xl font-black text-orange-600">14.0M ₫</p>
+                  <p className="text-xs text-gray-600 mt-2">Sau khi trừ phí</p>
+                </div>
+              </div>
+
+              <div className="mt-8 p-6 bg-blue-50 border-2 border-blue-200 rounded-xl">
+                <h3 className="text-lg font-bold text-blue-900 mb-4">Bảng Tính Chi Tiết</h3>
+                <div className="space-y-3 text-sm text-blue-800">
+                  <div className="flex justify-between">
+                    <span>Tổng doanh thu từ đơn hàng:</span>
+                    <span className="font-bold">15,200,000 ₫</span>
+                  </div>
+                  <div className="flex justify-between text-red-600">
+                    <span>- Hoa hồng nền tảng (5%):</span>
+                    <span className="font-bold">760,000 ₫</span>
+                  </div>
+                  <div className="flex justify-between text-red-600">
+                    <span>- Phí giao dịch (2.9% + 2k):</span>
+                    <span className="font-bold">452,000 ₫</span>
+                  </div>
+                  <div className="border-t-2 border-blue-300 pt-3 flex justify-between">
+                    <span>= Doanh thu thực nhận:</span>
+                    <span className="font-bold text-green-600">13,988,000 ₫</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Notifications Tab */}
+          {activeTab === 'notifications' && (
+            <div className="bg-white rounded-2xl shadow-lg p-8 border-2 border-gold/20">
+              <h2 className="text-2xl font-bold text-primary mb-6">Cài Đặt Thông Báo</h2>
+              <div className="space-y-4">
+                {[
+                  { label: 'Thông báo đơn hàng mới', enabled: true },
+                  { label: 'Thông báo đánh giá từ khách', enabled: true },
+                  { label: 'Thông báo vấn đề/tranh chấp', enabled: true },
+                  { label: 'Thông báo rút tiền thành công', enabled: true },
+                  { label: 'Thông báo tin khuyến mãi', enabled: false },
+                ].map((notif, idx) => (
+                  <label key={idx} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
+                    <input
+                      type="checkbox"
+                      defaultChecked={notif.enabled}
+                      className="w-5 h-5 text-primary rounded"
+                    />
+                    <span className="font-semibold text-gray-700">{notif.label}</span>
+                  </label>
+                ))}
+              </div>
+
+              <button className="mt-6 w-full px-6 py-2.5 border-2 border-primary text-primary rounded-lg font-bold transition-all hover:bg-primary/5">
+                Lưu Cài Đặt Thông Báo
               </button>
-            )}
-          </div>
-        )}
-
-        {/* Bank Info Tab */}
-        {activeTab === 'bank' && (
-          <div className="bg-white rounded-2xl shadow-lg p-8 border-2 border-gold/20">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-primary">Thông Tin Ngân Hàng</h2>
-              <button
-                onClick={() => setIsEditing(!isEditing)}
-                className={`px-6 py-2 rounded-lg font-bold transition-all border-2 ${
-                  isEditing
-                    ? 'border-red-600 text-red-600 hover:bg-red-50'
-                    : 'border-slate-400 text-slate-600 hover:bg-slate-50'
-                }`}
-              >
-                {isEditing ? ' Hủy' : ' Chỉnh Sửa'}
-              </button>
             </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Tên Ngân Hàng</label>
-                <input
-                  type="text"
-                  value={bankInfo.bankName}
-                  onChange={(e) => setBankInfo({ ...bankInfo, bankName: e.target.value })}
-                  disabled={!isEditing}
-                  className="w-full px-4 py-3 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Tên Chủ Tài Khoản</label>
-                <input
-                  type="text"
-                  value={bankInfo.accountName}
-                  onChange={(e) => setBankInfo({ ...bankInfo, accountName: e.target.value })}
-                  disabled={!isEditing}
-                  className="w-full px-4 py-3 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Số Tài Khoản</label>
-                <input
-                  type="text"
-                  value={bankInfo.accountNumber}
-                  onChange={(e) => setBankInfo({ ...bankInfo, accountNumber: e.target.value })}
-                  disabled={!isEditing}
-                  className="w-full px-4 py-3 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">Chi Nhánh</label>
-                <input
-                  type="text"
-                  value={bankInfo.branch}
-                  onChange={(e) => setBankInfo({ ...bankInfo, branch: e.target.value })}
-                  disabled={!isEditing}
-                  className="w-full px-4 py-3 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none disabled:bg-gray-50 disabled:cursor-not-allowed"
-                />
-              </div>
-            </div>
-
-            <div className="mt-6 p-4 bg-yellow-50 border-2 border-yellow-200 rounded-lg">
-              <p className="text-sm text-yellow-800">
-                <strong>Lưu ý:</strong> Thông tin ngân hàng được mã hóa an toàn. Hãy chắc chắn nhập đúng để tránh lỗi thanh toán.
-              </p>
-            </div>
-
-            {isEditing && (
-              <button
-                onClick={handleSave}
-                className="mt-6 w-full px-6 py-2.5 border-2 border-primary text-primary rounded-lg font-bold transition-all hover:bg-primary/5"
-              >
-                 Lưu Thay Đổi
-              </button>
-            )}
-          </div>
-        )}
-
-        {/* Commission Tab */}
-        {activeTab === 'commission' && (
-          <div className="bg-white rounded-2xl shadow-lg p-8 border-2 border-gold/20">
-            <h2 className="text-2xl font-bold text-primary mb-6">Hoa Hồng & Phí</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="p-6 bg-gradient-to-br from-primary/10 to-gold/10 rounded-xl border-2 border-primary/20">
-                <p className="text-sm font-bold text-gray-700 mb-2">HTKH NỀN TẢNG</p>
-                <p className="text-3xl font-black text-primary">5%</p>
-                <p className="text-xs text-gray-600 mt-2">Được trừ từ mỗi đơn hàng</p>
-              </div>
-              <div className="p-6 bg-gradient-to-br from-blue-100 to-blue-50 rounded-xl border-2 border-blue-300">
-                <p className="text-sm font-bold text-gray-700 mb-2">PHÍ GIAO DỊCH</p>
-                <p className="text-3xl font-black text-blue-600">2.9% + 2k</p>
-                <p className="text-xs text-gray-600 mt-2">Phí thanh toán qua cổng</p>
-              </div>
-              <div className="p-6 bg-gradient-to-br from-green-100 to-green-50 rounded-xl border-2 border-green-300">
-                <p className="text-sm font-bold text-gray-700 mb-2">DOANH THU THỰC</p>
-                <p className="text-3xl font-black text-green-600">92.1%</p>
-                <p className="text-xs text-gray-600 mt-2">Nhận được từ mỗi đơn hàng</p>
-              </div>
-              <div className="p-6 bg-gradient-to-br from-orange-100 to-orange-50 rounded-xl border-2 border-orange-300">
-                <p className="text-sm font-bold text-gray-700 mb-2">ĐÃ THU THÁNG NÀY</p>
-                <p className="text-3xl font-black text-orange-600">14.0M ₫</p>
-                <p className="text-xs text-gray-600 mt-2">Sau khi trừ phí</p>
-              </div>
-            </div>
-
-            <div className="mt-8 p-6 bg-blue-50 border-2 border-blue-200 rounded-xl">
-              <h3 className="text-lg font-bold text-blue-900 mb-4">Bảng Tính Chi Tiết</h3>
-              <div className="space-y-3 text-sm text-blue-800">
-                <div className="flex justify-between">
-                  <span>Tổng doanh thu từ đơn hàng:</span>
-                  <span className="font-bold">15,200,000 ₫</span>
-                </div>
-                <div className="flex justify-between text-red-600">
-                  <span>- Hoa hồng nền tảng (5%):</span>
-                  <span className="font-bold">760,000 ₫</span>
-                </div>
-                <div className="flex justify-between text-red-600">
-                  <span>- Phí giao dịch (2.9% + 2k):</span>
-                  <span className="font-bold">452,000 ₫</span>
-                </div>
-                <div className="border-t-2 border-blue-300 pt-3 flex justify-between">
-                  <span>= Doanh thu thực nhận:</span>
-                  <span className="font-bold text-green-600">13,988,000 ₫</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Notifications Tab */}
-        {activeTab === 'notifications' && (
-          <div className="bg-white rounded-2xl shadow-lg p-8 border-2 border-gold/20">
-            <h2 className="text-2xl font-bold text-primary mb-6">Cài Đặt Thông Báo</h2>
-            <div className="space-y-4">
-              {[
-                { label: 'Thông báo đơn hàng mới', enabled: true },
-                { label: 'Thông báo đánh giá từ khách', enabled: true },
-                { label: 'Thông báo vấn đề/tranh chấp', enabled: true },
-                { label: 'Thông báo rút tiền thành công', enabled: true },
-                { label: 'Thông báo tin khuyến mãi', enabled: false },
-              ].map((notif, idx) => (
-                <label key={idx} className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg cursor-pointer hover:bg-gray-100 transition-colors">
-                  <input
-                    type="checkbox"
-                    defaultChecked={notif.enabled}
-                    className="w-5 h-5 text-primary rounded"
-                  />
-                  <span className="font-semibold text-gray-700">{notif.label}</span>
-                </label>
-              ))}
-            </div>
-
-            <button className="mt-6 w-full px-6 py-2.5 border-2 border-primary text-primary rounded-lg font-bold transition-all hover:bg-primary/5">
-               Lưu Cài Đặt Thông Báo
-            </button>
-          </div>
-        )}
+          )}
         </>)}
       </div>
     </div>

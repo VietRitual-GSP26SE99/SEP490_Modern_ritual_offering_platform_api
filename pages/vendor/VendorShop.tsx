@@ -649,9 +649,9 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
             <div className="flex flex-col md:flex-row gap-8 items-start md:items-center">
               {/* Avatar */}
               <div className="flex-shrink-0">
-                {profile?.avatarUrl ? (
+                {(vendorProfile?.shopAvatarUrl || vendorProfile?.avatarUrl || profile?.avatarUrl) ? (
                   <img
-                    src={profile.avatarUrl}
+                    src={vendorProfile?.shopAvatarUrl || vendorProfile?.avatarUrl || profile?.avatarUrl || ''}
                     alt={displayShopName || 'Shop avatar'}
                     className="w-24 h-24 md:w-32 md:h-32 rounded-2xl object-cover border-4 border-gold/30 shadow-md"
                     onError={(e) => {
@@ -662,7 +662,7 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
                 ) : null}
                 <div
                   className="w-24 h-24 md:w-32 md:h-32 rounded-2xl bg-gradient-to-br from-primary/20 to-gold/20 border-4 border-gold/30 shadow-md flex items-center justify-center text-5xl"
-                  style={{ display: profile?.avatarUrl ? 'none' : 'flex' }}
+                  style={{ display: (vendorProfile?.shopAvatarUrl || vendorProfile?.avatarUrl || profile?.avatarUrl) ? 'none' : 'flex' }}
                 >
                   🏪
                 </div>
@@ -683,10 +683,10 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
                     <span className="font-bold text-primary">{vendorProfile?.ratingAvg ?? profile?.ratingAvg ?? 0}</span>
                     <span className="text-sm text-gray-500">(256 đánh giá)</span>
                   </div>
-                  <div className="flex items-center gap-1 text-gray-600">
+                  {/* <div className="flex items-center gap-1 text-gray-600">
                     <span className="text-sm">👥</span>
                     <span className="text-sm font-semibold">1234 người theo dõi</span>
-                  </div>
+                  </div> */}
                 </div>
                 <p className="text-sm text-gray-600">Hoạt động từ năm {profile?.createdAt ? new Date(profile.createdAt).getFullYear() : 2022}</p>
               </div>
@@ -730,10 +730,17 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-gold/10">
 
                 <div>
-                  <p className="text-xs font-bold uppercase text-gold tracking-widest mb-2"> Liên Hệ</p>
+                  <p className="text-xs font-bold uppercase text-gold tracking-widest mb-2"> Liên Hệ & Địa Chỉ</p>
                   <div className="space-y-2">
-                    <p className="text-gray-700 font-semibold">{profile?.phoneNumber || 'Chưa có số điện thoại'}</p>
-                    <p className="text-gray-700 font-semibold">{profile?.userId || 'user'}@vietritual.com</p>
+                    <p className="text-gray-700">
+                      <span className="font-bold text-primary">Địa chỉ:</span> {currentShopAddress || 'Chưa cập nhật địa chỉ'}
+                    </p>
+                    <p className="text-gray-700">
+                      <span className="font-bold text-primary">Điện thoại:</span> {profile?.phoneNumber || 'Chưa có số điện thoại'}
+                    </p>
+                    <p className="text-gray-700">
+                      <span className="font-bold text-primary">Email:</span> {profile?.userId || 'user'}@vietritual.com
+                    </p>
                   </div>
                 </div>
               </div>
