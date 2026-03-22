@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { orderService, VendorOrder, Order } from '../../services/orderService';
 import { getProfile } from '../../services/auth';
 import VendorRefundTab from './VendorRefundTab';
@@ -165,6 +166,7 @@ const getInitials = (name: string) => {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNavigate }) => {
+  const [searchParams] = useSearchParams();
   const itemsPerPage = 5;
   const fromDateInputRef = useRef<HTMLInputElement | null>(null);
   const toDateInputRef = useRef<HTMLInputElement | null>(null);
@@ -448,6 +450,19 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
   useEffect(() => {
     setToDateText(formatYmdToVi(toDate));
   }, [toDate]);
+
+  useEffect(() => {
+    const tab = searchParams.get('tab');
+    const orderId = searchParams.get('orderId');
+
+    if (tab === 'refund' || tab === 'refunds') {
+      setMainTab('refunds');
+    }
+
+    if (orderId) {
+      openDetail(orderId);
+    }
+  }, [searchParams]);
 
   // ── loading / error screens ─────────────────────────────────────────────────
   if (loading) {

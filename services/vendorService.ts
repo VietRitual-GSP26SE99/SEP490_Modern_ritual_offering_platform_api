@@ -26,6 +26,17 @@ export interface VendorProfile {
   isActive?: boolean; // legacy
 }
 
+export interface VendorTier {
+  tierId: number;
+  tierName: string;
+  commissionRate: number;
+  minCompletedOrders: number;
+  minRevenueAmount: number;
+  minRatingAvg: number;
+  description: string;
+  isActive: boolean;
+}
+
 class VendorService {
   // Feature flag: enable vendor API since it is now available
   private enableVendorApi = true;
@@ -101,6 +112,152 @@ class VendorService {
     } catch (error) {
       console.error('❌ Failed to fetch vendors:', error);
       return [];
+    }
+  }
+
+  /**
+   * Lấy danh sách tất cả hạng vendor.
+   * GET /api/vendor-tiers
+   */
+  async getVendorTiers(): Promise<VendorTier[]> {
+    try {
+      const token = localStorage.getItem('smart-child-token');
+      const response = await fetch(`${API_BASE_URL}/vendor-tiers`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data: ApiResponse<VendorTier[]> = await response.json();
+      
+      if (data.isSuccess && data.result) {
+        return data.result;
+      } else {
+        console.error('❌ API Error:', data.errorMessages);
+        return [];
+      }
+    } catch (error) {
+      console.error('❌ Failed to fetch vendor tiers:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Lấy chi tiết 1 hạng vendor.
+   * GET /api/vendor-tiers/{id}
+   */
+  async getVendorTierById(id: number): Promise<VendorTier | null> {
+    try {
+      const token = localStorage.getItem('smart-child-token');
+      const response = await fetch(`${API_BASE_URL}/vendor-tiers/${id}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data: ApiResponse<VendorTier> = await response.json();
+      return data.isSuccess ? data.result : null;
+    } catch (error) {
+      console.error(`❌ Failed to fetch vendor tier ${id}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Cập nhật hạng vendor (Admin only).
+   * PUT /api/vendor-tiers/{id}
+   */
+  async updateVendorTier(id: number, tierData: Partial<VendorTier>): Promise<boolean> {
+    try {
+      const token = localStorage.getItem('smart-child-token');
+      const response = await fetch(`${API_BASE_URL}/vendor-tiers/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(tierData),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data: ApiResponse<unknown> = await response.json();
+      return data.isSuccess;
+    } catch (error) {
+      console.error(`❌ Failed to update vendor tier ${id}:`, error);
+      return false;
+    }
+  }
+
+  /**
+   * Tạo hạng vendor mới (Admin only).
+   * POST /api/vendor-tiers
+   */
+  async createVendorTier(tierData: Partial<VendorTier>): Promise<boolean> {
+    try {
+      const token = localStorage.getItem('smart-child-token');
+      const response = await fetch(`${API_BASE_URL}/vendor-tiers`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify(tierData),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data: ApiResponse<unknown> = await response.json();
+      return data.isSuccess;
+    } catch (error) {
+      console.error('❌ Failed to create vendor tier:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Xóa hạng vendor (Admin only).
+   * DELETE /api/vendor-tiers/{id}
+   */
+  async deleteVendorTier(id: number): Promise<boolean> {
+    try {
+      const token = localStorage.getItem('smart-child-token');
+      const response = await fetch(`${API_BASE_URL}/vendor-tiers/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+      }
+
+      const data: ApiResponse<unknown> = await response.json();
+      return data.isSuccess;
+    } catch (error) {
+      console.error(`❌ Failed to delete vendor tier ${id}:`, error);
+      throw error; // Rethrow to handle specific error message in UI
     }
   }
 
