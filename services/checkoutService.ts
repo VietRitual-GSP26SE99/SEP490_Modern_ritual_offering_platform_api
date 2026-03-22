@@ -33,6 +33,7 @@ export interface VendorOrder {
   discountAmount?: number;
   discountBreakdown?: string;
   totalAmount?: number;
+  holdFee?: number;
 }
 
 export interface CheckoutSummary {
@@ -48,6 +49,7 @@ export interface CheckoutSummary {
   customerPhone?: string;
   totalShippingFee?: number;
   finalAmount?: number;
+  totalHoldFee?: number;
 }
 
 export interface CheckoutRequestItem {
@@ -180,7 +182,43 @@ class CheckoutService {
           console.warn('⚠️ Unable to map package images for checkout summary:', imageError);
         }
 
-        result.vendorOrders = result.vendorOrders || result.vendors || [];
+        // Chuẩn hóa vendorOrders, áp dụng rule phí giữ chỗ theo từng order
+        const rawVendors = result.vendors || result.vendorOrders || [];
+        if (Array.isArray(rawVendors)) {
+          result.vendorOrders = rawVendors.map((v: any) => {
+            const subTotal = Number(v.subTotal ?? v.subtotal ?? 0) || 0;
+            const shippingFee = Number(v.shippingFee ?? 0) || 0;
+            const discountAmount = Number(v.discountAmount ?? 0) || 0;
+
+            const vendorFinalRaw =
+              v.finalTotal ??
+              v.finalAmount ??
+              v.totalAmount ??
+              (subTotal + shippingFee - discountAmount);
+
+            const vendorFinal = Number(vendorFinalRaw) || 0;
+
+            let holdFee: number;
+            if (typeof v.holdFee === 'number' && v.holdFee > 0) {
+              // Tôn trọng giá trị holdFee từ backend nếu đã tính sẵn
+              holdFee = v.holdFee;
+            } else if (vendorFinal >= 2_000_000) {
+              // Tự tính phí giữ chỗ 5% cho từng order nếu FinalAmount >= 2 triệu
+              holdFee = Math.round(vendorFinal * 0.05);
+            } else {
+              holdFee = 0;
+            }
+
+            return {
+              ...v,
+              finalAmount: v.finalAmount ?? vendorFinal,
+              holdFee,
+            };
+          });
+        } else {
+          result.vendorOrders = result.vendorOrders || result.vendors || [];
+        }
+
         result.totalItems = result.totalItems || result.items.length;
         // Đồng bộ các field tổng theo backend
         result.totalShippingFee = result.totalShippingFee !== undefined
@@ -195,9 +233,26 @@ class CheckoutService {
           ? result.totalDiscount
           : (result.discountAmount || 0);
 
+        // Tính tổng phí giữ chỗ từ vendorOrders nếu backend chưa set totalHoldFee
+        if (result.totalHoldFee === undefined) {
+          const vendorHoldTotal = Array.isArray(result.vendorOrders)
+            ? result.vendorOrders.reduce((sum: number, v: any) => sum + (typeof v.holdFee === 'number' ? v.holdFee : 0), 0)
+            : 0;
+          result.totalHoldFee = typeof result.totalHoldFee === 'number' ? result.totalHoldFee : vendorHoldTotal;
+        }
+
+        // Phí giữ chỗ chỉ là khoản dự kiến bị trừ nếu khách hủy,
+        // KHÔNG cộng vào số tiền khách phải thanh toán ngay.
+        result.totalHoldFee = typeof result.totalHoldFee === 'number' ? result.totalHoldFee : 0;
+
+        const baseFinalAmount = result.finalAmount !== undefined
+          ? Number(result.finalAmount) || 0
+          : ((Number(result.subTotal) || 0) + (Number(result.shippingFee) || 0) - (Number(result.totalDiscount) || 0));
+
+        // Tổng cộng hiển thị cho khách: chỉ gồm hàng + ship - giảm giá (không gồm phí giữ chỗ)
         result.totalAmount = result.totalAmount !== undefined
           ? result.totalAmount
-          : (result.finalAmount || result.subTotal + result.shippingFee - (result.totalDiscount || 0));
+          : baseFinalAmount;
         
         return result as CheckoutSummary;
       } else {

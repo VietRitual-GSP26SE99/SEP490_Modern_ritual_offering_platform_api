@@ -377,13 +377,15 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
 
             <button 
               onClick={() => {
-                // Thanh toán item đầu tiên
-                if (cartItems.length > 0) {
-                  onNavigate(`/checkout?cartItemId=${cartItems[0].cartItemId}`);
-                }
+                if (cartItems.length === 0) return;
+
+                // Thanh toán tất cả item trong giỏ (kể cả nhiều shop) giống Shopee
+                const targetIds = cartItems.map(i => i.cartItemId);
+                const idsParam = targetIds.join(',');
+                onNavigate(`/checkout?cartItemId=${idsParam}`);
               }}
               disabled={updating !== null || cartItems.length === 0}
-              className="w-full bg-primary text-white py-4 rounded-lg font-bold text-lg hover:bg-primary/90 transition-all mb-3 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full bg-primary text-white py-4 rounded-lg font-bold text-lg hover:bg-primary/90 transition-all mb-1 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Thanh toán
             </button>

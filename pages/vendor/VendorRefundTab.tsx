@@ -14,6 +14,25 @@ const formatDateVi = (value: unknown): string => {
   return Number.isNaN(d.getTime()) ? 'N/A' : d.toLocaleDateString('vi-VN');
 };
 
+const getRemainingAutoAccept = (createdAt: string | unknown) => {
+  if (!createdAt) return null;
+  const created = new Date(String(createdAt)).getTime();
+  if (!Number.isFinite(created)) return null;
+
+  const twelveHoursMs = 12 * 60 * 60 * 1000;
+  const deadline = created + twelveHoursMs;
+  const now = Date.now();
+  const diff = deadline - now;
+
+  if (diff <= 0) {
+    return { hours: 0, minutes: 0, isOverdue: true } as const;
+  }
+
+  const hours = Math.floor(diff / (60 * 60 * 1000));
+  const minutes = Math.floor((diff % (60 * 60 * 1000)) / (60 * 1000));
+  return { hours, minutes, isOverdue: false } as const;
+};
+
 
 const STATUS_CFG: Record<string, { badge: string; label: string; icon: string }> = {
   Pending:  { badge: 'bg-yellow-100 text-yellow-700 border-yellow-200', label: 'Chờ xử lý', icon: '' },
@@ -207,6 +226,7 @@ const VendorRefundTab: React.FC<Props> = ({ onPendingCount }) => {
         <div className="space-y-4">
           {filtered.map(refund => {
             const cfg = getStatusCfg(refund.status);
+            const remaining = refund.status === 'Pending' ? getRemainingAutoAccept(refund.createdAt) : null;
             return (
               <div
                 key={refund.refundId}
@@ -297,6 +317,25 @@ const VendorRefundTab: React.FC<Props> = ({ onPendingCount }) => {
                       </div>
                     )}
                   </div>
+
+                  {refund.status === 'Pending' && remaining && (
+                    <div className="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-800">
+                      {remaining.isOverdue ? (
+                        <span>
+                          Yêu cầu này đã quá <span className="font-bold">12 giờ</span> chờ phản hồi. Hệ thống có thể đã tự động chấp nhận hoặc chuyển sang bước xử lý tiếp theo.
+                        </span>
+                      ) : (
+                        <span>
+                          Hệ thống cho phép tối đa <span className="font-bold">12 giờ</span> kể từ khi khách gửi yêu cầu.<br />
+                          Hiện bạn còn khoảng{' '}
+                          <span className="font-bold">
+                            {remaining.hours} giờ {remaining.minutes} phút
+                          </span>{' '}
+                          để phản hồi trước khi hệ thống <span className="font-bold">tự động chấp nhận</span> yêu cầu hoàn tiền này.
+                        </span>
+                      )}
+                    </div>
+                  )}
 
                   {/* Action buttons */}
                   <div className="flex gap-2 flex-wrap justify-end pt-2 border-t border-gray-100">
@@ -473,6 +512,18 @@ const VendorRefundTab: React.FC<Props> = ({ onPendingCount }) => {
                     </div>
                   )}
                 </div>
+                {selected.status === 'Pending' && (
+                  <div className="mt-3 p-3 rounded-xl bg-amber-50 border border-amber-200 text-[11px] text-amber-800">
+                    {(() => {
+                      const rem = getRemainingAutoAccept(selected.createdAt);
+                      if (!rem) return 'Hệ thống sẽ tự động xử lý yêu cầu sau tối đa 12 giờ kể từ khi khách gửi nếu bạn không phản hồi.';
+                      if (rem.isOverdue) {
+                        return 'Yêu cầu này đã vượt quá 12 giờ chờ phản hồi. Hệ thống có thể đã tự động chấp nhận hoặc chuyển sang bước xử lý tiếp theo.';
+                      }
+                      return `Hệ thống cho phép tối đa 12 giờ kể từ khi khách gửi yêu cầu. Hiện bạn còn khoảng ${rem.hours} giờ ${rem.minutes} phút để phản hồi trước khi hệ thống tự động chấp nhận yêu cầu.`;
+                    })()}
+                  </div>
+                )}
               </div>
 
               {/* Reason */}

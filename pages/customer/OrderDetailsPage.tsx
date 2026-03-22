@@ -212,6 +212,33 @@ const OrderDetailsPage: React.FC = () => {
         || ''
     ).trim();
 
+    // Customer chỉ được yêu cầu hoàn tiền trong vòng 2h sau khi đơn được giao (DELIVERED)
+    // Nếu dữ liệu thời gian giao không khớp (ví dụ trạng thái đã DELIVERED nhưng thời gian giao nằm ở tương lai),
+    // FE sẽ KHÔNG chặn, để BE tự kiểm soát.
+    const canRequestRefund = (() => {
+        if (!order) return false;
+        if (order.orderStatus.toUpperCase() !== 'DELIVERED') return false;
+
+        const deliveryDate = (order.delivery as any)?.deliveryDate || (order as any).deliveryDate;
+        const deliveryTime = (order.delivery as any)?.deliveryTime || (order as any).deliveryTime || '00:00:00';
+
+        if (!deliveryDate) return true; // nếu thiếu thông tin, không chặn trên FE
+
+        const [h, m, s] = String(deliveryTime).split(':').map((v: string) => parseInt(v, 10) || 0);
+        const deliveredAt = new Date(deliveryDate);
+        deliveredAt.setHours(h, m, s || 0, 0);
+
+        const now = new Date();
+        const diffMs = now.getTime() - deliveredAt.getTime();
+        const diffHours = diffMs / (1000 * 60 * 60);
+
+        // Nếu thời gian giao vẫn ở tương lai nhưng trạng thái đã DELIVERED -> không chặn trên FE
+        if (diffHours < 0) return true;
+
+        // Ngược lại, chỉ cho phép tối đa 2h sau khi giao
+        return diffHours <= 2;
+    })();
+
     if (loading) {
         return (
             <div className="flex items-center justify-center min-h-screen bg-gray-50">
@@ -291,7 +318,14 @@ const OrderDetailsPage: React.FC = () => {
                         {order.orderStatus.toUpperCase() === 'DELIVERED' && (
                             <>
                                 <button
-                                    onClick={() => setIsRefundModalOpen(true)}
+                                    onClick={() => {
+                                        if (!canRequestRefund) {
+                                            toast.error('Thời gian yêu cầu hoàn tiền (2 giờ sau khi giao hàng) đã hết.');
+                                            return;
+                                        }
+                                        setIsRefundModalOpen(true);
+                                    }}
+                                    disabled={!canRequestRefund}
                                     className="bg-white text-orange-600 border border-orange-200 px-6 py-2 rounded-xl font-bold text-sm shadow-sm hover:bg-orange-50 transition"
                                 >
                                     Yêu cầu hoàn tiền

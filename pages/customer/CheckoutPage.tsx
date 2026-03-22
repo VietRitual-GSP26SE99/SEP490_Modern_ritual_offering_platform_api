@@ -27,6 +27,7 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
   const [addresses, setAddresses] = useState<CustomerAddress[]>([]);
   const [showAddressSelector, setShowAddressSelector] = useState(false);
   const [selectingAddress, setSelectingAddress] = useState(false);
+  const [showHoldFeeInfo, setShowHoldFeeInfo] = useState(false);
 
   const timeSlots = [
     { value: '07:00:00', label: '7:00 - 9:00 (Tý-Sửu)' },
@@ -62,9 +63,20 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
     if (isCheckingAuth) return;
 
     const fetchSummary = async () => {
-      const cartItemId = searchParams.get('cartItemId');
+      const cartItemParam = searchParams.get('cartItemId');
 
-      if (!cartItemId) {
+      if (!cartItemParam) {
+        toast.error('Không tìm thấy sản phẩm để thanh toán');
+        navigate('/cart');
+        return;
+      }
+
+      const cartItemIds = cartItemParam
+        .split(',')
+        .map(id => parseInt(id.trim(), 10))
+        .filter(id => !Number.isNaN(id));
+
+      if (cartItemIds.length === 0) {
         toast.error('Không tìm thấy sản phẩm để thanh toán');
         navigate('/cart');
         return;
@@ -76,9 +88,7 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
         const addressList = await addressService.getAddresses();
         setAddresses(addressList);
 
-        const summaryData = await checkoutService.getSummary([
-          parseInt(cartItemId)
-        ]);
+        const summaryData = await checkoutService.getSummary(cartItemIds);
 
         if (summaryData) {
           setSummary(summaryData);
@@ -129,9 +139,14 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
       const success = await addressService.setDefaultAddress(addressId);
       if (success) {
         // Refresh summary to get new shipping fee
-        const cartItemId = searchParams.get('cartItemId');
-        if (cartItemId) {
-          const summaryData = await checkoutService.getSummary([parseInt(cartItemId)]);
+        const cartItemParam = searchParams.get('cartItemId');
+        if (cartItemParam) {
+          const cartItemIds = cartItemParam
+            .split(',')
+            .map(id => parseInt(id.trim(), 10))
+            .filter(id => !Number.isNaN(id));
+
+          const summaryData = await checkoutService.getSummary(cartItemIds);
           if (summaryData) {
             setSummary(summaryData);
           }
@@ -159,7 +174,7 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
       return;
     }
 
-    // Validate 48h and 1 month limit
+    // Validate 60h and 1 month limit
     const now = new Date();
     const [hours, minutes] = deliveryTimeSlot.split(':').map(Number);
     const selectedDateTime = new Date(deliveryDate);
@@ -169,8 +184,8 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
     const oneMonthFromNow = new Date();
     oneMonthFromNow.setMonth(now.getMonth() + 1);
 
-    if (diffInHours < 48) {
-      toast.error('Thời gian đặt hàng phải cách thời điểm hiện tại ít nhất 48 giờ để chuẩn bị.');
+    if (diffInHours < 60) {
+      toast.error('Thời gian đặt hàng phải cách thời điểm hiện tại ít nhất 60 giờ để chuẩn bị.');
       return;
     }
 
@@ -528,6 +543,14 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
                 {!summary.shippingFee || summary.shippingFee === 0 ? 'Miễn phí' : `${summary.shippingFee.toLocaleString()}đ`}
               </span>
             </div>
+            {/* {(summary.totalHoldFee || 0) > 0 && (
+              <div className="flex justify-between text-sm text-slate-500">
+                <span>Phí giữ chỗ (5%)</span>
+                <span className="font-bold text-amber-700">
+                  {(summary.totalHoldFee || 0).toLocaleString()}đ
+                </span>
+              </div>
+            )} */}
             {(summary.totalDiscount || 0) > 0 && (
               <div className="flex justify-between text-sm text-slate-500">
                 <span>Giảm giá</span>
@@ -550,6 +573,33 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
               <p className="text-3xl font-black text-primary tracking-tight">
                 {(summary.totalAmount || (summary.subTotal || 0) + (summary.shippingFee || 0) - (summary.totalDiscount || 0)).toLocaleString()}đ
               </p>
+            </div>
+            <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2">
+              <div className="flex-1">
+                <p className="text-xs text-amber-800 leading-relaxed">
+                  Đơn hàng này có phí giữ chỗ dự kiến khoảng {(summary.totalHoldFee || 0).toLocaleString()}đ (40%). Khoản này chỉ bị trừ nếu bạn chủ động hủy đơn.Hãy đọc kĩ thông tin đơn hàng trước khi thanh toán nhé!
+                </p>
+                {showHoldFeeInfo && (
+                  <div className="mt-2 text-[11px] text-amber-900 leading-relaxed border-t border-amber-200 pt-2">
+                    <p className="font-semibold mb-1">Chi tiết về phí giữ chỗ:</p>
+                    <ul className="list-disc list-inside space-y-1">
+                      <li>Phí giữ chỗ được tạm tính khoảng 40% tổng giá trị đơn hàng sau khuyến mãi.</li>
+                      <li>Phí giữ chỗ được tính nếu đơn hàng có giá trị từ 2.000.000 trở lên</li>
+                      <li>Khoản phí này dùng để giữ lịch, chuẩn bị mâm cúng và nhân sự phục vụ cho buổi lễ của bạn.</li>
+                      <li>Nếu bạn hủy đơn vì bất kỳ lý do gì, khoản phí giữ chỗ này sẽ bị trừ và không được hoàn lại.</li>
+                      <li>Nếu đơn được thực hiện bình thường, bạn chỉ thanh toán số tiền hiển thị tại mục "Tổng cộng", không bị trừ thêm phí giữ chỗ.</li>
+                    </ul>
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowHoldFeeInfo(prev => !prev)}
+                className="ml-2 mt-0.5 flex-shrink-0 w-5 h-5 rounded-full border border-amber-400 text-amber-700 text-[11px] font-bold flex items-center justify-center bg-amber-50 hover:bg-amber-100 hover:border-amber-500 transition-colors"
+                aria-label="Giải thích về phí giữ chỗ"
+              >
+                ?
+              </button>
             </div>
           </div>
 
