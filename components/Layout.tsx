@@ -4,6 +4,7 @@ import Swal from 'sweetalert2';
 import { UserRole, AppRoute, getPath } from '../types';
 import { getCurrentUser } from '../services/auth';
 import { cartService } from '../services/cartService';
+import { fetchNotifications, fetchUnreadNotificationCount, NotificationItem, markAllNotificationsAsReadApi, markNotificationAsRead } from '../services/notificationService';
 import { createTopupLink, createWithdrawal, getMyWallet, getMyWithdrawalRequests, WalletInfo, WalletType } from '../services/walletService';
 import CartDropdown from './CartDropdown';
 import toast from '../services/toast';
@@ -33,6 +34,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
   const [isCartDropdownOpen, setIsCartDropdownOpen] = useState<boolean>(false);
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState<boolean>(false);
   const [isWalletDropdownOpen, setIsWalletDropdownOpen] = useState<boolean>(false);
+  const [isNotificationDropdownOpen, setIsNotificationDropdownOpen] = useState<boolean>(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [notificationLoading, setNotificationLoading] = useState<boolean>(false);
+  const [unreadNotificationCount, setUnreadNotificationCount] = useState<number>(0);
   const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null);
   const [walletLoading, setWalletLoading] = useState<boolean>(false);
   const [topupLoading, setTopupLoading] = useState<boolean>(false);
@@ -52,6 +57,67 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
   const hasVendorRole =
     currentUser?.role === 'vendor' ||
     currentUser?.roles?.some((role) => typeof role === 'string' && role.toLowerCase() === 'vendor');
+
+  const markAllNotificationsAsRead = () => {
+    setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
+    setUnreadNotificationCount(0);
+  };
+
+  const loadNotifications = async () => {
+    try {
+      setNotificationLoading(true);
+      const data = await fetchNotifications(1, 20);
+      setNotifications(data.items);
+      setUnreadNotificationCount(data.items.filter((item) => !item.isRead).length);
+    } catch (error) {
+      console.error('❌ Failed to fetch notifications:', error);
+    } finally {
+      setNotificationLoading(false);
+    }
+  };
+
+  const resolveNotificationRedirectPath = (rawUrl?: string | null): string => {
+    if (!rawUrl) return '';
+
+    const trimmed = rawUrl.trim();
+    if (!trimmed) return '';
+
+    // External link: keep nguyên
+    if (/^https?:\/\//i.test(trimmed)) {
+      return trimmed;
+    }
+
+    // Backend trả /orders/{id} => map sang route thực của app
+    const orderMatch = trimmed.match(/^\/orders\/([^/?#]+)/i);
+    if (orderMatch) {
+      const orderId = orderMatch[1];
+      if (isCustomer) {
+        return `/profile/orders/${orderId}`;
+      }
+      if (isVendor) {
+        // Vendor hiện tại có route danh sách /vendor/orders, truyền orderId qua query để page xử lý nếu cần
+        return `/vendor/orders?orderId=${encodeURIComponent(orderId)}`;
+      }
+    }
+
+    // Các path nội bộ khác: trả về như backend gửi
+    return trimmed;
+  };
+
+  useEffect(() => {
+    const loadUnreadCount = async () => {
+      try {
+        const count = await fetchUnreadNotificationCount();
+        setUnreadNotificationCount(count);
+      } catch (error) {
+        console.error('❌ Failed to fetch unread notification count:', error);
+      }
+    };
+
+    if (userName && !hideWalletAndProfileOnAdminDashboard) {
+      loadUnreadCount();
+    }
+  }, [userName, hideWalletAndProfileOnAdminDashboard]);
 
   // Fetch user info
   useEffect(() => {
@@ -884,6 +950,127 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
               <div className="hidden md:flex items-center gap-2 text-primary font-bold">
                 <span className="text-sm">1900 8888</span>
               </div>
+
+              {/* Notification Bell */}
+              {userName && !hideWalletAndProfileOnAdminDashboard && (
+                <div className="relative hidden md:block">
+                  <button
+                    onClick={() => {
+                      const next = !isNotificationDropdownOpen;
+                      setIsNotificationDropdownOpen(next);
+                      if (next && notifications.length === 0) {
+                        loadNotifications();
+                      }
+                    }}
+                    className="relative flex items-center justify-center w-10 h-10 rounded-full border border-gray-200 text-slate-600 hover:border-primary hover:text-primary transition-all bg-white shadow-sm"
+                    title="Thông báo"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path d="M12 2C10.3431 2 9 3.34315 9 5V5.34196C6.71873 6.16519 5.125 8.33675 5.125 10.75V15L4 16.75V17.5H20V16.75L18.875 15V10.75C18.875 8.33675 17.2813 6.16519 15 5.34196V5C15 3.34315 13.6569 2 12 2ZM10.75 19C10.75 20.2426 11.7574 21.25 13 21.25C14.2426 21.25 15.25 20.2426 15.25 19H10.75Z" />
+                    </svg>
+
+                    {unreadNotificationCount > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-0.5">
+                        {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                      </span>
+                    )}
+                  </button>
+
+                  {isNotificationDropdownOpen && (
+                    <div className="absolute right-0 mt-3 w-96 bg-white rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.12)] border border-gray-100 z-50 overflow-hidden">
+                      <div className="px-5 pt-4 pb-3 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-amber-50 via-white to-amber-50">
+                        <div>
+                          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-amber-700">Thông báo</p>
+                          <p className="text-xs text-slate-500 mt-0.5">Cập nhật mới nhất về đơn hàng và đánh giá</p>
+                        </div>
+                        <button
+                          onClick={() => {
+                            markAllNotificationsAsRead();
+                            markAllNotificationsAsReadApi();
+                          }}
+                          className="text-[11px] font-semibold text-primary hover:text-primary/80 underline-offset-2 hover:underline"
+                        >
+                          Đánh dấu đã đọc
+                        </button>
+                      </div>
+
+                      <div className="max-h-80 overflow-y-auto divide-y divide-gray-100 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
+                        {notificationLoading && notifications.length === 0 && (
+                          <div className="px-5 py-6 text-sm text-slate-500">Đang tải thông báo...</div>
+                        )}
+
+                        {!notificationLoading && notifications.length === 0 && (
+                          <div className="px-5 py-6 text-sm text-slate-500">Hiện chưa có thông báo nào.</div>
+                        )}
+
+                        {notifications.map((item) => (
+                          <div
+                            key={String(item.notificationId)}
+                            className={`px-5 py-4 flex gap-3 hover:bg-slate-50 transition-colors cursor-pointer ${!item.isRead ? 'bg-amber-50/60' : ''}`}
+                            onClick={async () => {
+                              if (!item.isRead) {
+                                setNotifications((prev) => prev.map((n) => n.notificationId === item.notificationId ? { ...n, isRead: true } : n));
+                                setUnreadNotificationCount((prev) => Math.max(0, prev - 1));
+                                markNotificationAsRead(item.notificationId);
+                              }
+
+                              const targetUrl = resolveNotificationRedirectPath(item.redirectUrl);
+                              if (targetUrl) {
+                                if (targetUrl.startsWith('http://') || targetUrl.startsWith('https://')) {
+                                  window.location.href = targetUrl;
+                                } else {
+                                  onNavigate(targetUrl);
+                                }
+                              }
+                            }}
+                          >
+                            <div
+                              className={`mt-1 size-2.5 rounded-full flex-shrink-0 ${
+                                item.type === 'orderplaced' || item.type === 'order'
+                                  ? 'bg-emerald-500'
+                                  : item.type === 'review' || item.type === 'rating'
+                                  ? 'bg-sky-500'
+                                  : 'bg-amber-500'
+                              }`}
+                            ></div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-xs font-bold text-slate-800 mb-1 truncate">
+                                {item.title}
+                              </p>
+                              <p className="text-xs text-slate-500 leading-snug line-clamp-2">
+                                {item.message}
+                              </p>
+                              <div className="mt-2 flex items-center justify-between text-[11px] text-slate-400">
+                                <span>{new Date(item.createdAt).toLocaleString('vi-VN')}</span>
+                                {(item.type === 'orderplaced' || item.type === 'order') && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-semibold">
+                                    Đơn hàng
+                                  </span>
+                                )}
+                                {(item.type === 'review' || item.type === 'rating') && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-sky-50 text-sky-700 font-semibold">
+                                    Đánh giá
+                                  </span>
+                                )}
+                                {item.type === 'system' && (
+                                  <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 font-semibold">
+                                    Hệ thống
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
               {(userName || onLogout) && !hideWalletAndProfileOnAdminDashboard && (
                 <div
