@@ -1,6 +1,7 @@
-import { ApiResponse } from '../types';
+import { ApiResponse, ApiPackage, PackageVariant } from '../types';
 import { getAuthToken } from './auth';
 import { API_BASE_URL } from './api';
+import { packageService } from './packageService';
 
 export interface CheckoutItem {
   cartItemId: number;
@@ -13,6 +14,7 @@ export interface CheckoutItem {
   lineTotal: number;
   vendorProfileId: string;
   vendorName: string;
+  imageUrl?: string | null;
 }
 
 export interface VendorOrder {
@@ -25,6 +27,12 @@ export interface VendorOrder {
   commissionRate: number;
   platformFee: number;
   vendorNetAmount: number;
+  // Các field bổ sung từ backend
+  isFreeShipping?: boolean;
+  feeBreakdown?: string;
+  discountAmount?: number;
+  discountBreakdown?: string;
+  totalAmount?: number;
 }
 
 export interface CheckoutSummary {
@@ -36,6 +44,10 @@ export interface CheckoutSummary {
   totalDiscount?: number;
   vendorOrders: VendorOrder[];
   deliveryAddress?: string;
+  // Các field bổ sung để khớp backend
+  customerPhone?: string;
+  totalShippingFee?: number;
+  finalAmount?: number;
 }
 
 export interface CheckoutRequestItem {
@@ -114,7 +126,8 @@ class CheckoutService {
                   vendorName: item.vendorName || v.shopName || v.vendorName || 'Shop',
                   vendorProfileId: item.vendorProfileId || v.vendorId || v.id,
                   price: item.price || item.unitPrice,
-                  totalPrice: item.lineTotal || (item.unitPrice * item.quantity)
+                  totalPrice: item.lineTotal || (item.unitPrice * item.quantity),
+                  imageUrl: item.imageUrl || item.packageImageUrl || item.productImageUrl || null,
                 }));
                 allItems = [...allItems, ...itemsWithVendor];
               }
@@ -122,12 +135,69 @@ class CheckoutService {
           }
           result.items = allItems;
         }
-        
+        // Map thêm ảnh từ packages nếu item chưa có imageUrl
+        try {
+          const itemsWithoutImage = (result.items || []).filter((it: any) => !it.imageUrl);
+          if (itemsWithoutImage.length > 0) {
+            const apiPackages: ApiPackage[] = await packageService.getAllPackages();
+
+            const variantImageMap = new Map<number, string>();
+
+            apiPackages.forEach((pkg) => {
+              const rawImages = (pkg as any).imageUrls as string[] | undefined;
+              if (!rawImages || rawImages.length === 0) return;
+
+              const primaryIndexRaw = (pkg as any).primaryImageIndex;
+              const primaryIndex = typeof primaryIndexRaw === 'number' && primaryIndexRaw >= 0 && primaryIndexRaw < rawImages.length
+                ? primaryIndexRaw
+                : 0;
+              const primaryImage = rawImages[primaryIndex] || rawImages[0];
+              if (!primaryImage) return;
+
+              const variants = (pkg as any).packageVariants as PackageVariant[] | undefined;
+              (variants || []).forEach((variant) => {
+                const rawVariantId = (variant as any).variantId ?? (variant as any).id ?? (variant as any).packageVariantId;
+                const vid = Number(rawVariantId);
+                if (Number.isFinite(vid) && !variantImageMap.has(vid)) {
+                  variantImageMap.set(vid, primaryImage);
+                }
+              });
+            });
+
+            if (variantImageMap.size > 0) {
+              result.items = (result.items || []).map((item: any) => {
+                if (item.imageUrl) return item;
+                const vid = Number(item.variantId);
+                const mappedImage = Number.isFinite(vid) ? variantImageMap.get(vid) : undefined;
+                return {
+                  ...item,
+                  imageUrl: mappedImage || null,
+                };
+              });
+            }
+          }
+        } catch (imageError) {
+          console.warn('⚠️ Unable to map package images for checkout summary:', imageError);
+        }
+
         result.vendorOrders = result.vendorOrders || result.vendors || [];
         result.totalItems = result.totalItems || result.items.length;
-        result.shippingFee = result.shippingFee !== undefined ? result.shippingFee : (result.totalShippingFee || 0);
-        result.totalDiscount = result.totalDiscount !== undefined ? result.totalDiscount : (result.discountAmount || 0);
-        result.totalAmount = result.totalAmount !== undefined ? result.totalAmount : (result.finalAmount || result.subTotal + result.shippingFee - (result.totalDiscount || 0));
+        // Đồng bộ các field tổng theo backend
+        result.totalShippingFee = result.totalShippingFee !== undefined
+          ? result.totalShippingFee
+          : (result.shippingFee !== undefined ? result.shippingFee : (result.totalShippingFee || 0));
+
+        result.shippingFee = result.shippingFee !== undefined
+          ? result.shippingFee
+          : (result.totalShippingFee || 0);
+
+        result.totalDiscount = result.totalDiscount !== undefined
+          ? result.totalDiscount
+          : (result.discountAmount || 0);
+
+        result.totalAmount = result.totalAmount !== undefined
+          ? result.totalAmount
+          : (result.finalAmount || result.subTotal + result.shippingFee - (result.totalDiscount || 0));
         
         return result as CheckoutSummary;
       } else {

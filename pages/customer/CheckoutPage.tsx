@@ -489,9 +489,17 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
             {summary.items.map((item) => (
               <div key={item.cartItemId} className="flex gap-4">
                 <div className="size-16 rounded-2xl bg-slate-100 shrink-0 overflow-hidden flex items-center justify-center">
-                  <div className="text-slate-300 text-xs text-center">
-                    No Image
-                  </div>
+                  {item.imageUrl ? (
+                    <img
+                      src={item.imageUrl}
+                      alt={item.packageName}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="text-slate-300 text-xs text-center">
+                      No Image
+                    </div>
+                  )}
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-bold leading-tight">{item.packageName}</p>

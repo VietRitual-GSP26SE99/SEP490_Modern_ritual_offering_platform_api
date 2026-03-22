@@ -47,6 +47,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
   const cartDropdownTimeout = useRef<NodeJS.Timeout | null>(null);
   const accountDropdownTimeout = useRef<NodeJS.Timeout | null>(null);
   const walletDropdownTimeout = useRef<NodeJS.Timeout | null>(null);
+  const notificationDropdownTimeout = useRef<NodeJS.Timeout | null>(null);
   const isTopupReturnHandled = useRef(false);
   const isCustomer = userRole === 'customer' || userRole === 'guest';
   const isVendor = userRole === 'vendor';
@@ -953,12 +954,28 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
 
               {/* Notification Bell */}
               {userName && !hideWalletAndProfileOnAdminDashboard && (
-                <div className="relative hidden md:block">
+                <div
+                  className="relative hidden md:block"
+                  onMouseEnter={() => {
+                    if (notificationDropdownTimeout.current) {
+                      clearTimeout(notificationDropdownTimeout.current);
+                    }
+                    setIsNotificationDropdownOpen(true);
+                    if (notifications.length === 0 && !notificationLoading) {
+                      loadNotifications();
+                    }
+                  }}
+                  onMouseLeave={() => {
+                    notificationDropdownTimeout.current = setTimeout(() => {
+                      setIsNotificationDropdownOpen(false);
+                    }, 200);
+                  }}
+                >
                   <button
                     onClick={() => {
                       const next = !isNotificationDropdownOpen;
                       setIsNotificationDropdownOpen(next);
-                      if (next && notifications.length === 0) {
+                      if (next && notifications.length === 0 && !notificationLoading) {
                         loadNotifications();
                       }
                     }}
@@ -982,7 +999,14 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                   </button>
 
                   {isNotificationDropdownOpen && (
-                    <div className="absolute right-0 mt-3 w-96 bg-white rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.12)] border border-gray-100 z-50 overflow-hidden">
+                    <div
+                      className="absolute right-0 mt-3 w-96 bg-white rounded-2xl shadow-[0_10px_40px_rgba(0,0,0,0.12)] border border-gray-100 z-50 overflow-hidden"
+                      onMouseEnter={() => {
+                        if (notificationDropdownTimeout.current) {
+                          clearTimeout(notificationDropdownTimeout.current);
+                        }
+                      }}
+                    >
                       <div className="px-5 pt-4 pb-3 border-b border-gray-100 flex items-center justify-between bg-gradient-to-r from-amber-50 via-white to-amber-50">
                         <div>
                           <p className="text-[11px] font-black uppercase tracking-[0.2em] text-amber-700">Thông báo</p>
