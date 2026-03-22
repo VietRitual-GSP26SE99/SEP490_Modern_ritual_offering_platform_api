@@ -21,7 +21,7 @@ const MyOrdersPage: React.FC = () => {
                     if (o.deliveryDate) return new Date(`${o.deliveryDate}T${o.deliveryTime || '00:00:00'}`).getTime();
                     return 0;
                 };
-                return getTime(a) - getTime(b);
+                return getTime(b) - getTime(a);
             });
             setOrders(sortedOrders);
         } catch (error) {
@@ -191,7 +191,7 @@ const MyOrdersPage: React.FC = () => {
                                         <div className="hidden md:block w-px h-8 bg-gray-300"></div>
                                         <div>
                                             <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-1">Ngày đặt</span>
-                                            <span className="text-gray-900 font-medium">{order.createdAt ? new Date(order.createdAt).toLocaleDateString('vi-VN') : new Date((order as any).deliveryDate || Date.now()).toLocaleDateString('vi-VN')}</span>
+                                            <span className="text-gray-900 font-medium">{order.createdAt ? new Date(order.createdAt).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date((order as any).deliveryDate || Date.now()).toLocaleDateString('vi-VN')}</span>
                                         </div>
                                     </div>
                                     <div className="flex items-center gap-3">

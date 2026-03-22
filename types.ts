@@ -42,6 +42,7 @@ export interface ApiPackage {
   packageVariants?: PackageVariant[];
   imageUrls?: string[];
   primaryImageIndex?: number;
+  ratingAvg?: number;
 }
 
 // Product Variant for UI (parsed from API)

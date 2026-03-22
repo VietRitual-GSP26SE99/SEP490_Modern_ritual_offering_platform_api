@@ -220,7 +220,7 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
           image: Array.isArray((item as any).imageUrls) && (item as any).imageUrls.length > 0
             ? ((item as any).imageUrls[(item as any).primaryImageIndex || 0] || (item as any).imageUrls[0])
             : String((item as any).imageUrl || ''),
-          rating: 0,
+          rating: Number((item as any).ratingAvg || 0),
           orders: 0,
           status: Boolean((item as any).isActive) ? 'active' : 'inactive',
           created: String((item as any).createdAt || ''),

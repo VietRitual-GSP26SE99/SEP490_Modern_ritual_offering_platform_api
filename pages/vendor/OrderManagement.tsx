@@ -24,18 +24,25 @@ const ORDER_STATUS_TABS = [
 ];
 
 const NEXT_STATUSES: Record<string, { value: string; label: string }[]> = {
-  Paid: [{ value: 'Confirmed', label: 'Xác nhận đơn' }, { value: 'Cancelled', label: 'Hủy đơn' }],
-  Confirmed: [{ value: 'Processing', label: 'Bắt đầu xử lý đơn' }, { value: 'Cancelled', label: 'Hủy đơn' }],
-  Processing: [{ value: 'Delivering', label: 'Bắt đầu giao hàng' }, { value: 'Cancelled', label: 'Hủy đơn' }],
-  Delivering: [{ value: 'Delivered', label: 'Xác nhận đã giao' }],
+  Paid: [
+    { value: 'Confirmed', label: 'Xác nhận đơn' },
+    { value: 'Cancelled', label: 'Hủy đơn' }
+  ],
+  Confirmed: [
+    { value: 'Processing', label: 'Bắt đầu xử lý' },
+    { value: 'Cancelled', label: 'Hủy đơn' }
+  ],
+  Processing: [
+    { value: 'Delivering', label: 'Bắt đầu giao hàng' },
+    { value: 'Cancelled', label: 'Hủy đơn' }
+  ],
+  Delivering: [
+    { value: 'Delivered', label: 'Xác nhận đã giao' },
+    { value: 'Cancelled', label: 'Hủy đơn' }
+  ],
   Delivered: [],
   Completed: [],
-  Cancelled: [{ value: 'Refunded', label: 'Hoàn tiền' }],
-  Refunded: [],
-  PaymentFailed: [{ value: 'Cancelled', label: 'Hủy đơn' }],
-  Pending: [{ value: 'Confirmed', label: 'Xác nhận đơn' }, { value: 'Cancelled', label: 'Hủy đơn' }],
-  Preparing: [{ value: 'Processing', label: 'Chuyển sang đang xử lý' }, { value: 'Cancelled', label: 'Hủy đơn' }],
-  Shipping: [{ value: 'Delivered', label: 'Xác nhận đã giao' }, { value: 'Cancelled', label: 'Hủy đơn' }],
+  Cancelled: [],
 };
 
 const STATUS_BADGE: Record<string, { badge: string; label: string }> = {
@@ -136,15 +143,35 @@ const getPaymentStatusLabel = (status: unknown): string => {
   return map[key] || (key ? String(status) : 'N/A');
 };
 
+const getAvatarColor = (name: string) => {
+  const colors = [
+    'bg-red-500', 'bg-blue-500', 'bg-green-500', 'bg-yellow-500',
+    'bg-purple-500', 'bg-pink-500', 'bg-indigo-500', 'bg-teal-500'
+  ];
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) {
+    hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  }
+  return colors[Math.abs(hash) % colors.length];
+};
+
+const getInitials = (name: string) => {
+  if (!name) return '?';
+  const parts = name.trim().split(/\s+/);
+  if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+  return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
+};
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNavigate }) => {
-  const ORDERS_PER_PAGE = 5;
+  const itemsPerPage = 5;
   const fromDateInputRef = useRef<HTMLInputElement | null>(null);
   const toDateInputRef = useRef<HTMLInputElement | null>(null);
 
   // ── orders state ────────────────────────────────────────────────────────────
   const [orders, setOrders] = useState<VendorOrder[]>([]);
+  const [enrichedData, setEnrichedData] = useState<Record<string, Partial<VendorOrder>>>({});
   const [vendorShopName, setVendorShopName] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -266,7 +293,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
     try {
       setLoading(true);
       setError(null);
-      setCurrentPage(1);
+      // setCurrentPage(1); // Removed as per diff
       const [data, profile] = await Promise.all([
         orderService.getVendorOrders(),
         getProfile().catch(() => null),
@@ -280,15 +307,60 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
     }
   }, []);
 
-  useEffect(() => { fetchOrders(); }, [fetchOrders]);
+  useEffect(() => {
+    fetchOrders();
+  }, [mainTab]); // Changed from [fetchOrders] to [mainTab]
+
+  // Enrich visible orders when page or orders change
+  useEffect(() => {
+    const enrichVisibleOrders = async () => {
+      const startIndex = (currentPage - 1) * itemsPerPage;
+      const visibleOrders = orders.slice(startIndex, startIndex + itemsPerPage);
+
+      const ordersToEnrich = visibleOrders.filter(o => !enrichedData[o.orderId] || (!enrichedData[o.orderId].customerName && !o.customerName));
+
+      if (ordersToEnrich.length === 0) return;
+
+      console.log(`🔍 Enriching ${ordersToEnrich.length} orders...`);
+
+      const results = await Promise.allSettled(
+        ordersToEnrich.map(o => orderService.getOrderDetails(o.orderId))
+      );
+
+      const newEnrichments: Record<string, Partial<VendorOrder>> = { ...enrichedData };
+      results.forEach((res, index) => {
+        if (res.status === 'fulfilled' && res.value) {
+          const orderId = ordersToEnrich[index].orderId;
+          newEnrichments[orderId] = {
+            customerName: res.value.customer?.fullName || res.value.customerName,
+            customerAvatar: res.value.customerAvatar || (res.value.customer as any)?.avatarUrl || '',
+            customerPhone: res.value.customerPhone || res.value.customer?.phoneNumber
+          };
+        }
+      });
+
+      setEnrichedData(prev => ({ ...prev, ...newEnrichments }));
+    };
+
+    if (orders.length > 0) {
+      enrichVisibleOrders();
+    }
+  }, [orders, currentPage, itemsPerPage]); // Removed enrichedData to avoid infinite loop
 
   // ── update order status ─────────────────────────────────────────────────────
   const handleUpdateStatus = async () => {
     if (!selectedOrder || !newStatus) return;
-    if (newStatus === 'Delivered' && deliveryProofImages.length === 0) {
-      setStatusError('Vui lòng cung cấp ít nhất 1 ảnh chứng minh giao hàng.');
+    if ((newStatus === 'Delivered' || newStatus === 'Delivering') && deliveryProofImages.length === 0) {
+      const fieldRequired = newStatus === 'Delivering' ? 'ảnh chuẩn bị' : 'ảnh chứng minh';
+      setStatusError(`Vui lòng cung cấp ít nhất 1 ${fieldRequired}.`);
       return;
     }
+    const oversizedFiles = deliveryProofImages.filter(file => file.size > 1 * 1024 * 1024);
+    if (oversizedFiles.length > 0) {
+      setStatusError(`Ảnh ${oversizedFiles[0].name} quá lớn (>1MB). Vui lòng chọn ảnh nhỏ hơn.`);
+      return;
+    }
+
     setStatusUpdating(true);
     setStatusError(null);
     setStatusSuccess(null);
@@ -310,7 +382,8 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
       setStatusSuccess(
         newStatus === 'Delivered' ? 'Đơn hàng đã giao thành công. Khách hàng sẽ xác nhận để hoàn thành đơn.' :
           newStatus === 'Cancelled' ? 'Đơn hàng đã được hủy thành công.' :
-            'Cập nhật trạng thái thành công!'
+            (newStatus === 'Delivering' || newStatus === 'Shipping') ? 'Bắt đầu giao hàng! Khách hàng đã có thể theo dõi vị trí.' :
+              'Cập nhật trạng thái thành công!'
       );
     } catch (e: any) {
       setStatusError(e.message || 'Cập nhật thất bại. Vui lòng thử lại.');
@@ -322,9 +395,17 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
   const openDetail = async (orderId: string) => {
     setSelectedOrder(null);
     setDetailLoading(true);
+    setStatusError(null);
     try {
-      setSelectedOrder(await orderService.getOrderDetails(orderId));
-    } catch { /* silently fail */ } finally {
+      const detail = await orderService.getOrderDetails(orderId);
+      if (!detail) {
+        throw new Error("Không tìm thấy dữ liệu đơn hàng.");
+      }
+      setSelectedOrder(detail);
+    } catch (e: any) {
+      console.error("Open detail error:", e);
+      setStatusError("Lỗi khi tải chi tiết đơn hàng: " + (e.message || "Vui lòng thử lại sau."));
+    } finally {
       setDetailLoading(false);
     }
   };
@@ -343,11 +424,11 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
     })
     .sort((a, b) => (parseDate(b.createdAt)?.getTime() ?? 0) - (parseDate(a.createdAt)?.getTime() ?? 0));
 
-  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / ORDERS_PER_PAGE));
+  const totalPages = Math.max(1, Math.ceil(filteredOrders.length / itemsPerPage));
   const safeCurrentPage = Math.min(currentPage, totalPages);
   const paginatedOrders = filteredOrders.slice(
-    (safeCurrentPage - 1) * ORDERS_PER_PAGE,
-    safeCurrentPage * ORDERS_PER_PAGE,
+    (safeCurrentPage - 1) * itemsPerPage,
+    safeCurrentPage * itemsPerPage,
   );
 
   useEffect(() => {
@@ -572,34 +653,60 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                     <div key={order.orderId} className="bg-white rounded-[2rem] border border-gray-200 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300">
 
                       {/* Card header */}
-                      <div className="p-6 md:p-8 flex flex-col md:flex-row gap-4 justify-between items-start md:items-center border-b border-gray-100 bg-gray-50/50">
-                        <div className="flex flex-col md:flex-row gap-4 md:items-center">
-                          <div>
-                            <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-1">Cửa hàng</span>
-                            <span className="text-gray-900 font-semibold">{vendorShopName || order.vendorName || 'N/A'}</span>
+                      {(() => {
+                        const enrichment = enrichedData[order.orderId] || {};
+                        const displayName = enrichment.customerName || order.customerName || 'Khách hàng';
+
+                        const displayPhone = enrichment.customerPhone || order.customerPhone;
+
+                        return (
+                          <div className="p-6 md:p-8 flex flex-col md:flex-row gap-4 justify-between items-start md:items-center border-b border-gray-100 bg-gray-50/50">
+                            <div className="flex flex-col md:flex-row gap-6 md:items-center">
+                              <div className="flex items-center gap-3">
+                                {/* {displayAvatar ? (
+                                  <img src={displayAvatar} alt={displayName} className="size-12 rounded-full object-cover border-2 border-white shadow-sm" />
+                                ) : (
+                                  <div className={`size-12 rounded-full ${getAvatarColor(displayName)} flex items-center justify-center text-white font-bold text-lg border-2 border-white shadow-sm`}>
+                                    {getInitials(displayName)}
+                                  </div>
+                                )} */}
+                                <div>
+                                  <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-0.5">Khách hàng</span>
+                                  <span className="text-gray-900 font-bold text-lg">{displayName}</span>
+                                  {displayPhone && (
+                                    <span className="text-xs text-slate-500 block">{displayPhone}</span>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="hidden md:block w-px h-8 bg-gray-200" />
+
+                              <div>
+                                <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-1">Cửa hàng</span>
+                                <span className="text-gray-900 font-semibold">{vendorShopName || order.vendorName || 'N/A'}</span>
+                              </div>
+
+                              <div className="hidden md:block w-px h-8 bg-gray-200" />
+                              <div>
+                                <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-1">Ngày đặt</span>
+                                <span className="text-gray-900 font-medium">{formatDateTimeVi(order.createdAt)}</span>
+                              </div>
+                            </div>
+
+                            <div className="flex flex-col items-end gap-2">
+                              <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest shadow-sm ${getStatusBadge(order.orderStatus).badge}`}>
+                                {getStatusBadge(order.orderStatus).label}
+                              </span>
+                              <div className="flex items-center gap-1.5 text-slate-400">
+                                <span className="text-[11px] font-bold uppercase tracking-wider">Giao hàng:</span>
+                                <span className="text-xs font-semibold text-slate-600">
+                                  {formatDateVi(order.deliveryDate)} lúc {order.deliveryTime?.slice(0, 5) || '00:00'}
+                                </span>
+                              </div>
+                            </div>
                           </div>
-                          {/* <div className="hidden md:block w-px h-8 bg-gray-300" /> */}
-                          {/* <div>
-                            <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-1">Mã đơn hàng</span>
-                            <span className="font-mono text-gray-900 font-bold text-base">#{order.orderId.slice(0, 8).toUpperCase()}</span>
-                          </div> */}
-                          <div className="hidden md:block w-px h-8 bg-gray-300" />
-                          <div>
-                            <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-1">Ngày đặt</span>
-                            <span className="text-gray-900 font-medium">{formatDateVi(order.createdAt)}</span>
-                          </div>
-                          <div className="hidden md:block w-px h-8 bg-gray-300" />
-                          <div>
-                            <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-1">Giao hàng</span>
-                            <span className="text-gray-900 font-medium">
-                              {formatDateVi(order.deliveryDate)} lúc {order.deliveryTime?.slice(0, 5) || 'N/A'}
-                            </span>
-                          </div>
-                        </div>
-                        <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest flex-shrink-0 ${cfg.badge}`}>
-                          {cfg.label}
-                        </span>
-                      </div>
+                        );
+                      })()}
 
                       {/* Card body – items */}
                       <div className="p-6 md:p-8">
@@ -607,7 +714,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                           {(order.items || []).map(item => (
                             <div key={item.itemId} className="flex gap-4 items-center">
                               <div className="size-16 rounded-xl bg-gray-100 border border-gray-200 flex-shrink-0 bg-cover bg-center"
-                                style={{ backgroundImage: 'url("https://picsum.photos/100?random=2")' }} />
+                                style={{ backgroundImage: `url("${item.imageUrl || 'https://picsum.photos/100?random=2'}")` }} />
                               <div className="flex-1 min-w-0">
                                 <h5 className="font-bold text-gray-800 text-base">{item.packageName}</h5>
                                 <p className="text-sm text-slate-500 mt-0.5">Gói: {item.variantName}</p>
@@ -637,7 +744,9 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                             <span className="text-sm text-gray-500">Tổng tiền:</span>
                             <span className="text-2xl font-black text-primary">{formatVnd(order.totalAmount)}</span>
                           </div>
-
+                          {order.finalAmount && order.finalAmount !== order.totalAmount && (
+                            <p className="text-xs text-slate-400 mt-1">Sơ bộ: {formatVnd(order.totalAmount)} · Thực nhận: {formatVnd(order.finalAmount)}</p>
+                          )}
                         </div>
                         <button
                           onClick={() => openDetail(order.orderId)}
@@ -653,13 +762,13 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
               )}
             </div>
 
-            {filteredOrders.length > ORDERS_PER_PAGE && (
+            {filteredOrders.length > itemsPerPage && (
               <div className="mt-6 flex flex-col md:flex-row items-center justify-between gap-3 border border-gray-200 rounded-2xl bg-white px-4 md:px-6 py-4">
                 <p className="text-sm text-slate-600">
                   Hiển thị{' '}
-                  <span className="font-semibold">{(safeCurrentPage - 1) * ORDERS_PER_PAGE + 1}</span>
+                  <span className="font-semibold">{(safeCurrentPage - 1) * itemsPerPage + 1}</span>
                   {' - '}
-                  <span className="font-semibold">{Math.min(safeCurrentPage * ORDERS_PER_PAGE, filteredOrders.length)}</span>
+                  <span className="font-semibold">{Math.min(safeCurrentPage * itemsPerPage, filteredOrders.length)}</span>
                   {' / '}
                   <span className="font-semibold">{filteredOrders.length}</span>
                   {' đơn hàng'}
@@ -738,12 +847,24 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
                 </svg>
               </button>
-              <div className="flex-1">
-                <h2 className="text-2xl font-black text-gray-900">Chi tiết đơn hàng</h2>
-                <p className="text-sm text-gray-500 mt-0.5">
-                  {/* #{selectedOrder.orderId.slice(0, 8).toUpperCase()} */}
-                  {hasMeaningfulText(selectedOrder.customer?.fullName) && ` · Khách: ${selectedOrder.customer.fullName}`}
-                </p>
+              <div className="flex-1 flex items-center gap-4">
+                {/* {selectedOrder.customer?.avatarUrl || selectedOrder.customerAvatar ? (
+                  <img src={selectedOrder.customer?.avatarUrl || selectedOrder.customerAvatar} alt={selectedOrder.customer?.fullName} className="size-12 rounded-full object-cover border-2 border-white shadow-sm" />
+                ) : (
+                  <div className={`size-12 rounded-full ${getAvatarColor(selectedOrder.customer?.fullName || 'C')} flex items-center justify-center text-white font-bold text-lg border-2 border-white shadow-sm`}>
+                    {getInitials(selectedOrder.customer?.fullName || 'C')}
+                  </div>
+                )} */}
+                <div>
+                  <h2 className="text-2xl font-black text-gray-900">Chi tiết đơn hàng</h2>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <p className="text-sm text-gray-500">
+                      {hasMeaningfulText(selectedOrder.customer?.fullName) && `Khách: ${selectedOrder.customer.fullName}`}
+                    </p>
+                    {selectedOrder.customer?.phoneNumber && <span className="text-gray-300">|</span>}
+                    <p className="text-sm text-gray-500">{selectedOrder.customer?.phoneNumber}</p>
+                  </div>
+                </div>
               </div>
               <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest flex-shrink-0 ${getStatusBadge(selectedOrder.orderStatus).badge}`}>
                 {getStatusBadge(selectedOrder.orderStatus).label}
@@ -764,7 +885,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                     {(selectedOrder.items || []).map(item => (
                       <div key={item.itemId} className="flex gap-3 items-center">
                         <div className="size-12 rounded-xl bg-gray-100 border border-gray-200 flex-shrink-0 bg-cover bg-center"
-                          style={{ backgroundImage: 'url("https://picsum.photos/100?random=3")' }} />
+                          style={{ backgroundImage: `url("${item.imageUrl || 'https://picsum.photos/100?random=3'}")` }} />
                         <div className="flex-1 min-w-0">
                           <p className="font-bold text-gray-800 truncate">{item.packageName}</p>
                           <p className="text-sm text-slate-500">{item.variantName} × {item.quantity}</p>
@@ -907,10 +1028,12 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                       onChange={e => {
                         const nextValue = e.target.value;
                         setNewStatus(nextValue);
-                        if (nextValue !== 'Delivered') {
+                        // Only clear images if not moving to a state that requires them
+                        if (nextValue !== 'Delivered' && nextValue !== 'Delivering') {
                           setDeliveryProofImages([]);
                         }
                         setStatusError(null);
+                        setStatusSuccess(null);
                       }}
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary bg-white"
                     >
@@ -928,9 +1051,11 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                         className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary resize-none"
                       />
                     )}
-                    {newStatus === 'Delivered' && (
+                    {(newStatus === 'Delivered' || newStatus === 'Delivering') && (
                       <div className="space-y-2">
-                        <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Ảnh chứng minh giao hàng</label>
+                        <label className="text-xs font-bold uppercase tracking-wider text-slate-500">
+                          {newStatus === 'Delivered' ? 'Ảnh chứng minh (Đã giao)' : 'Ảnh chuẩn bị mâm cúng'}
+                        </label>
                         <input
                           type="file"
                           accept="image/*"
@@ -959,9 +1084,14 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
               <div className="lg:col-span-5 bg-white rounded-[1.25rem] border border-gray-200 p-4 md:p-5 shadow-sm">
                 <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-4">Khách hàng & đối soát</h3>
                 <div className="text-sm divide-y divide-gray-100 border border-gray-100 rounded-xl overflow-hidden">
-                  <div className="flex justify-between gap-3 px-4 py-2.5 bg-white">
+                  <div className="flex justify-between items-center gap-3 px-4 py-3 bg-white">
                     <span className="text-gray-500">Khách hàng</span>
-                    <span className="font-semibold text-gray-800 text-right">{selectedOrder.customer?.fullName || 'N/A'}</span>
+                    <div className="flex items-center gap-2">
+                      {/* <div className={`size-8 rounded-full ${getAvatarColor(selectedOrder.customer?.fullName || 'C')} flex items-center justify-center text-white text-xs font-bold`}>
+                         {getInitials(selectedOrder.customer?.fullName || 'C')}
+                       </div> */}
+                      <span className="font-semibold text-gray-800 text-right">{selectedOrder.customer?.fullName || 'N/A'}</span>
+                    </div>
                   </div>
                   <div className="flex justify-between gap-3 px-4 py-2.5 bg-white">
                     <span className="text-gray-500">Số điện thoại</span>

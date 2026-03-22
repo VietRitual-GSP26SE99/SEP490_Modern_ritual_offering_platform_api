@@ -324,7 +324,7 @@ class PackageService {
       gallery: ((apiPackage as any).imageUrls && (apiPackage as any).imageUrls.length > 0)
         ? (apiPackage as any).imageUrls
         : this.generateGalleryImages(pkgId),
-      rating: 4.8,
+      rating: apiPackage.ratingAvg || 0,
       reviews: 128,
       tag: apiPackage.isActive ? 'NEW' : undefined,
       variants: parsedVariants,

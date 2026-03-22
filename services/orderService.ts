@@ -34,7 +34,11 @@ export interface Order {
         fullName: string;
         email: string;
         phoneNumber: string;
+        avatarUrl?: string;
     };
+    customerName?: string;
+    customerAvatar?: string;
+    customerPhone?: string;
     vendor: {
         profileId: string | null;
         shopName: string;
@@ -95,6 +99,7 @@ export interface VendorOrderItem {
     price: number;
     lineTotal: number;
     decorationNote?: string;
+    imageUrl?: string;
 }
 
 export interface VendorOrder {
@@ -113,11 +118,14 @@ export interface VendorOrder {
     shippingDistanceKm: number;
     shippingFee: number;
     totalAmount: number;
+    finalAmount?: number;
     commissionRate: number;
     platformFee: number;
     vendorNetAmount: number;
     paymentMethod: string;
     createdAt: string;
+    customerAvatar?: string;
+    preparationProofImages?: string[];
 }
 
 interface VendorOrdersApiItem {
@@ -165,6 +173,7 @@ interface VendorOrdersApiItem {
         productId?: string | number;
         imageUrl?: string | null;
     }>;
+    preparationProofImages?: string[];
 }
 
 interface OrderDetailsApiItem {
@@ -185,6 +194,7 @@ interface OrderDetailsApiItem {
         email?: string;
         phoneNumber?: string;
         customerPhone?: string;
+        avatarUrl?: string;
     };
     vendor?: {
         profileId?: string;
@@ -276,13 +286,23 @@ class OrderService {
         return 'Pending';
     }
 
-    private getHeaders(): HeadersInit {
+    private getHeaders(method: string = 'GET'): HeadersInit {
         const token = getAuthToken();
-        return {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        const headers: Record<string, string> = {
+            'Accept': '*/*',
         };
+
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        // Only set Content-Type for POST/PUT/PATCH if it's NOT a multipart request (implicitly handled by FETCH/XHR with FormData)
+        // Note: For OrderService, we generally use JSON for GET/POST/PUT unless it's the status update with images.
+        if (['POST', 'PUT', 'PATCH'].includes(method.toUpperCase())) {
+            headers['Content-Type'] = 'application/json';
+        }
+
+        return headers;
     }
 
     // Get all orders for the current customer
@@ -290,10 +310,12 @@ class OrderService {
         try {
             const response = await fetch(`${API_BASE_URL}/orders/customer`, {
                 method: 'GET',
-                headers: this.getHeaders(),
+                headers: this.getHeaders('GET'),
             });
 
             if (!response.ok) {
+                const errorText = await response.text().catch(() => '');
+                console.error(`Fetch My Orders API Error (Status: ${response.status}):`, errorText);
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
@@ -314,14 +336,14 @@ class OrderService {
                                 price: unitPrice,
                                 lineTotal,
                                 decorationNote: item.decorationNote || '',
-                                packageId: 
-                                    item.packageId || 
-                                    (item as any).PackageId || 
-                                    (item as any).package?.packageId || 
-                                    (item as any).package?.id || 
-                                    (item as any).productId || 
-                                    (item as any).ProductId || 
-                                    (item as any).package_id || 
+                                packageId:
+                                    item.packageId ||
+                                    (item as any).PackageId ||
+                                    (item as any).package?.packageId ||
+                                    (item as any).package?.id ||
+                                    (item as any).productId ||
+                                    (item as any).ProductId ||
+                                    (item as any).package_id ||
                                     (item as any).product_id || '',
                                 imageUrl:
                                     item.imageUrl ||
@@ -359,10 +381,12 @@ class OrderService {
         try {
             const response = await fetch(`${API_BASE_URL}/orders/${orderId}`, {
                 method: 'GET',
-                headers: this.getHeaders(),
+                headers: this.getHeaders('GET'),
             });
 
             if (!response.ok) {
+                const errorText = await response.text().catch(() => '');
+                console.error(`Order Detail API Error (ID: ${orderId}, Status: ${response.status}):`, errorText);
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
@@ -386,24 +410,24 @@ class OrderService {
                             price: unitPrice,
                             lineTotal,
                             decorationNote: item.decorationNote || '',
-                            packageId: 
-                                item.packageId || 
-                                (item as any).PackageId || 
-                                (item as any).package?.packageId || 
-                                (item as any).package?.id || 
-                                (item as any).packageID || 
-                                (item as any).productId || 
-                                (item as any).ProductId || 
-                                (item as any).productID || 
-                                (item as any).package_id || 
+                            packageId:
+                                item.packageId ||
+                                (item as any).PackageId ||
+                                (item as any).package?.packageId ||
+                                (item as any).package?.id ||
+                                (item as any).packageID ||
+                                (item as any).productId ||
+                                (item as any).ProductId ||
+                                (item as any).productID ||
+                                (item as any).package_id ||
                                 (item as any).product_id || '',
-                            imageUrl: 
-                                item.imageUrl || 
-                                (item as any).imageURL || 
-                                (item as any).packageImageUrl || 
-                                (item as any).packageImageURL || 
-                                (item as any).productImageUrl || 
-                                (item as any).productImageURL || 
+                            imageUrl:
+                                item.imageUrl ||
+                                (item as any).imageURL ||
+                                (item as any).packageImageUrl ||
+                                (item as any).packageImageURL ||
+                                (item as any).productImageUrl ||
+                                (item as any).productImageURL ||
                                 null,
                         };
                     })
@@ -467,6 +491,7 @@ class OrderService {
                         fullName: raw.customer?.fullName || raw.customer?.customerName || 'Khách hàng',
                         email: raw.customer?.email || '',
                         phoneNumber: raw.customer?.phoneNumber || raw.customer?.customerPhone || '',
+                        avatarUrl: raw.customer?.avatarUrl || (raw as any).customerAvatar || '',
                     },
                     vendor: {
                         profileId: raw.vendor?.profileId || raw.vendor?.vendorId || null,
@@ -565,6 +590,7 @@ class OrderService {
                                 price: unitPrice,
                                 lineTotal,
                                 decorationNote: item.decorationNote || '',
+                                imageUrl: item.imageUrl || (item as any).packageImageUrl || (item as any).productImageUrl || '',
                             };
                         })
                         : [];
@@ -597,6 +623,9 @@ class OrderService {
                         vendorNetAmount,
                         paymentMethod: raw.paymentMethod || 'N/A',
                         createdAt: raw.createdAt || raw.deliveryDate || new Date().toISOString(),
+                        customerAvatar: (raw.customer as any)?.avatarUrl || (raw as any).customerAvatar || '',
+                        preparationProofImages: raw.preparationProofImages || [],
+                        finalAmount: Number(raw.finalAmount) || totalAmount,
                     };
                 });
 
@@ -610,40 +639,55 @@ class OrderService {
     }
 
     // Update order status (vendor)
-    async updateOrderStatus(orderId: string, newStatus: string, reason?: string, deliveryProofImages?: File[]): Promise<boolean> {
-        try {
-            const normalizedReason = typeof reason === 'string' ? reason.trim() : '';
+    async updateOrderStatus(orderId: string, newStatus: string, reason?: string, deliveryProofImages: File[] = []): Promise<boolean> {
+        return new Promise<boolean>((resolve, reject) => {
             const formData = new FormData();
             formData.append('NewStatus', newStatus);
-            if (normalizedReason) {
+            if (reason) {
+                const normalizedReason = String(reason).trim();
                 formData.append('Reason', normalizedReason);
             }
-            if (deliveryProofImages?.length) {
-                deliveryProofImages.forEach((file) => {
-                    formData.append('DeliveryProofImages', file);
-                });
+            if (newStatus === 'Delivering' || newStatus === 'Delivered') {
+                const targetField = (newStatus === 'Delivering') ? 'PreparationProofImages' : 'DeliveryProofImages';
+                const otherField = (newStatus === 'Delivering') ? 'DeliveryProofImages' : 'PreparationProofImages';
+
+                if (deliveryProofImages?.length) {
+                    deliveryProofImages.forEach(file => formData.append(targetField, file));
+                } else {
+                    formData.append(targetField, '');
+                }
+                // Send dummy string for the alternative field as Swagger does
+                formData.append(otherField, '');
             }
 
-            const response = await fetch(`${API_BASE_URL}/orders/${orderId}/status`, {
-                method: 'PUT',
-                headers: {
-                    'Accept': 'application/json',
-                    ...(getAuthToken() ? { 'Authorization': `Bearer ${getAuthToken()}` } : {})
-                },
-                body: formData,
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.errorMessages?.[0] || `HTTP error! status: ${response.status}`);
+            const token = getAuthToken();
+            const xhr = new XMLHttpRequest();
+            xhr.open('PUT', `${API_BASE_URL}/orders/${orderId}/status`, true);
+            xhr.setRequestHeader('Accept', '*/*');
+            if (token) {
+                xhr.setRequestHeader('Authorization', `Bearer ${token}`);
             }
 
-            const data = await response.json();
-            return data.isSuccess || data.statusCode === 'OK';
-        } catch (error) {
-            console.error('Failed to update order status:', error);
-            throw error;
-        }
+            xhr.onload = () => {
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    resolve(true);
+                } else {
+                    try {
+                        const errorData = JSON.parse(xhr.responseText);
+                        const errorMessage = errorData.errorMessages?.[0] || errorData.message || `HTTP error! status: ${xhr.status}`;
+                        reject(new Error(errorMessage));
+                    } catch {
+                        reject(new Error(`HTTP error! status: ${xhr.status}`));
+                    }
+                }
+            };
+
+            xhr.onerror = () => {
+                reject(new Error('Lỗi mạng khi cập nhật trạng thái đơn hàng.'));
+            };
+
+            xhr.send(formData);
+        });
     }
 
     // Cancel an order

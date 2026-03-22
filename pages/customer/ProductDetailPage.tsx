@@ -232,7 +232,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
   const reviewsToDisplay = reviews.filter(r => (r.isVisible !== false) || isOwnerVendor);
   const averageRating = reviewsToDisplay.length > 0
     ? (reviewsToDisplay.reduce((acc, r) => acc + r.rating, 0) / reviewsToDisplay.length).toFixed(1)
-    : '0.0';
+    : (product?.rating?.toFixed(1) || '0.0');
 
   const ratingDistribution = [5, 4, 3, 2, 1].map(stars => {
     const count = reviewsToDisplay.filter(r => Math.round(r.rating) === stars).length;
@@ -437,10 +437,10 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                 <p className="text-lg text-slate-400 line-through">{product.originalPrice.toLocaleString()}đ</p>
               )}
             </div>
-            {/* <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <span style={{ color: '#FFD700' }}>★</span>
-              <span className="text-sm font-bold text-slate-600">{averageRating} ({reviewsToDisplay.length > 0 ? reviewsToDisplay.length : product.reviews} đánh giá)</span>
-            </div> */}
+              <span className="text-sm font-bold text-slate-600">{product.rating} ({reviewsToDisplay.length > 0 ? reviewsToDisplay.length : 0} đánh giá)</span>
+            </div>
           </div>
 
           <div className="p-6 bg-white rounded-3xl border border-gold/10 shadow-sm space-y-6">
