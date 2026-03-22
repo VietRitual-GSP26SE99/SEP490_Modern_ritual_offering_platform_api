@@ -46,6 +46,27 @@ export interface WithdrawalListItem {
   raw?: Record<string, unknown>;
 }
 
+export interface TransactionFilter {
+  type?: string;
+  status?: string;
+  from?: string;
+  to?: string;
+}
+
+export interface WalletTransaction {
+  id: string;
+  type: string;
+  status: string;
+  amount: number;
+  description: string;
+  createdAt: string;
+  balanceBefore?: number | null;
+  balanceAfter?: number | null;
+  walletId?: string;
+  walletType?: string;
+  raw?: Record<string, unknown>;
+}
+
 function readField<T>(source: Record<string, unknown>, keys: string[], fallback: T): T {
   for (const key of keys) {
     const value = source[key];
@@ -111,6 +132,62 @@ function normalizeWithdrawalItem(item: unknown, index: number): WithdrawalListIt
     bank,
     requestedAt,
     status,
+    raw: source,
+  };
+}
+
+function normalizeTransactionItem(item: unknown, index: number): WalletTransaction {
+  const source = item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
+
+  const tx = (source.transaction || source.Transaction || source) as Record<string, unknown>;
+
+  const id = String(readField(tx, ['transactionId', 'TransactionId', 'id', 'Id'], `TX-${index + 1}`));
+  const type = String(readField(tx, ['type', 'Type', 'transactionType', 'TransactionType'], ''));
+  const status = String(readField(tx, ['status', 'Status'], ''));
+
+  const amountRaw = readField(tx, ['amount', 'Amount', 'value', 'Value'], 0);
+  const amount = typeof amountRaw === 'number' ? amountRaw : Number(amountRaw) || 0;
+
+  const description = String(readField(tx, ['description', 'Description', 'note', 'Note'], ''));
+  const createdAt = String(
+    readField(
+      tx,
+      ['createdAt', 'CreatedAt', 'createdDate', 'CreatedDate', 'timestamp', 'Timestamp'],
+      ''
+    )
+  );
+
+  const balanceBeforeRaw = readField(tx, ['balanceBefore', 'BalanceBefore'], null as unknown as number | null);
+  const balanceAfterRaw = readField(tx, ['balanceAfter', 'BalanceAfter'], null as unknown as number | null);
+
+  const balanceBefore =
+    typeof balanceBeforeRaw === 'number'
+      ? balanceBeforeRaw
+      : balanceBeforeRaw != null
+        ? Number(balanceBeforeRaw) || null
+        : null;
+
+  const balanceAfter =
+    typeof balanceAfterRaw === 'number'
+      ? balanceAfterRaw
+      : balanceAfterRaw != null
+        ? Number(balanceAfterRaw) || null
+        : null;
+
+  const walletId = String(readField(tx, ['walletId', 'WalletId'], '') || readField(source, ['walletId', 'WalletId'], ''));
+  const walletType = String(readField(tx, ['walletType', 'WalletType'], '') || readField(source, ['walletType', 'WalletType'], ''));
+
+  return {
+    id,
+    type,
+    status,
+    amount,
+    description,
+    createdAt,
+    balanceBefore,
+    balanceAfter,
+    walletId: walletId || undefined,
+    walletType: walletType || undefined,
     raw: source,
   };
 }
@@ -410,4 +487,167 @@ export async function rejectWithdrawal(id: string, reason: string): Promise<void
 
     throw new Error(message);
   }
+}
+
+export async function getMyTransactions(filter: TransactionFilter = {}): Promise<WalletTransaction[]> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Bạn chưa đăng nhập.');
+  }
+
+  const params = new URLSearchParams();
+  if (filter.type && filter.type.trim()) {
+    params.append('type', filter.type.trim());
+  }
+  if (filter.status && filter.status.trim()) {
+    params.append('status', filter.status.trim());
+  }
+  if (filter.from && filter.from.trim()) {
+    params.append('from', filter.from.trim());
+  }
+  if (filter.to && filter.to.trim()) {
+    params.append('to', filter.to.trim());
+  }
+
+  const queryString = params.toString();
+
+  const response = await fetch(`/api/transactions/me${queryString ? `?${queryString}` : ''}`, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const payload = await response.json().catch(() => null);
+
+  if (
+    !response.ok ||
+    (payload && typeof payload === 'object' && (payload as { isSuccess?: boolean; isSucceeded?: boolean }).isSuccess === false) ||
+    (payload && typeof payload === 'object' && (payload as { isSuccess?: boolean; isSucceeded?: boolean }).isSucceeded === false)
+  ) {
+    const errorMessages =
+      payload &&
+      typeof payload === 'object' &&
+      Array.isArray((payload as { errorMessages?: unknown[] }).errorMessages)
+        ? ((payload as { errorMessages?: unknown[] }).errorMessages as unknown[]).filter(
+            (item): item is string => typeof item === 'string',
+          )
+        : [];
+
+    const message =
+      errorMessages.join(', ') ||
+      (payload &&
+      typeof payload === 'object' &&
+      typeof (payload as { message?: unknown }).message === 'string'
+        ? ((payload as { message?: string }).message as string)
+        : '') ||
+      `Không thể tải lịch sử giao dịch (${response.status}).`;
+
+    throw new Error(message);
+  }
+
+  const items = unwrapResultArray(payload);
+  return items.map((item, index) => normalizeTransactionItem(item, index));
+}
+
+export async function getTransactionById(id: string): Promise<WalletTransaction> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Bạn chưa đăng nhập.');
+  }
+
+  const safeId = encodeURIComponent(id);
+
+  const response = await fetch(`/api/transactions/${safeId}`, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const payload = await response.json().catch(() => null);
+
+  if (
+    !response.ok ||
+    (payload && typeof payload === 'object' && (payload as { isSuccess?: boolean; isSucceeded?: boolean }).isSuccess === false) ||
+    (payload && typeof payload === 'object' && (payload as { isSuccess?: boolean; isSucceeded?: boolean }).isSucceeded === false)
+  ) {
+    const errorMessages =
+      payload &&
+      typeof payload === 'object' &&
+      Array.isArray((payload as { errorMessages?: unknown[] }).errorMessages)
+        ? ((payload as { errorMessages?: unknown[] }).errorMessages as unknown[]).filter(
+            (item): item is string => typeof item === 'string',
+          )
+        : [];
+
+    const message =
+      errorMessages.join(', ') ||
+      (payload &&
+      typeof payload === 'object' &&
+      typeof (payload as { message?: unknown }).message === 'string'
+        ? ((payload as { message?: string }).message as string)
+        : '') ||
+      `Không thể tải chi tiết giao dịch (${response.status}).`;
+
+    throw new Error(message);
+  }
+
+  // API có thể trả thẳng object hoặc bọc trong result
+  const main: unknown =
+    payload && typeof payload === 'object' && 'result' in payload
+      ? (payload as { result: unknown }).result
+      : payload;
+
+  return normalizeTransactionItem(main, 0);
+}
+
+export async function getRelatedTransactions(id: string): Promise<WalletTransaction[]> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Bạn chưa đăng nhập.');
+  }
+
+  const safeId = encodeURIComponent(id);
+
+  const response = await fetch(`/api/transactions/${safeId}/related`, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const payload = await response.json().catch(() => null);
+
+  if (
+    !response.ok ||
+    (payload && typeof payload === 'object' && (payload as { isSuccess?: boolean; isSucceeded?: boolean }).isSuccess === false) ||
+    (payload && typeof payload === 'object' && (payload as { isSuccess?: boolean; isSucceeded?: boolean }).isSucceeded === false)
+  ) {
+    const errorMessages =
+      payload &&
+      typeof payload === 'object' &&
+      Array.isArray((payload as { errorMessages?: unknown[] }).errorMessages)
+        ? ((payload as { errorMessages?: unknown[] }).errorMessages as unknown[]).filter(
+            (item): item is string => typeof item === 'string',
+          )
+        : [];
+
+    const message =
+      errorMessages.join(', ') ||
+      (payload &&
+      typeof payload === 'object' &&
+      typeof (payload as { message?: unknown }).message === 'string'
+        ? ((payload as { message?: string }).message as string)
+        : '') ||
+      `Không thể tải chuỗi giao dịch liên quan (${response.status}).`;
+
+    throw new Error(message);
+  }
+
+  const items = unwrapResultArray(payload);
+  return items.map((item, index) => normalizeTransactionItem(item, index));
 }

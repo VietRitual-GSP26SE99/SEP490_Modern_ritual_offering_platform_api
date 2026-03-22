@@ -48,6 +48,8 @@ export interface Order {
         deliveryAddress: string;
         shippingDistanceKm: number;
         deliveryProofImageUrl?: string | null;
+        deliveryProofImages?: string[] | null;
+        preparationProofImages?: string[] | null;
     };
     items: OrderItem[];
     pricing: {
@@ -197,8 +199,10 @@ interface OrderDetailsApiItem {
         deliveryTime?: string;
         deliveryAddress?: string;
         shippingDistanceKm?: number;
-        deliveryProofImageUrl?: string | null;
+        deliveryProofImageUrl?: string | string[] | null;
         imageUrl?: string | null;
+        deliveryProofImages?: string[] | null;
+        preparationProofImages?: string[] | null;
     };
     items?: Array<{
         itemId?: string;
@@ -414,6 +418,35 @@ class OrderService {
                 const platformFee = Number(raw.vendorPricingDetails?.platformFee ?? raw.pricing?.platformFee) || (subTotal * commissionRate);
                 const vendorNetAmount = Number(raw.vendorPricingDetails?.vendorNetAmount ?? raw.pricing?.vendorNetAmount) || Math.max(subTotal - platformFee, 0);
 
+                const rawDeliveryProof = (
+                    raw.delivery?.deliveryProofImageUrl
+                    || raw.delivery?.imageUrl
+                    || (raw as any).deliveryProofImageUrl
+                    || (raw as any).imageUrl
+                    || null
+                );
+
+                let deliveryProofImageUrl: string | null = null;
+                let deliveryProofImages: string[] | null = null;
+
+                if (Array.isArray(rawDeliveryProof)) {
+                    const cleaned = (rawDeliveryProof as unknown[])
+                        .filter((url) => typeof url === 'string' && (url as string).trim()) as string[];
+                    deliveryProofImages = cleaned.length ? cleaned : null;
+                    deliveryProofImageUrl = cleaned[0] || null;
+                } else if (typeof rawDeliveryProof === 'string' && rawDeliveryProof.trim()) {
+                    deliveryProofImageUrl = rawDeliveryProof;
+                    deliveryProofImages = [rawDeliveryProof];
+                }
+
+                const preparationProofImages = Array.isArray(raw.delivery?.preparationProofImages)
+                    ? (raw.delivery!.preparationProofImages as unknown[])
+                        .filter((url) => typeof url === 'string' && (url as string).trim()) as string[]
+                    : Array.isArray((raw as any).preparationProofImages)
+                        ? ((raw as any).preparationProofImages as unknown[])
+                            .filter((url) => typeof url === 'string' && (url as string).trim()) as string[]
+                        : null;
+
                 const trackingLists = Array.isArray(raw.trackingLists)
                     ? raw.trackingLists.map((item, index) => ({
                         trackingId: String((item as any)?.trackingId || `tracking-${index}`),
@@ -447,13 +480,9 @@ class OrderService {
                         deliveryTime: raw.delivery?.deliveryTime || '',
                         deliveryAddress: raw.delivery?.deliveryAddress || 'N/A',
                         shippingDistanceKm: Number(raw.delivery?.shippingDistanceKm) || 0,
-                        deliveryProofImageUrl: (
-                            raw.delivery?.deliveryProofImageUrl
-                            || raw.delivery?.imageUrl
-                            || (raw as any).deliveryProofImageUrl
-                            || (raw as any).imageUrl
-                            || null
-                        ),
+                        deliveryProofImageUrl,
+                        deliveryProofImages,
+                        preparationProofImages,
                     },
                     items,
                     pricing: {

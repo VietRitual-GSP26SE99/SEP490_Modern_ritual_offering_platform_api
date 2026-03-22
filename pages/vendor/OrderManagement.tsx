@@ -802,10 +802,16 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                           <p className="text-sm text-gray-700 line-clamp-3">{selectedOrder.delivery.deliveryAddress}</p>
                         </div>
                       )}
-                      {selectedOrder.delivery.deliveryProofImageUrl && (
+                      {(() => {
+                        const proof = selectedOrder.delivery.deliveryProofImageUrl;
+                        const firstProof = Array.isArray(proof) ? proof[0] : proof;
+                        return firstProof;
+                      })() && (
                         <div className="mt-3">
                           <a
-                            href={selectedOrder.delivery.deliveryProofImageUrl}
+                            href={(Array.isArray(selectedOrder.delivery.deliveryProofImageUrl)
+                              ? selectedOrder.delivery.deliveryProofImageUrl[0]
+                              : selectedOrder.delivery.deliveryProofImageUrl) as string}
                             target="_blank"
                             rel="noreferrer"
                             className="inline-flex items-center text-sm font-semibold text-primary hover:underline"
@@ -814,6 +820,19 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                           </a>
                         </div>
                       )}
+                      {Array.isArray((selectedOrder.delivery as any).preparationProofImages)
+                        && (selectedOrder.delivery as any).preparationProofImages.length > 0 && (
+                          <div className="mt-2">
+                            <a
+                              href={(selectedOrder.delivery as any).preparationProofImages[0] as string}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center text-sm font-semibold text-primary hover:underline"
+                            >
+                              Xem ảnh chuẩn bị
+                            </a>
+                          </div>
+                        )}
                     </div>
                   )}
 

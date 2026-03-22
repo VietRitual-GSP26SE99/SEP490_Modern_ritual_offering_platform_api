@@ -21,6 +21,8 @@ const OrderDetailsPage: React.FC = () => {
     const [escalating, setEscalating] = useState(false);
     const [refundDismissed, setRefundDismissed] = useState(false);
     const [isProofModalOpen, setIsProofModalOpen] = useState(false);
+    const [proofModalImages, setProofModalImages] = useState<string[]>([]);
+    const [proofModalTitle, setProofModalTitle] = useState('Ảnh giao hàng');
 
     const fetchOrder = async () => {
         if (!id) return;
@@ -222,7 +224,24 @@ const OrderDetailsPage: React.FC = () => {
 
     if (!order) return null;
 
-    const deliveryProofUrl = order.delivery?.deliveryProofImageUrl || (order as any).deliveryProofImageUrl || '';
+    const preparationImages = Array.isArray(order.delivery?.preparationProofImages)
+        ? order.delivery.preparationProofImages
+        : Array.isArray((order as any).preparationProofImages)
+            ? (order as any).preparationProofImages
+            : [];
+
+    const rawDeliveryProof = (
+        (order.delivery as any)?.deliveryProofImages
+        || order.delivery?.deliveryProofImageUrl
+        || (order as any).deliveryProofImageUrl
+        || null
+    );
+
+    const deliveryImages: string[] = Array.isArray(rawDeliveryProof)
+        ? (rawDeliveryProof as unknown[]).filter((url) => typeof url === 'string' && (url as string).trim()) as string[]
+        : typeof rawDeliveryProof === 'string' && rawDeliveryProof.trim()
+            ? [rawDeliveryProof]
+            : [];
 
     return (
         <div className="bg-gray-50 min-h-screen py-10">
@@ -473,11 +492,30 @@ const OrderDetailsPage: React.FC = () => {
                                     <p className="font-medium text-sm text-gray-800 leading-relaxed">{order.delivery?.deliveryAddress || (order as any).deliveryAddress}</p>
                                 </div>
 
-                                {deliveryProofUrl && (
+                                {preparationImages.length > 0 && (
+                                    <div>
+                                        <p className="text-xs text-gray-500 mb-2">Ảnh chuẩn bị</p>
+                                        <button
+                                            onClick={() => {
+                                                setProofModalTitle('Ảnh chuẩn bị');
+                                                setProofModalImages(preparationImages);
+                                                setIsProofModalOpen(true);
+                                            }}
+                                            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold bg-primary text-white hover:bg-primary/90 transition"
+                                        >
+                                            Xem ảnh
+                                        </button>
+                                    </div>
+                                )}
+                                {deliveryImages.length > 0 && (
                                     <div>
                                         <p className="text-xs text-gray-500 mb-2">Ảnh giao hàng</p>
                                         <button
-                                            onClick={() => setIsProofModalOpen(true)}
+                                            onClick={() => {
+                                                setProofModalTitle('Ảnh giao hàng');
+                                                setProofModalImages(deliveryImages);
+                                                setIsProofModalOpen(true);
+                                            }}
                                             className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold bg-primary text-white hover:bg-primary/90 transition"
                                         >
                                             Xem ảnh
@@ -516,8 +554,9 @@ const OrderDetailsPage: React.FC = () => {
 
             <ImageModal
                 isOpen={isProofModalOpen}
-                imageSrc={deliveryProofUrl}
-                altText="Ảnh giao hàng"
+                images={proofModalImages}
+                imageSrc={proofModalImages[0] || ''}
+                altText={proofModalTitle}
                 onClose={() => setIsProofModalOpen(false)}
             />
         </div>

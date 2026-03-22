@@ -1296,6 +1296,18 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                           </button>
                           <button
                             onClick={() => {
+                              onNavigate('/wallet/transactions');
+                              setIsAccountDropdownOpen(false);
+                            }}
+                            className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-3"
+                          >
+                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                              <path d="M5 4h14a2 2 0 012 2v2H3V6a2 2 0 012-2zm-2 7h18v7a2 2 0 01-2 2H5a2 2 0 01-2-2v-7zm9 2a3 3 0 100 6 3 3 0 000-6z" />
+                            </svg>
+                            Lịch sử giao dịch
+                          </button>
+                          <button
+                            onClick={() => {
                               handleNavigateToTracking();
                               setIsAccountDropdownOpen(false);
                             }}
