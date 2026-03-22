@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { packageService } from '../../services/packageService';
+import { staffService, VendorVerification } from '../../services/staffService';
 
 interface StaffDashboardProps {
   onNavigate: (path: string) => void;
@@ -16,6 +17,17 @@ interface ProductDashboardItem {
   vendorName: string;
 }
 
+const formatDateVi = (value: string | null): string => {
+  if (!value) return 'N/A';
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return 'N/A';
+  return date.toLocaleString('vi-VN', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+};
+
 const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout }) => {
   const [recentProducts, setRecentProducts] = useState<ProductDashboardItem[]>([]);
   const [stats, setStats] = useState([
@@ -24,6 +36,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
     { label: 'Chờ duyệt', value: '0', change: '0' },
     { label: 'Đã từ chối', value: '0', change: '0' },
   ]);
+  const [pendingVendors, setPendingVendors] = useState<VendorVerification[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Helper category map
@@ -80,6 +93,19 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
         const sorted = mappedProducts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         setRecentProducts(sorted.slice(0, 5));
 
+        // Fetch pending vendors
+        try {
+          const pendingData = await staffService.getVendorVerifications('2'); // 2 = Pending
+          setPendingVendors(pendingData.slice(0, 5));
+          
+          setStats(prev => [
+            ...prev,
+            { label: 'Vendor chờ duyệt', value: String(pendingData.length), change: 'new' }
+          ]);
+        } catch (error) {
+          console.error('Failed to fetch pending vendors', error);
+        }
+
       } catch (error) {
         console.error('Failed to fetch dashboard data', error);
       } finally {
@@ -112,7 +138,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
       <div className="space-y-6">
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
           {stats.map((stat, index) => (
             <div
               key={index}
@@ -128,6 +154,45 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
               <p className="text-sm text-gray-600 font-medium">{stat.label}</p>
             </div>
           ))}
+        </div>
+
+        {/* Pending Vendors Section */}
+        <div className="bg-white rounded-2xl p-6 border-2 border-gray-200 shadow-sm">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold text-gray-900">Hồ sơ Vendor chờ duyệt</h2>
+            <button onClick={() => onNavigate('/staff-vendors')} className="text-sm font-semibold text-gray-600 hover:text-gray-900 underline">Quản lý duyệt</button>
+          </div>
+
+          {loading ? (
+             <p className="text-gray-500 py-4">Đang tải dữ liệu...</p>
+          ) : pendingVendors.length === 0 ? (
+            <div className="py-8 text-center bg-gray-50 rounded-xl border border-dashed border-gray-300">
+               <p className="text-gray-500 font-medium">Không có hồ sơ nào chờ duyệt.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {pendingVendors.map((vendor) => (
+                <div 
+                  key={vendor.profileId}
+                  onClick={() => onNavigate('/staff-vendors')}
+                  className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl border border-gray-200 hover:border-slate-900 transition-all cursor-pointer group"
+                >
+                  <div className="w-12 h-12 rounded-lg overflow-hidden bg-white shadow-sm flex-shrink-0">
+                    {vendor.shopAvatarUrl ? (
+                       <img src={vendor.shopAvatarUrl} alt={vendor.shopName} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-xl">🏪</div>
+                    )}
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="font-bold text-gray-900 truncate">{vendor.shopName}</h3>
+                    <p className="text-xs text-gray-500 truncate">{vendor.fullName}</p>
+                    <p className="text-[10px] text-gray-400 mt-1">{formatDateVi(vendor.createdAt)} (Chờ duyệt)</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Recent Products */}

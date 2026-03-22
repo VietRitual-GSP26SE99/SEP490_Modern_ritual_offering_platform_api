@@ -16,7 +16,7 @@ import CustomerProfile from './pages/customer/ProfilePage';
 import CartPage from './pages/customer/CartPage';
 import MyOrdersPage from './pages/customer/MyOrdersPage';
 import OrderDetailsPage from './pages/customer/OrderDetailsPage';
-import CustomerVendorProfile from './pages/customer/VendorProfilePage';
+import VendorProfilePage from './pages/vendor/VendorProfilePage';
 import TransactionHistoryPage from './pages/customer/TransactionHistoryPage';
 
 // Vendor Pages
@@ -36,6 +36,7 @@ import CustomerManagement from './pages/staff/CustomerManagement';
 import StaffProductManagement from './pages/staff/StaffProductManagement';
 import SystemSettings from './pages/staff/SystemSettings';
 import RefundManagement from './pages/staff/RefundManagement';
+import VendorVerificationPage from './pages/staff/VendorVerification';
 
 // Assistant
 import Assistant from './components/Assistant';
@@ -133,7 +134,7 @@ const AppContent: React.FC<{
       <Route path="/" element={isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><CustomerHomePage onNavigate={handleNavigate} /></Layout>} />
       <Route path="/shop" element={isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/shop" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><CustomerProductList onNavigate={handleNavigate} /></Layout>} />
       <Route path="/product/:id" element={isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/product/:id" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><CustomerProductDetail onNavigate={handleNavigate} /></Layout>} />
-      <Route path="/vendor/:id" element={isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/vendor/:id" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><CustomerVendorProfile onNavigate={handleNavigate} /></Layout>} />
+      <Route path="/vendor/:id" element={isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/vendor/:id" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><VendorProfilePage onNavigate={handleNavigate} /></Layout>} />
       <Route path="/cart" element={isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/cart" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><CartPage onNavigate={handleNavigate} /></Layout>} />
       <Route path="/checkout" element={isAuthenticated && hasCustomerRole ? (isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/checkout" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><CustomerCheckout onNavigate={handleNavigate} /></Layout>) : <Navigate to="/auth" />} />
       <Route path="/payment-success" element={isAuthenticated && hasCustomerRole ? (isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <PaymentSuccessPage onNavigate={handleNavigate} />) : <Navigate to="/auth" />} />
@@ -157,6 +158,7 @@ const AppContent: React.FC<{
       <Route path="/staff-product" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-product" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><StaffProductManagement onNavigate={handleNavigate} onLogout={onLogout} /></Layout> : <Navigate to="/auth" />} />
       <Route path="/staff-settings" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-settings" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><SystemSettings onNavigate={handleNavigate} onLogout={onLogout} /></Layout> : <Navigate to="/auth" />} />
       <Route path="/staff-refunds" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-refunds" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><RefundManagement onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
+      <Route path="/staff-vendors" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-vendors" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><VendorVerificationPage onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
 
       {/* Admin Routes */}
       <Route path="/admin/dashboard" element={isAuthenticated && userRole === 'admin' ? <Layout activeRoute="/admin/dashboard" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><AdminDashboard onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />

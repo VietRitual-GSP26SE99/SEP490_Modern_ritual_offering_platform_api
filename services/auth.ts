@@ -485,6 +485,8 @@ export interface VendorCurrentProfile {
   isVendor: boolean;
   shopName: string | null;
   shopDescription: string | null;
+  avatarUrl?: string | null;
+  shopAvatarUrl?: string | null;
   shopAddressText?: string | null;
   shopLatitude?: number | null;
   shopLongitude?: number | null;
@@ -513,6 +515,52 @@ export interface UpdateVendorProfileRequest {
   dailyCapacity?: number;
   taxCode?: string;
   businessType?: 'Individual' | 'Company' | string;
+  shopAvatarFile?: File | null;
+}
+
+export interface VendorDocument {
+  documentId: string;
+  documentType: string;
+  documentTypeName: string;
+  fileUrl: string;
+  status: 'Pending' | 'Approved' | 'Rejected' | string;
+  reviewedBy: string | null;
+  reviewedAt: string | null;
+  rejectionReason: string | null;
+  uploadedAt: string;
+}
+
+export interface VendorRegistrationResponse {
+  shopName: string;
+  shopDescription: string;
+  shopAvatarUrl: string;
+  businessType: string;
+  taxCode: string;
+  shopAddressText: string;
+  shopLatitude: number;
+  shopLongitude: number;
+  dailyCapacity: number;
+  verificationStatus: 'Pending' | 'Verified' | 'Rejected' | 'None' | string;
+  vendorStatus: number;
+  documents: VendorDocument[];
+}
+
+export interface VendorDocumentRequest {
+  documentType: number;
+  file: File;
+}
+
+export interface RegisterVendorRequest {
+  shopName: string;
+  shopDescription: string;
+  shopAvatarUrl: File;
+  businessType: string;
+  taxCode: string;
+  shopAddressText: string;
+  shopLatitude: number;
+  shopLongitude: number;
+  dailyCapacity: number;
+  documents: VendorDocumentRequest[];
 }
 
 /**
@@ -630,7 +678,7 @@ export async function getVendorProfile(): Promise<VendorCurrentProfile> {
  * PUT /api/profile/vendor
  */
 export async function updateVendorProfile(profileData: UpdateVendorProfileRequest): Promise<VendorCurrentProfile | null> {
-  console.log('🏪 Updating vendor profile...');
+  console.log('🏪 Updating vendor profile via FormData...');
 
   const token = getAuthToken();
   if (!token) {
@@ -638,14 +686,26 @@ export async function updateVendorProfile(profileData: UpdateVendorProfileReques
   }
 
   try {
+    const formData = new FormData();
+    if (profileData.shopName !== undefined) formData.append('ShopName', profileData.shopName);
+    if (profileData.shopDescription !== undefined) formData.append('ShopDescription', profileData.shopDescription);
+    if (profileData.shopAddressText !== undefined) formData.append('ShopAddressText', profileData.shopAddressText);
+    if (profileData.shopLatitude !== undefined) formData.append('ShopLatitude', profileData.shopLatitude.toString());
+    if (profileData.shopLongitude !== undefined) formData.append('ShopLongitude', profileData.shopLongitude.toString());
+    if (profileData.dailyCapacity !== undefined) formData.append('DailyCapacity', profileData.dailyCapacity.toString());
+    if (profileData.taxCode !== undefined) formData.append('TaxCode', profileData.taxCode);
+    if (profileData.businessType !== undefined) formData.append('BusinessType', profileData.businessType);
+    if (profileData.shopAvatarFile) {
+      formData.append('ShopAvatarUrl', profileData.shopAvatarFile);
+    }
+
     const response = await fetch(`${API_BASE_URL}/api/profile/vendor`, {
       method: 'PUT',
       headers: {
-        'Content-Type': 'application/json',
         'Authorization': `Bearer ${token}`,
         'accept': '*/*'
       },
-      body: JSON.stringify(profileData),
+      body: formData,
     });
 
     console.log('🏪 Update vendor profile response status:', response.status);
@@ -662,7 +722,7 @@ export async function updateVendorProfile(profileData: UpdateVendorProfileReques
           parsedMessage = parsed.message.trim();
         }
       } catch {
-        // Keep raw text fallback when response is not JSON.
+        // Keep raw text fallback
       }
 
       const fallbackText = responseText?.trim();
@@ -681,6 +741,201 @@ export async function updateVendorProfile(profileData: UpdateVendorProfileReques
     return data.result || null;
   } catch (error) {
     console.error('❌ Error updating vendor profile:', error);
+    throw error;
+  }
+}
+
+/**
+ * Register as a vendor
+ * POST /api/profile/vendor/register
+ */
+export async function registerVendor(registerData: RegisterVendorRequest): Promise<any> {
+  console.log('🏪 Registering as vendor...');
+
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('No authentication token found');
+  }
+  try {
+    const formData = new FormData();
+    formData.append('ShopName', registerData.shopName);
+    formData.append('ShopDescription', registerData.shopDescription);
+    formData.append('ShopAvatarUrl', registerData.shopAvatarUrl);
+    formData.append('BusinessType', registerData.businessType);
+    formData.append('TaxCode', registerData.taxCode);
+    formData.append('ShopAddressText', registerData.shopAddressText);
+    formData.append('ShopLatitude', registerData.shopLatitude.toString());
+    formData.append('ShopLongitude', registerData.shopLongitude.toString());
+    formData.append('DailyCapacity', registerData.dailyCapacity.toString());
+
+    registerData.documents.forEach((doc, index) => {
+      // Using indexed syntax with LOWERCASE properties as shown in Swagger JSON
+      formData.append(`Documents[${index}].documentType`, doc.documentType.toString());
+      formData.append(`Documents[${index}].file`, doc.file);
+    });
+
+    // Log FormData keys and total size for debugging
+    console.log('📤 Register Vendor FormData Keys:');
+    let totalSize = 0;
+    for (const [key, value] of (formData as any).entries()) {
+      if (value instanceof File) {
+        console.log(`  [FILE] ${key}: ${value.name} (${(value.size / 1024 / 1024).toFixed(2)} MB)`);
+        totalSize += value.size;
+      } else {
+        console.log(`  [FIELD] ${key}: ${value}`);
+      }
+    }
+    console.log(`📦 Total Payload Size: ${(totalSize / 1024 / 1024).toFixed(2)} MB`);
+
+    const response = await fetch(`${API_BASE_URL}/api/profile/vendor/register`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': '*/*',
+      },
+      body: formData,
+    });
+
+    console.log('🏪 Register vendor response status:', response.status);
+    const responseText = await response.text();
+
+    if (!response.ok) {
+      let errorMessage = `Failed to register vendor: ${response.status}`;
+      try {
+        const errorData = JSON.parse(responseText);
+        errorMessage = errorData.errorMessages?.join(', ') || errorData.message || errorMessage;
+      } catch (e) {
+        if (responseText) errorMessage = responseText;
+      }
+      throw new Error(errorMessage);
+    }
+
+    if (!responseText.trim()) return null;
+    const data: ApiResponse<any> = JSON.parse(responseText);
+    
+    if (!data.isSuccess) {
+      throw new Error(data.errorMessages?.join(', ') || 'Đăng ký thất bại');
+    }
+
+    return data.result || null;
+  } catch (error) {
+    console.error('❌ Error registering vendor:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get current vendor registration details
+ * GET /api/profile/vendor/registration
+ */
+export async function getVendorRegistration(): Promise<VendorRegistrationResponse | null> {
+  console.log('🏪 Fetching vendor registration details...');
+
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('No authentication token found');
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/api/profile/vendor/registration`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+        'accept': '*/*'
+      }
+    });
+
+    console.log('🏪 Registration detail response status:', response.status);
+
+    if (response.status === 404) {
+      return null;
+    }
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch registration details: ${response.status}`);
+    }
+
+    const data: ApiResponse<VendorRegistrationResponse> = await response.json();
+    console.log('🏪 Registration API response:', data);
+
+    if (!data.isSuccess) {
+      // If result is null but isSuccess is true, it means no registration yet
+      if (!data.result) return null;
+      throw new Error(data.errorMessages?.join(', ') || 'Failed to fetch registration details');
+    }
+
+    return data.result;
+  } catch (error) {
+    console.error('❌ Error fetching registration details:', error);
+    return null;
+  }
+}
+
+/**
+ * Resubmit vendor registration (after rejection)
+ * PUT /api/profile/vendor/resubmit
+ */
+export async function resubmitVendorRegistration(registerData: Partial<RegisterVendorRequest>): Promise<any> {
+  console.log('🏪 Resubmitting vendor registration...');
+
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('No authentication token found');
+  }
+
+  try {
+    const formData = new FormData();
+    if (registerData.shopName) formData.append('ShopName', registerData.shopName);
+    if (registerData.shopDescription) formData.append('ShopDescription', registerData.shopDescription);
+    if (registerData.shopAvatarUrl) formData.append('ShopAvatarUrl', registerData.shopAvatarUrl);
+    if (registerData.businessType) formData.append('BusinessType', registerData.businessType);
+    if (registerData.taxCode) formData.append('TaxCode', registerData.taxCode);
+    if (registerData.shopAddressText) formData.append('ShopAddressText', registerData.shopAddressText);
+    if (registerData.shopLatitude !== undefined) formData.append('ShopLatitude', registerData.shopLatitude.toString());
+    if (registerData.shopLongitude !== undefined) formData.append('ShopLongitude', registerData.shopLongitude.toString());
+    if (registerData.dailyCapacity !== undefined) formData.append('DailyCapacity', registerData.dailyCapacity.toString());
+
+    if (registerData.documents && registerData.documents.length > 0) {
+      registerData.documents.forEach((doc, index) => {
+        formData.append(`UpdatedDocuments[${index}].documentType`, doc.documentType.toString());
+        formData.append(`UpdatedDocuments[${index}].file`, doc.file);
+      });
+    }
+
+    const response = await fetch(`${API_BASE_URL}/api/profile/vendor/resubmit`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Accept': '*/*',
+      },
+      body: formData,
+    });
+
+    console.log('🏪 Resubmit vendor response status:', response.status);
+    const responseText = await response.text();
+
+    if (!response.ok) {
+      let errorMessage = `Failed to resubmit registration: ${response.status}`;
+      try {
+        const errorData = JSON.parse(responseText);
+        errorMessage = errorData.errorMessages?.join(', ') || errorData.message || errorMessage;
+      } catch (e) {
+        if (responseText) errorMessage = responseText;
+      }
+      throw new Error(errorMessage);
+    }
+
+    if (!responseText.trim()) return null;
+    const data: ApiResponse<any> = JSON.parse(responseText);
+    
+    if (!data.isSuccess) {
+      throw new Error(data.errorMessages?.join(', ') || 'Gửi lại đơn thất bại');
+    }
+
+    return data.result || null;
+  } catch (error) {
+    console.error('❌ Error resubmitting vendor registration:', error);
     throw error;
   }
 }

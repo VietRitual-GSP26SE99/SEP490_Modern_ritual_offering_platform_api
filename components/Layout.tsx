@@ -77,7 +77,16 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
     }
   };
 
-  const resolveNotificationRedirectPath = (rawUrl?: string | null): string => {
+  const resolveNotificationRedirectPath = (item: NotificationItem): string => {
+    const rawUrl = item.redirectUrl;
+    const title = (item.title || '').toLowerCase();
+    const message = (item.message || '').toLowerCase();
+
+    // Đặc thù: Thông báo liên quan đến Đăng ký Vendor -> chuyển hướng về tab tương ứng trong profile
+    if (title.includes('đăng ký vendor') || message.includes('đăng ký vendor') || (rawUrl && rawUrl.includes('vendor/registration'))) {
+      return '/profile?tab=vendor-register';
+    }
+
     if (!rawUrl) return '';
 
     const trimmed = rawUrl.trim();
@@ -299,6 +308,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
       return [
         { path: '/staff/dashboard', label: 'Bảng điều khiển' },
         { path: '/staff-customers', label: 'Khách hàng' },
+        { path: '/staff-vendors', label: 'Xác minh Vendor' },
         { path: '/staff-product', label: 'Sản phẩm' },
         { path: '/staff-refunds', label: 'Hoàn tiền' },
         { path: '/staff-settings', label: 'Hệ thống' },
@@ -1043,7 +1053,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                                 markNotificationAsRead(item.notificationId);
                               }
 
-                              const targetUrl = resolveNotificationRedirectPath(item.redirectUrl);
+                              const targetUrl = resolveNotificationRedirectPath(item);
                               if (targetUrl) {
                                 if (targetUrl.startsWith('http://') || targetUrl.startsWith('https://')) {
                                   window.location.href = targetUrl;

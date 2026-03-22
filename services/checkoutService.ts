@@ -92,8 +92,9 @@ class CheckoutService {
    */
   async getSummary(cartItemIds: number[]): Promise<CheckoutSummary | null> {
     try {
-      const requestBody = cartItemIds.map(id => ({ cartItemId: id }));
-      console.log(' Fetching checkout summary:', requestBody);
+      // Trying simple array of numbers if object array fails with 400
+      const requestBody = cartItemIds;
+      console.log(' Fetching checkout summary (IDs):', requestBody);
       const response = await fetch(`${API_BASE_URL}/checkout/summary`, {
         method: 'POST',
         headers: this.getHeaders(),

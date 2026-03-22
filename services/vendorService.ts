@@ -7,6 +7,7 @@ export interface VendorProfile {
   shopName: string;
   shopDescription?: string;
   avatarUrl?: string | null;
+  shopAvatarUrl?: string | null;
   businessType?: string;
   shopAddressText?: string;
   ratingAvg?: number;

@@ -178,7 +178,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
         localStorage.setItem('smart-child-token', response.token);
         localStorage.setItem('smart-child-refresh-token', response.refreshToken);
         localStorage.setItem('smart-child-user', JSON.stringify(userData));
-        
+
         console.log('💾 Saved to localStorage:', {
           token: response.token.substring(0, 20) + '...',
           refreshToken: response.refreshToken.substring(0, 20) + '...',
@@ -203,41 +203,41 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
             const { getProfile } = await import('../../services/auth');
             const profile = await getProfile();
 
-          const hasFullName = !!profile.fullName?.trim();
-          const hasPhoneNumber = !!profile.phoneNumber?.trim();
-          const hasDateOfBirth = !!profile.dateOfBirth;
+            const hasFullName = !!profile.fullName?.trim();
+            const hasPhoneNumber = !!profile.phoneNumber?.trim();
+            const hasDateOfBirth = !!profile.dateOfBirth;
 
-          let hasAddress = !!profile.addressText?.trim();
+            let hasAddress = !!profile.addressText?.trim();
 
-          // Address can be stored in /api/addresses instead of profile.addressText.
-          if (!hasAddress) {
-            try {
-              const token = localStorage.getItem('smart-child-token');
-              if (token) {
-                const addressResponse = await fetch('/api/addresses', {
-                  method: 'GET',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    Accept: 'application/json',
-                    Authorization: `Bearer ${token}`,
-                  },
-                });
+            // Address can be stored in /api/addresses instead of profile.addressText.
+            if (!hasAddress) {
+              try {
+                const token = localStorage.getItem('smart-child-token');
+                if (token) {
+                  const addressResponse = await fetch('/api/addresses', {
+                    method: 'GET',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      Accept: 'application/json',
+                      Authorization: `Bearer ${token}`,
+                    },
+                  });
 
-                if (addressResponse.ok) {
-                  const addressData = await addressResponse.json().catch(() => null);
-                  const addressList = Array.isArray(addressData)
-                    ? addressData
-                    : (addressData?.isSuccess && Array.isArray(addressData.result) ? addressData.result : []);
+                  if (addressResponse.ok) {
+                    const addressData = await addressResponse.json().catch(() => null);
+                    const addressList = Array.isArray(addressData)
+                      ? addressData
+                      : (addressData?.isSuccess && Array.isArray(addressData.result) ? addressData.result : []);
 
-                  hasAddress = addressList.some((addr: any) =>
-                    !!(addr?.addressText || addr?.fullAddress || '').trim()
-                  );
+                    hasAddress = addressList.some((addr: any) =>
+                      !!(addr?.addressText || addr?.fullAddress || '').trim()
+                    );
+                  }
                 }
+              } catch (addressError) {
+                console.warn('⚠️ Could not check address list:', addressError);
               }
-            } catch (addressError) {
-              console.warn('⚠️ Could not check address list:', addressError);
             }
-          }
 
             const isProfileIncomplete = !(hasFullName && hasPhoneNumber && hasDateOfBirth && hasAddress);
 
@@ -312,13 +312,13 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
 
         // Show success message with better instructions
         toast.message({
-          title: '✅ Đăng ký thành công!',
+          title: ' Đăng ký thành công!',
           html: `
             <div style="text-align: left;">
-              <p style="margin-bottom: 12px;">📧 Chúng tôi đã gửi email xác nhận đến:</p>
+              <p style="margin-bottom: 12px;"> Chúng tôi đã gửi email xác nhận đến:</p>
               <p style="font-weight: bold; margin-bottom: 12px;">${formData.email}</p>
               <p style="margin-bottom: 12px;">Vui lòng kiểm tra hộp thư (và cả thư mục Spam) để xác nhận tài khoản.</p>
-              <p style="color: #64748b;">⏱️ Link xác nhận sẽ hết hạn sau 24 giờ.</p>
+              <p style="color: #64748b;">⏱ Link xác nhận sẽ hết hạn sau 24 giờ.</p>
             </div>
           `,
           icon: 'success',
@@ -328,7 +328,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
         // Chuyển về form đăng nhập
         switchToLogin();
       } catch (error) {
-        console.error('❌ Registration failed:', error);
+        console.error('Registration failed:', error);
         const errorMessage = error instanceof Error ? error.message : 'Lỗi không xác định';
         setError(errorMessage);
       }
@@ -343,8 +343,8 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
         <div className="absolute top-0 left-0 w-full h-full overflow-hidden pointer-events-none">
           <div className="absolute top-10 left-10 w-72 h-72 bg-gradient-to-br from-gray-900/5 via-gray-700/5 to-gray-500/5 rounded-full blur-3xl animate-float"></div>
           <div className="absolute bottom-10 right-10 w-96 h-96 bg-gradient-to-br from-black/5 via-gray-800/5 to-gray-600/5 rounded-full blur-3xl animate-float-delayed"></div>
-          <div className="absolute top-1/3 right-1/4 w-64 h-64 bg-gradient-to-br from-gray-400/5 to-gray-600/5 rounded-full blur-3xl animate-float" style={{animationDelay: '1s'}}></div>
-          <div className="absolute bottom-1/3 left-1/4 w-80 h-80 bg-gradient-to-br from-slate-900/5 to-zinc-900/5 rounded-full blur-3xl animate-float-delayed" style={{animationDelay: '2s'}}></div>
+          <div className="absolute top-1/3 right-1/4 w-64 h-64 bg-gradient-to-br from-gray-400/5 to-gray-600/5 rounded-full blur-3xl animate-float" style={{ animationDelay: '1s' }}></div>
+          <div className="absolute bottom-1/3 left-1/4 w-80 h-80 bg-gradient-to-br from-slate-900/5 to-zinc-900/5 rounded-full blur-3xl animate-float-delayed" style={{ animationDelay: '2s' }}></div>
           <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[32rem] h-[32rem] bg-gradient-to-br from-gray-200/10 to-gray-400/10 rounded-full blur-3xl animate-pulse"></div>
         </div>
 
@@ -373,7 +373,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
               <p className="text-gray-600 text-sm max-w-md mx-auto">
                 Đăng ký để trải nghiệm nền tảng mâm cúng hiện đại
               </p>
-              
+
             </div>
 
             {/* Registration Form */}
@@ -663,154 +663,152 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
       </div>
       <div className="max-w-2xl w-full relative z-10 animate-fade-in">
         <div className="bg-white/80 backdrop-blur-2xl rounded-[2rem] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.15)] p-8 border border-gray-200/60 hover:shadow-[0_25px_70px_-15px_rgba(0,0,0,0.2)] transition-all duration-500">
-              {/* Logo */}
-              <div className="text-center mb-8">
-                <div className="relative inline-block mb-4">
-                  <div className="absolute inset-0 bg-gradient-to-br from-gray-900/20 to-gray-700/20 rounded-full blur-2xl animate-pulse"></div>
-                  <div className="relative w-[106px] h-[106px] bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700 rounded-full flex items-center justify-center shadow-[0_10px_40px_-10px_rgba(0,0,0,0.4)] hover:shadow-[0_15px_50px_-10px_rgba(0,0,0,0.5)] transition-all duration-500 hover:scale-110 group cursor-pointer overflow-hidden">
-                    <img
-                      src={logoImage}
-                      alt="Modern Ritual Logo"
-                      className="w-full h-full object-cover object-center group-hover:scale-110 transition-transform duration-300"
-                    />
-                    <div className="absolute inset-0 rounded-full border-2 border-white/20 group-hover:border-white/40 transition-colors duration-300"></div>
-                  </div>
-                </div>
-                <h1 className="text-3xl font-playfair font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-2">Modern Ritual Offering</h1>
-                <p className="text-sm text-gray-600 font-semibold tracking-wide">Nền tảng mâm cúng hiện đại</p>
+          {/* Logo */}
+          <div className="text-center mb-8">
+            <div className="relative inline-block mb-4">
+              <div className="absolute inset-0 bg-gradient-to-br from-gray-900/20 to-gray-700/20 rounded-full blur-2xl animate-pulse"></div>
+              <div className="relative w-[106px] h-[106px] bg-gradient-to-br from-gray-900 via-gray-800 to-gray-700 rounded-full flex items-center justify-center shadow-[0_10px_40px_-10px_rgba(0,0,0,0.4)] hover:shadow-[0_15px_50px_-10px_rgba(0,0,0,0.5)] transition-all duration-500 hover:scale-110 group cursor-pointer overflow-hidden">
+                <img
+                  src={logoImage}
+                  alt="Modern Ritual Logo"
+                  className="w-full h-full object-cover object-center group-hover:scale-110 transition-transform duration-300"
+                />
+                <div className="absolute inset-0 rounded-full border-2 border-white/20 group-hover:border-white/40 transition-colors duration-300"></div>
               </div>
+            </div>
+            <h1 className="text-3xl font-playfair font-bold bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 bg-clip-text text-transparent mb-2">Modern Ritual Offering</h1>
+            <p className="text-sm text-gray-600 font-semibold tracking-wide">Nền tảng mâm cúng hiện đại</p>
+          </div>
 
-              {/* Tabs */}
-              <div className="flex gap-2 mb-8 bg-gray-100/80 backdrop-blur-sm p-1.5 rounded-xl shadow-inner">
-                <button
-                  onClick={switchToLogin}
-                  className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all duration-300 ${
-                    isLogin
-                      ? 'bg-white text-gray-900 shadow-lg scale-105'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
-                  }`}
-                >
-                  Đăng Nhập
-                </button>
-                <button
-                  onClick={switchToRegister}
-                  className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all duration-300 ${
-                    !isLogin
-                      ? 'bg-white text-gray-900 shadow-lg scale-105'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
-                  }`}
-                >
-                  Đăng Ký
-                </button>
+          {/* Tabs */}
+          <div className="flex gap-2 mb-8 bg-gray-100/80 backdrop-blur-sm p-1.5 rounded-xl shadow-inner">
+            <button
+              onClick={switchToLogin}
+              className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all duration-300 ${isLogin
+                ? 'bg-white text-gray-900 shadow-lg scale-105'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+                }`}
+            >
+              Đăng Nhập
+            </button>
+            <button
+              onClick={switchToRegister}
+              className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-all duration-300 ${!isLogin
+                ? 'bg-white text-gray-900 shadow-lg scale-105'
+                : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'
+                }`}
+            >
+              Đăng Ký
+            </button>
+          </div>
+
+          {/* Login Form */}
+          <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Error Display */}
+            {error && (
+              <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 flex items-start gap-3">
+                <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                <div className="flex-1">
+                  <p className="text-sm font-semibold text-red-800">Đăng nhập thất bại</p>
+                  <p className="text-sm text-red-700 mt-1">{error}</p>
+                </div>
               </div>
+            )}
 
-              {/* Login Form */}
-              <form onSubmit={handleSubmit} className="space-y-4">
-                {/* Error Display */}
-                {error && (
-                  <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 flex items-start gap-3">
-                    <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                    </svg>
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-red-800">Đăng nhập thất bại</p>
-                      <p className="text-sm text-red-700 mt-1">{error}</p>
-                    </div>
-                  </div>
-                )}
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
+              <input
+                type="email"
+                name="email"
+                value={formData.email}
+                onChange={handleInputChange}
+                placeholder="example@email.com"
+                required
+                className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-gray-900 focus:ring-4 focus:ring-gray-900/10 focus:outline-none bg-white/50 backdrop-blur-sm transition-all duration-300 shadow-sm hover:shadow-md hover:border-gray-400 hover:bg-white"
+              />
+            </div>
 
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    placeholder="example@email.com"
-                    required
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-gray-900 focus:ring-4 focus:ring-gray-900/10 focus:outline-none bg-white/50 backdrop-blur-sm transition-all duration-300 shadow-sm hover:shadow-md hover:border-gray-400 hover:bg-white"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Mật khẩu</label>
-                  <div className="relative">
-                    <input
-                      type={showLoginPassword ? 'text' : 'password'}
-                      name="password"
-                      value={formData.password}
-                      onChange={handleInputChange}
-                      placeholder="••••••••"
-                      required
-                      className="w-full px-4 py-3 pr-12 border-2 border-gray-200 rounded-lg focus:border-gray-900 focus:ring-4 focus:ring-gray-900/10 focus:outline-none bg-white/50 backdrop-blur-sm transition-all duration-300 shadow-sm hover:shadow-md hover:border-gray-400 hover:bg-white"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowLoginPassword((prev) => !prev)}
-                      className="absolute inset-y-0 right-0 px-3 text-gray-500 hover:text-gray-800"
-                      aria-label={showLoginPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                    >
-                      {showLoginPassword ? (
-                        <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20C7 20 2.73 16.11 1 12c.73-1.73 1.79-3.23 3.08-4.4" />
-                          <path d="M10.58 10.58a2 2 0 0 0 2.83 2.83" />
-                          <path d="M9.88 5.09A10.94 10.94 0 0 1 12 4c5 0 9.27 3.89 11 8a10.95 10.95 0 0 1-1.64 2.71" />
-                          <path d="M1 1l22 22" />
-                        </svg>
-                      ) : (
-                        <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
-                          <circle cx="12" cy="12" r="3" />
-                        </svg>
-                      )}
-                    </button>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-sm">
-                  <label className="flex items-center gap-2 cursor-pointer">
-                    <input
-                      type="checkbox"
-                      checked={rememberLogin}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        setRememberLogin(checked);
-                        if (!checked) {
-                          localStorage.removeItem(REMEMBER_LOGIN_KEY);
-                        }
-                      }}
-                      className="w-4 h-4 text-gray-900 rounded"
-                    />
-                    <span className="text-gray-600">Ghi nhớ đăng nhập</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => onNavigate('/forgot-password')}
-                    className="text-gray-900 font-semibold hover:underline"
-                  >
-                    Quên mật khẩu?
-                  </button>
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 hover:from-black hover:via-gray-900 hover:to-black text-white font-bold py-4 rounded-xl transition-all duration-300 shadow-[0_10px_30px_-5px_rgba(0,0,0,0.3)] hover:shadow-[0_15px_40px_-5px_rgba(0,0,0,0.4)] transform hover:-translate-y-1 hover:scale-[1.02] mt-6 relative overflow-hidden group"
-                >
-                  <span className="relative z-10">Đăng Nhập</span>
-                  <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-                </button>
-
+            <div>
+              <label className="block text-sm font-semibold text-gray-700 mb-2">Mật khẩu</label>
+              <div className="relative">
+                <input
+                  type={showLoginPassword ? 'text' : 'password'}
+                  name="password"
+                  value={formData.password}
+                  onChange={handleInputChange}
+                  placeholder="••••••••"
+                  required
+                  className="w-full px-4 py-3 pr-12 border-2 border-gray-200 rounded-lg focus:border-gray-900 focus:ring-4 focus:ring-gray-900/10 focus:outline-none bg-white/50 backdrop-blur-sm transition-all duration-300 shadow-sm hover:shadow-md hover:border-gray-400 hover:bg-white"
+                />
                 <button
                   type="button"
-                  onClick={() => onNavigate('/')}
-                  className="w-full mt-3 border-2 border-gray-300 text-gray-700 font-semibold py-3 rounded-xl hover:border-gray-900 hover:text-gray-900 hover:bg-white transition-all duration-300"
+                  onClick={() => setShowLoginPassword((prev) => !prev)}
+                  className="absolute inset-y-0 right-0 px-3 text-gray-500 hover:text-gray-800"
+                  aria-label={showLoginPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
                 >
-                  ← Quay lại trang chủ
+                  {showLoginPassword ? (
+                    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M17.94 17.94A10.94 10.94 0 0 1 12 20C7 20 2.73 16.11 1 12c.73-1.73 1.79-3.23 3.08-4.4" />
+                      <path d="M10.58 10.58a2 2 0 0 0 2.83 2.83" />
+                      <path d="M9.88 5.09A10.94 10.94 0 0 1 12 4c5 0 9.27 3.89 11 8a10.95 10.95 0 0 1-1.64 2.71" />
+                      <path d="M1 1l22 22" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8S1 12 1 12z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  )}
                 </button>
-              </form>
+              </div>
+            </div>
 
-              {/* Social Login */}
-              {/* <div className="relative my-6">
+            <div className="flex items-center justify-between text-sm">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={rememberLogin}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setRememberLogin(checked);
+                    if (!checked) {
+                      localStorage.removeItem(REMEMBER_LOGIN_KEY);
+                    }
+                  }}
+                  className="w-4 h-4 text-gray-900 rounded"
+                />
+                <span className="text-gray-600">Ghi nhớ đăng nhập</span>
+              </label>
+              <button
+                type="button"
+                onClick={() => onNavigate('/forgot-password')}
+                className="text-gray-900 font-semibold hover:underline"
+              >
+                Quên mật khẩu?
+              </button>
+            </div>
+
+            <button
+              type="submit"
+              className="w-full bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 hover:from-black hover:via-gray-900 hover:to-black text-white font-bold py-4 rounded-xl transition-all duration-300 shadow-[0_10px_30px_-5px_rgba(0,0,0,0.3)] hover:shadow-[0_15px_40px_-5px_rgba(0,0,0,0.4)] transform hover:-translate-y-1 hover:scale-[1.02] mt-6 relative overflow-hidden group"
+            >
+              <span className="relative z-10">Đăng Nhập</span>
+              <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/10 to-white/0 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => onNavigate('/')}
+              className="w-full mt-3 border-2 border-gray-300 text-gray-700 font-semibold py-3 rounded-xl hover:border-gray-900 hover:text-gray-900 hover:bg-white transition-all duration-300"
+            >
+              ← Quay lại trang chủ
+            </button>
+          </form>
+
+          {/* Social Login */}
+          {/* <div className="relative my-6">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t border-gray-200"></div>
                 </div>
@@ -819,7 +817,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
                 </div>
               </div> */}
 
-              {/* <button
+          {/* <button
                 type="button"
                 className="w-full flex items-center justify-center gap-2 border-2 border-gray-300 text-gray-900 font-semibold py-3 rounded-xl hover:border-gray-900 hover:bg-gray-50 transition-all duration-300 shadow-sm hover:shadow-md group"
               >
@@ -827,21 +825,21 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
                 <span>Đăng nhập với Google</span>
               </button> */}
 
-              {/* Trust Indicators */}
-              <div className="mt-6 flex items-center justify-center gap-4 text-xs text-gray-500">
-                <div className="flex items-center gap-1">
-                  <span>Bảo mật</span>
-                </div>
-                <div className="text-gray-300">•</div>
-                <div className="flex items-center gap-1">
-                  <span>Mã hóa SSL</span>
-                </div>
-                <div className="text-gray-300">•</div>
-                <div className="flex items-center gap-1">
-                  <span>Riêng tư</span>
-                </div>
-              </div>
+          {/* Trust Indicators */}
+          <div className="mt-6 flex items-center justify-center gap-4 text-xs text-gray-500">
+            <div className="flex items-center gap-1">
+              <span>Bảo mật</span>
             </div>
+            <div className="text-gray-300">•</div>
+            <div className="flex items-center gap-1">
+              <span>Mã hóa SSL</span>
+            </div>
+            <div className="text-gray-300">•</div>
+            <div className="flex items-center gap-1">
+              <span>Riêng tư</span>
+            </div>
+          </div>
+        </div>
 
         <p className="text-center text-gray-700 text-sm mt-6">
           © 2026 Modern Ritual Offering . Thành tâm - Tín trực.
