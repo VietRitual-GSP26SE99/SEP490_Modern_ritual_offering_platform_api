@@ -748,7 +748,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
 
     try {
       setWithdrawLoading(true);
-      await createWithdrawal(modalResult.value);
+      await createWithdrawal({ ...modalResult.value, type: currentWalletType });
       toast.success('Đã gửi yêu cầu rút tiền thành công.');
       await fetchWalletBalance();
     } catch (error) {
