@@ -1,4 +1,5 @@
-export const API_BASE_URL = '/api';
+// Prefer Vite env variable, fallback to default '/api' relative path
+export const API_BASE_URL = (import.meta as any).env?.VITE_API_BASE_URL || '/api';
 
 export interface PackageVariant {
   variantId: string;
