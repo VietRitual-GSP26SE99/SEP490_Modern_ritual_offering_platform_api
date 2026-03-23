@@ -8,6 +8,7 @@ import { fetchNotifications, fetchUnreadNotificationCount, NotificationItem, mar
 import { createTopupLink, createWithdrawal, getMyWallet, getMyWithdrawalRequests, WalletInfo, WalletType } from '../services/walletService';
 import CartDropdown from './CartDropdown';
 import toast from '../services/toast';
+import headerLogo from '../assets/logo1.png';
 
 const PENDING_CHECKOUT_KEY = 'pendingCheckoutRequest';
 const TOPUP_SUCCESS_TOAST_KEY = 'checkoutTopupSuccessToast';
@@ -931,7 +932,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
               >
                 <div className="w-[240px] h-[72px] md:w-[288px] md:h-[84px] lg:w-[312px] lg:h-[96px] -ml-16">
                   <img
-                    src="/assets/logo1.png"
+                    src={headerLogo}
                     alt="Modern Ritual Offering"
                     className="w-full h-full object-contain object-left origin-left scale-[1.34]"
                   />
@@ -1476,7 +1477,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
               <div className="flex flex-col gap-6">
                 <div className="w-[312px] h-[96px] md:w-[360px] md:h-[120px]">
                   <img
-                    src="/assets/logo1.png"
+                    src={headerLogo}
                     alt="Modern Ritual Offering"
                     className="w-full h-full object-contain object-left"
                   />
