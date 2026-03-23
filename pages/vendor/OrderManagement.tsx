@@ -556,7 +556,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                       className="px-3 py-2 border-l border-gray-200 text-slate-500 hover:bg-gray-50"
                       aria-label="Chọn ngày bắt đầu"
                     >
-                      📅
+                      
                     </button>
                   </div>
                   <input
@@ -588,7 +588,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                       className="px-3 py-2 border-l border-gray-200 text-slate-500 hover:bg-gray-50"
                       aria-label="Chọn ngày kết thúc"
                     >
-                      📅
+                      
                     </button>
                   </div>
                   <input

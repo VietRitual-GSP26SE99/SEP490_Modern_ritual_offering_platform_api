@@ -281,14 +281,14 @@ const MyOrdersPage: React.FC = () => {
                                                 {cancellingId === order.orderId ? 'Đang hủy...' : 'Hủy đơn'}
                                             </button>
                                         )}
-                                        {['PAID', 'PROCESSING', 'DELIVERING'].includes(order.orderStatus.toUpperCase()) && (
+                                        {/* {['PAID', 'PROCESSING', 'DELIVERING'].includes(order.orderStatus.toUpperCase()) && (
                                             <button
                                                 onClick={() => navigate(`/tracking?orderId=${order.orderId}`)}
                                                 className="flex-1 sm:flex-none border border-primary text-primary font-bold py-3 px-6 rounded-xl hover:bg-primary/5 transition"
                                             >
                                                 Theo dõi
                                             </button>
-                                        )}
+                                        )} */}
                                         <button
                                             onClick={() => navigate(`/profile/orders/${order.orderId}`)}
                                             className="flex-1 sm:flex-none bg-primary text-white font-bold py-3 px-6 rounded-xl hover:bg-primary/90 transition shadow-lg shadow-primary/20"

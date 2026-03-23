@@ -70,8 +70,16 @@ class VendorService {
       const data: ApiResponse<VendorProfile> = await response.json();
       
       if (data.isSuccess && data.result) {
-        console.log('✅ Vendor profile loaded:', data.result);
-        return data.result;
+        const raw = data.result as VendorProfile;
+        const normalized: VendorProfile = {
+          ...raw,
+          // Đảm bảo luôn có avatarUrl và shopAvatarUrl, dùng qua lại nếu thiếu
+          avatarUrl: raw.avatarUrl || raw.shopAvatarUrl || null,
+          shopAvatarUrl: raw.shopAvatarUrl || raw.avatarUrl || null,
+        };
+
+        console.log('✅ Vendor profile loaded:', normalized);
+        return normalized;
       } else {
         console.error('❌ API Error:', data.errorMessages);
         return null;
@@ -103,8 +111,17 @@ class VendorService {
       const data: ApiResponse<VendorProfile[]> = await response.json();
       
       if (data.isSuccess && data.result) {
-        console.log('✅ Vendors loaded:', data.result.length);
-        return data.result;
+        const normalized = data.result.map((raw) => {
+          const profile = raw as VendorProfile;
+          return {
+            ...profile,
+            avatarUrl: profile.avatarUrl || profile.shopAvatarUrl || null,
+            shopAvatarUrl: profile.shopAvatarUrl || profile.avatarUrl || null,
+          } as VendorProfile;
+        });
+
+        console.log('✅ Vendors loaded:', normalized.length);
+        return normalized;
       } else {
         console.error('❌ API Error:', data.errorMessages);
         return [];

@@ -463,12 +463,19 @@ class OrderService {
                     deliveryProofImages = [rawDeliveryProof];
                 }
 
-                const preparationProofImages = Array.isArray(raw.delivery?.preparationProofImages)
-                    ? (raw.delivery!.preparationProofImages as unknown[])
+                const rawPreparationProof = (
+                    raw.delivery?.preparationProofImages
+                    || (raw.delivery as any)?.preparationProofImageUrl
+                    || (raw as any).preparationProofImages
+                    || (raw as any).preparationProofImageUrl
+                    || null
+                );
+
+                const preparationProofImages = Array.isArray(rawPreparationProof)
+                    ? (rawPreparationProof as unknown[])
                         .filter((url) => typeof url === 'string' && (url as string).trim()) as string[]
-                    : Array.isArray((raw as any).preparationProofImages)
-                        ? ((raw as any).preparationProofImages as unknown[])
-                            .filter((url) => typeof url === 'string' && (url as string).trim()) as string[]
+                    : typeof rawPreparationProof === 'string' && rawPreparationProof.trim()
+                        ? [rawPreparationProof]
                         : null;
 
                 const trackingLists = Array.isArray(raw.trackingLists)

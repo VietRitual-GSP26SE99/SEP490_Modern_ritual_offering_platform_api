@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { orderService, Order } from '../../services/orderService';
 import { refundService, RefundRecord } from '../../services/refundService';
+import { vendorService, VendorProfile } from '../../services/vendorService';
 import toast from '../../services/toast';
 import RefundModal from '../../components/customer/RefundModal';
 import ReviewModal from '../../components/customer/ReviewModal';
@@ -11,6 +12,7 @@ const OrderDetailsPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const [order, setOrder] = useState<Order | null>(null);
+    const [vendorInfo, setVendorInfo] = useState<VendorProfile | null>(null);
     const [loading, setLoading] = useState(true);
     const [cancelling, setCancelling] = useState(false);
     const [completing, setCompleting] = useState(false);
@@ -30,7 +32,10 @@ const OrderDetailsPage: React.FC = () => {
             const data = await orderService.getOrderDetails(id);
             if (data) {
                 setOrder(data);
-                await loadRefundInfo(data.orderId);
+                await Promise.all([
+                    loadRefundInfo(data.orderId),
+                    loadVendorInfo(data),
+                ]);
             } else {
                 toast.error('Không tìm thấy đơn hàng!');
                 navigate('/profile/orders');
@@ -68,6 +73,26 @@ const OrderDetailsPage: React.FC = () => {
             setRefundInfo(fallback);
         } catch {
             setRefundInfo(null);
+        }
+    };
+
+    const loadVendorInfo = async (orderData: Order) => {
+        try {
+            const vendorId = String(
+                orderData.vendor?.profileId
+                || (orderData as any).vendorProfileId
+                || (orderData as any).vendorId
+                || ''
+            ).trim();
+
+            if (!vendorId) return;
+
+            const vendor = await vendorService.getVendorCached(vendorId);
+            if (vendor) {
+                setVendorInfo(vendor);
+            }
+        } catch (error) {
+            console.error('Lỗi khi tải thông tin vendor:', error);
         }
     };
 
@@ -205,6 +230,18 @@ const OrderDetailsPage: React.FC = () => {
         }
     };
 
+    // Xác định bước hiện tại của tiến trình giao hàng để hiển thị timeline
+    const getTrackingStepIndex = (status: string) => {
+        const normalized = status?.toUpperCase() || '';
+
+        if (['PENDING', 'CONFIRMED', 'PAID'].includes(normalized)) return 0; // Đã xác nhận
+        if (['PREPARING', 'PROCESSING'].includes(normalized)) return 1; // Chuẩn bị
+        if (['SHIPPING', 'DELIVERING'].includes(normalized)) return 2; // Đang giao
+        if (['DELIVERED', 'COMPLETED', 'REFUNDED'].includes(normalized)) return 3; // Hoàn tất
+
+        return 0;
+    };
+
     const vendorProfileId = String(
         order?.vendor?.profileId
         || (order as any)?.vendorProfileId
@@ -252,10 +289,18 @@ const OrderDetailsPage: React.FC = () => {
 
     if (!order) return null;
 
-    const preparationImages = Array.isArray(order.delivery?.preparationProofImages)
-        ? order.delivery.preparationProofImages
-        : Array.isArray((order as any).preparationProofImages)
-            ? (order as any).preparationProofImages
+    const rawPreparationProof = (
+        (order.delivery as any)?.preparationProofImages
+        || (order.delivery as any)?.preparationProofImageUrl
+        || (order as any).preparationProofImages
+        || (order as any).preparationProofImageUrl
+        || null
+    );
+
+    const preparationImages: string[] = Array.isArray(rawPreparationProof)
+        ? (rawPreparationProof as unknown[]).filter((url) => typeof url === 'string' && (url as string).trim()) as string[]
+        : typeof rawPreparationProof === 'string' && rawPreparationProof.trim()
+            ? [rawPreparationProof]
             : [];
 
     const rawDeliveryProof = (
@@ -270,6 +315,17 @@ const OrderDetailsPage: React.FC = () => {
         : typeof rawDeliveryProof === 'string' && rawDeliveryProof.trim()
             ? [rawDeliveryProof]
             : [];
+
+    const hasPreparationImages = preparationImages.length > 0;
+    const hasDeliveryImages = deliveryImages.length > 0;
+
+    const trackingStepIndex = getTrackingStepIndex(order.orderStatus);
+    const trackingSteps = [
+        { label: 'Xác nhận', description: 'Tiếp nhận và xác nhận đơn' },
+        { label: 'Chuẩn bị', description: 'Chuẩn bị mâm lễ và vật phẩm' },
+        { label: 'Đang giao', description: 'Nhân viên đang di chuyển' },
+        { label: 'Hoàn tất', description: 'Hoàn thành phục vụ nghi lễ' },
+    ];
 
     return (
         <div className="bg-gray-50 min-h-screen py-10">
@@ -307,14 +363,14 @@ const OrderDetailsPage: React.FC = () => {
                                 {cancelling ? 'Đang hủy...' : 'Hủy đơn hàng'}
                             </button>
                         )}
-                        {['PAID', 'PROCESSING', 'DELIVERING'].includes(order.orderStatus.toUpperCase()) && (
+                        {/* {['PAID', 'PROCESSING', 'DELIVERING'].includes(order.orderStatus.toUpperCase()) && (
                             <button
                                 onClick={() => navigate(`/tracking?orderId=${order.orderId}`)}
                                 className="bg-white/90 backdrop-blur-sm text-current px-6 py-2 rounded-xl font-bold text-sm shadow-sm hover:bg-white transition"
                             >
                                 Theo dõi ngay
                             </button>
-                        )}
+                        )} */}
                         {order.orderStatus.toUpperCase() === 'DELIVERED' && (
                             <>
                                 <button
@@ -340,6 +396,184 @@ const OrderDetailsPage: React.FC = () => {
                             </>
                         )}
                     </div>
+                </div>
+
+                {/* Order Tracking Timeline */}
+                <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-gray-200 shadow-sm mb-8 overflow-hidden relative">
+                    <div className="flex justify-between items-center mb-6">
+                        <div>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Theo dõi đơn hàng</p>
+                            <p className="text-sm text-gray-500">Mã đơn: <span className="font-mono font-semibold">#{order.orderId}</span></p>
+                        </div>
+                        {/* <button
+                            type="button"
+                            onClick={() => navigate(`/tracking?orderId=${order.orderId}`)}
+                            className="hidden sm:inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold border border-gray-200 text-primary hover:border-primary hover:bg-primary/5 transition-all"
+                        >
+                            <span>Xem chi tiết</span>
+                            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <path d="M9 5l7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                            </svg>
+                        </button> */}
+                    </div>
+
+                    <div className="relative">
+                        <div className="absolute top-5 left-0 w-full h-1 bg-slate-100 rounded-full" />
+                        <div
+                            className="absolute top-5 left-0 h-1 bg-primary rounded-full transition-all duration-500"
+                            style={{ width: `${(trackingStepIndex / 3) * 100}%` }}
+                        />
+
+                        <div className="relative flex justify-between">
+                            {trackingSteps.map((step, index) => {
+                                const isActive = index === trackingStepIndex;
+                                const isCompleted = index < trackingStepIndex;
+                                const isUpcoming = index > trackingStepIndex;
+
+                                return (
+                                    <div
+                                        key={step.label}
+                                        className={`relative z-10 flex flex-col items-center text-center w-24 md:w-32 ${isUpcoming ? 'opacity-40' : ''}`}
+                                    >
+                                        <div
+                                            className={`size-10 md:size-12 rounded-full flex items-center justify-center mb-3 ring-4 ring-white text-sm font-bold shadow-sm ${
+                                                isActive
+                                                    ? 'bg-primary text-white animate-pulse'
+                                                    : isCompleted
+                                                        ? 'bg-primary text-white'
+                                                        : 'bg-slate-200 text-slate-500'
+                                            }`}
+                                        >
+                                            {index + 1}
+                                        </div>
+                                        <span className={`text-xs md:text-sm font-semibold ${isActive ? 'text-primary' : 'text-slate-900'}`}>
+                                            {step.label}
+                                        </span>
+                                        <span className="hidden md:block text-[10px] text-slate-400 mt-1 max-w-[120px]">
+                                            {step.description}
+                                        </span>
+                                    </div>
+                                );
+                            })}
+                        </div>
+                    </div>
+
+                    {Array.isArray(order.trackingLists) && order.trackingLists.length > 0 && (
+                        <div className="mt-6 pt-4 border-t border-dashed border-gray-200">
+                            <div className="space-y-2">
+                                {order.trackingLists
+                                    .slice()
+                                    .sort((a, b) => (a.createdAt || '').localeCompare(b.createdAt || ''))
+                                    .map((item, index, arr) => {
+                                        const isLast = index === arr.length - 1;
+                                        let showPreparationButton = false;
+                                        let showDeliveryButton = false;
+
+                                        if (isLast && trackingStepIndex >= 2) {
+                                            if (trackingStepIndex < 3) {
+                                                // Đang giao: ưu tiên hiển thị ảnh phù hợp hiện có
+                                                if (hasPreparationImages) showPreparationButton = true;
+                                                if (!hasPreparationImages && hasDeliveryImages) showDeliveryButton = true;
+                                            } else {
+                                                // Hoàn tất trở đi: hiển thị cả hai nút nếu có ảnh
+                                                if (hasPreparationImages) showPreparationButton = true;
+                                                if (hasDeliveryImages) showDeliveryButton = true;
+                                            }
+                                        }
+
+                                        return (
+                                            <div key={item.trackingId} className="flex items-start gap-3 text-xs text-gray-600">
+                                                <div className="mt-1 w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />
+                                                <div className="flex-1 flex items-start justify-between gap-4">
+                                                    <div>
+                                                        <p className="font-semibold text-gray-800">{item.title}</p>
+                                                        {item.description && (
+                                                            <p className="text-gray-500 mt-0.5">{item.description}</p>
+                                                        )}
+                                                        {item.createdAt && (
+                                                            <p className="text-[10px] text-gray-400 mt-0.5">
+                                                                {new Date(item.createdAt).toLocaleString('vi-VN')}
+                                                            </p>
+                                                        )}
+                                                    </div>
+
+                                                    {(showPreparationButton || showDeliveryButton) && (
+                                                        <div className="flex items-center gap-2">
+                                                            {showPreparationButton && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setProofModalTitle('Ảnh chuẩn bị');
+                                                                        setProofModalImages(preparationImages);
+                                                                        setIsProofModalOpen(true);
+                                                                    }}
+                                                                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-primary text-white hover:bg-primary/90 transition whitespace-nowrap"
+                                                                >
+                                                                    <svg
+                                                                        className="w-4 h-4"
+                                                                        viewBox="0 0 24 24"
+                                                                        fill="none"
+                                                                        xmlns="http://www.w3.org/2000/svg"
+                                                                    >
+                                                                        <path
+                                                                            d="M4 4h16v12H5.17L4 17.17V4z"
+                                                                            stroke="currentColor"
+                                                                            strokeWidth="2"
+                                                                            strokeLinecap="round"
+                                                                            strokeLinejoin="round"
+                                                                        />
+                                                                        <path
+                                                                            d="M10 11l2 2 3-3"
+                                                                            stroke="currentColor"
+                                                                            strokeWidth="2"
+                                                                            strokeLinecap="round"
+                                                                            strokeLinejoin="round"
+                                                                        />
+                                                                    </svg>
+                                                                    <span>Ảnh chuẩn bị</span>
+                                                                </button>
+                                                            )}
+                                                            {showDeliveryButton && (
+                                                                <button
+                                                                    onClick={() => {
+                                                                        setProofModalTitle('Ảnh giao hàng');
+                                                                        setProofModalImages(deliveryImages);
+                                                                        setIsProofModalOpen(true);
+                                                                    }}
+                                                                    className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-primary text-white hover:bg-primary/90 transition whitespace-nowrap"
+                                                                >
+                                                                    <svg
+                                                                        className="w-4 h-4"
+                                                                        viewBox="0 0 24 24"
+                                                                        fill="none"
+                                                                        xmlns="http://www.w3.org/2000/svg"
+                                                                    >
+                                                                        <path
+                                                                            d="M4 4h16v12H5.17L4 17.17V4z"
+                                                                            stroke="currentColor"
+                                                                            strokeWidth="2"
+                                                                            strokeLinecap="round"
+                                                                            strokeLinejoin="round"
+                                                                        />
+                                                                        <path
+                                                                            d="M10 11l2 2 3-3"
+                                                                            stroke="currentColor"
+                                                                            strokeWidth="2"
+                                                                            strokeLinecap="round"
+                                                                            strokeLinejoin="round"
+                                                                        />
+                                                                    </svg>
+                                                                    <span>Ảnh giao hàng</span>
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {(refundInfo?.status === 'Rejected' || order.orderStatus.toUpperCase() === 'VENDORREJECTED') && !refundDismissed && (
@@ -378,28 +612,46 @@ const OrderDetailsPage: React.FC = () => {
 
                         {/* Store details */}
                         <div className="bg-white p-8 rounded-[2rem] border border-gray-200 shadow-sm relative overflow-hidden group">
-                            <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-                                <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24">
-                                    <path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                </svg>
-                            </div>
-                            <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-3">
-                                <span className="w-8 h-8 rounded-full bg-orange-100 text-primary flex items-center justify-center">
-                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                            {!(vendorInfo?.shopAvatarUrl || vendorInfo?.avatarUrl) && (
+                                <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none">
+                                    <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                                     </svg>
-                                </span>
-                                Người cung cấp
-                            </h3>
+                                </div>
+                            )}
+
+                            <div className="flex items-center justify-between mb-4 gap-4">
+                                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-3">
+                                    <span className="w-8 h-8 rounded-full bg-orange-100 text-primary flex items-center justify-center">
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                                        </svg>
+                                    </span>
+                                    Người cung cấp
+                                </h3>
+
+                                {(vendorInfo?.shopAvatarUrl || vendorInfo?.avatarUrl) && (
+                                    <div className="w-20 h-20 rounded-3xl overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0 shadow-sm">
+                                        <img
+                                            src={vendorInfo.shopAvatarUrl || vendorInfo.avatarUrl || ''}
+                                            alt={vendorInfo.shopName || 'Shop avatar'}
+                                            className="w-full h-full object-cover"
+                                        />
+                                    </div>
+                                )}
+                            </div>
+
                             <div>
                                 <button
                                     type="button"
                                     onClick={() => vendorProfileId && navigate(`/vendor/${vendorProfileId}`)}
-                                    className={`font-bold text-xl text-primary text-left ${vendorProfileId ? 'cursor-pointer hover:text-primary/80' : 'cursor-default'}`}
+                                    className={`font-bold text-xl text-primary text-left truncate ${vendorProfileId ? 'cursor-pointer hover:text-primary/80' : 'cursor-default'}`}
                                 >
-                                    {order.vendor?.shopName || (order as any).shopName || "Cúng Bái Tâm Linh"}
+                                    {order.vendor?.shopName || (order as any).shopName || vendorInfo?.shopName || "Cúng Bái Tâm Linh"}
                                 </button>
-                                <p className="text-sm text-gray-500 mt-2">Dịch vụ mâm cúng trọn gói và trang trí tận nhà.</p>
+                                <p className="text-sm text-gray-500 mt-2 line-clamp-2">
+                                    {vendorInfo?.shopDescription || 'Dịch vụ mâm cúng trọn gói và trang trí tận nhà.'}
+                                </p>
                             </div>
                         </div>
 
@@ -527,7 +779,7 @@ const OrderDetailsPage: React.FC = () => {
                                     <p className="font-medium text-sm text-gray-800 leading-relaxed">{order.delivery?.deliveryAddress || (order as any).deliveryAddress}</p>
                                 </div>
 
-                                {preparationImages.length > 0 && (
+                                {/* {preparationImages.length > 0 && (
                                     <div>
                                         <p className="text-xs text-gray-500 mb-2">Ảnh chuẩn bị</p>
                                         <button
@@ -541,8 +793,8 @@ const OrderDetailsPage: React.FC = () => {
                                             Xem ảnh
                                         </button>
                                     </div>
-                                )}
-                                {deliveryImages.length > 0 && (
+                                )} */}
+                                {/* {deliveryImages.length > 0 && (
                                     <div>
                                         <p className="text-xs text-gray-500 mb-2">Ảnh giao hàng</p>
                                         <button
@@ -556,7 +808,7 @@ const OrderDetailsPage: React.FC = () => {
                                             Xem ảnh
                                         </button>
                                     </div>
-                                )}
+                                )} */}
                             </div>
                         </div>
 
