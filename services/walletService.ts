@@ -30,6 +30,7 @@ export interface WithdrawalRequest {
   bankName: string;
   accountNumber: string;
   accountHolder: string;
+  type: WalletType;
 }
 
 export interface WithdrawalResult {
@@ -298,6 +299,12 @@ export async function createWithdrawal(request: WithdrawalRequest): Promise<With
     throw new Error('Bạn chưa đăng nhập.');
   }
 
+  const walletTypeMap: Record<string, number> = {
+    'Customer': 0,
+    'Vendor': 1,
+    'System': 2
+  };
+
   const response = await fetch('/api/withdrawals', {
     method: 'POST',
     headers: {
@@ -305,12 +312,14 @@ export async function createWithdrawal(request: WithdrawalRequest): Promise<With
       Accept: 'application/json',
       Authorization: `Bearer ${token}`,
     },
-    // Send PascalCase keys for strict backend model binders.
+    // PascalCase keys for strict backend and including both Integer/String values for WalletType
     body: JSON.stringify({
       Amount: request.amount,
       BankName: request.bankName,
       AccountNumber: request.accountNumber,
       AccountHolder: request.accountHolder,
+      WalletType: walletTypeMap[request.type] ?? request.type,
+      Type: request.type,
     }),
   });
 
