@@ -4,13 +4,14 @@ import MOCK_DATA from '../../mockData';
 import Carousel from '../../components/Carousel';
 import { packageService } from '../../services/packageService';
 import { getCurrentUser } from '../../services/auth';
-import { Product } from '../../types';
+import { Product, CeremonyCategory } from '../../types';
 import toast from '../../services/toast';
 
 const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate }) => {
   const [showAllServices, setShowAllServices] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
+  const [dynamicServices, setDynamicServices] = useState<{title: string, img: string}[]>([]);
   const { heroSlides, services, trustStats } = MOCK_DATA;
 
   useEffect(() => {
@@ -57,6 +58,38 @@ const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
 
     fetchProducts();
   }, []);
+
+  // Fetch categories from API
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const categories = await packageService.getCeremonyCategories();
+        const activeCategories = categories.filter(c => c.isActive);
+        
+        // Map categories to images (using existing services as reference)
+        const mapped = activeCategories.map(cat => {
+          // Try to find a matching image from mock services
+          const match = services.find(s => 
+            s.title.toLowerCase().includes(cat.name.toLowerCase()) || 
+            cat.name.toLowerCase().includes(s.title.toLowerCase())
+          );
+          
+          return {
+            title: cat.name,
+            img: match ? match.img : 'https://docungcattuong.com/wp-content/uploads/2023/03/mam-cung-day-thang-be-gai-7.jpg' // default image
+          };
+        });
+        
+        setDynamicServices(mapped);
+      } catch (error) {
+        console.error('Error fetching categories:', error);
+        // Fallback to mock services if API fails
+        setDynamicServices(services);
+      }
+    };
+
+    fetchCategories();
+  }, [services]);
   
   return (
     <div className="space-y-24 pb-24">
@@ -71,7 +104,7 @@ const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
             <p className="text-gray-500 max-w-2xl mx-auto text-lg italic">Gìn giữ truyền thống - Kết nối tương lai</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {services.slice(0, showAllServices ? services.length : 4).map((svc, i) => (
+            {(dynamicServices.length > 0 ? dynamicServices : services).slice(0, showAllServices ? undefined : 4).map((svc, i) => (
                 <div key={i} className="group cursor-pointer" onClick={() => onNavigate('/shop')}>
                     <div className="relative aspect-[3/4] rounded-3xl overflow-hidden shadow-lg border-2 border-transparent group-hover:border-gold transition-all duration-500">
                         <img alt={svc.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" src={svc.img} />
@@ -90,7 +123,7 @@ const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
             onClick={() => setShowAllServices(!showAllServices)}
             className="border-2 border-primary text-primary px-12 py-3 rounded-lg font-bold text-lg hover:bg-primary/5 transition-all"
           >
-            {showAllServices ? 'Thu Gọn' : 'Xem Thêm'} ({showAllServices ? '8' : '4'} loại cúng)
+            {showAllServices ? 'Thu Gọn' : 'Xem Thêm'} ({showAllServices ? (dynamicServices.length || services.length) : '4'} loại cúng)
           </button>
         </div>
       </section>
@@ -153,16 +186,16 @@ const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
                         )}
                         <p className="text-gray-500 text-sm mb-6 line-clamp-2">{product.description}</p>
                         <div className="flex items-center justify-between mt-auto">
-                            <span className="text-primary text-2xl font-black tracking-tight">{product.price.toLocaleString()}đ</span>
-                          <button
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              handleNavigateToProductDetail(product.id);
-                            }}
-                            className="bg-gray-100 hover:bg-primary text-primary hover:text-white p-3 rounded-2xl transition-all font-bold"
-                          >
-                                +
-                            </button>
+                            <div className="flex flex-col">
+                                <span className="text-primary text-2xl font-black tracking-tight">{product.price.toLocaleString()}đ</span>
+                                {product.totalSold !== undefined && product.totalSold > 0 && (
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Đã bán {product.totalSold}</span>
+                                )}
+                            </div>
+                            <div className="flex items-center gap-1 text-gold">
+                                <span className="text-sm">★</span>
+                                <span className="text-xs font-bold">{product.rating}</span>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -6,6 +6,8 @@ import { getCurrentUser } from '../services/auth';
 import { cartService } from '../services/cartService';
 import { fetchNotifications, fetchUnreadNotificationCount, NotificationItem, markAllNotificationsAsReadApi, markNotificationAsRead } from '../services/notificationService';
 import { createTopupLink, createWithdrawal, getMyWallet, getMyWithdrawalRequests, WalletInfo, WalletType } from '../services/walletService';
+import { packageService } from '../services/packageService';
+import { CeremonyCategory } from '../types';
 import CartDropdown from './CartDropdown';
 import toast from '../services/toast';
 import headerLogo from '../assets/logo1.png';
@@ -45,6 +47,19 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
   const [withdrawLoading, setWithdrawLoading] = useState<boolean>(false);
   const [withdrawalHistoryLoading, setWithdrawalHistoryLoading] = useState<boolean>(false);
   const [userName, setUserName] = useState<string>('');
+  const [categories, setCategories] = useState<CeremonyCategory[]>([]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const data = await packageService.getCeremonyCategories();
+        setCategories(data.filter(c => c.isActive));
+      } catch (error) {
+        console.error('❌ Failed to fetch categories for menu:', error);
+      }
+    };
+    fetchCategories();
+  }, []);
   const cartDropdownTimeout = useRef<NodeJS.Timeout | null>(null);
   const accountDropdownTimeout = useRef<NodeJS.Timeout | null>(null);
   const walletDropdownTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -305,11 +320,18 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
           label: 'Sản phẩm',
           submenu: [
             { path: '/shop', label: 'Tất cả sản phẩm' },
-            { path: '/shop?category=Full Moon', label: 'Cúng Đầy Tháng' },
-            { path: '/shop?category=House Warming', label: 'Cúng Tân Gia' },
-            { path: '/shop?category=Grand Opening', label: 'Cúng Khai Trương' },
-            { path: '/shop?category=Ancestral', label: 'Cúng Giỗ' },
-            { path: '/shop?category=Year End', label: 'Cúng Tết' }
+            ...(categories.length > 0
+              ? categories.map(cat => ({
+                  path: `/shop?category=${encodeURIComponent(cat.name)}`,
+                  label: cat.name
+                }))
+              : [
+                  { path: '/shop?category=Full Moon', label: 'Cúng Đầy Tháng' },
+                  { path: '/shop?category=House Warming', label: 'Cúng Tân Gia' },
+                  { path: '/shop?category=Grand Opening', label: 'Cúng Khai Trương' },
+                  { path: '/shop?category=Ancestral', label: 'Cúng Giỗ' },
+                  { path: '/shop?category=Year End', label: 'Cúng Tết' }
+                ])
           ]
         },
        

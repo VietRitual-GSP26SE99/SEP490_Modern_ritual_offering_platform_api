@@ -142,6 +142,8 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
   }).sort((a, b) => {
     if (sortBy === 'price-asc') return a.price - b.price;
     if (sortBy === 'price-desc') return b.price - a.price;
+    // Popularity logic: totalSold > Rating > Reviews
+    if ((b.totalSold || 0) !== (a.totalSold || 0)) return (b.totalSold || 0) - (a.totalSold || 0);
     if (b.rating !== a.rating) return b.rating - a.rating;
     return b.reviews - a.reviews;
   });
@@ -410,10 +412,17 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
                     className="p-6 cursor-pointer flex-1 flex flex-col"
                     onClick={() => handleNavigateToProductDetail(p.id)}
                   >
-                    <div className="flex items-center gap-1 mb-2 text-gold">
-                      <span className="text-sm" style={{ color: '#FFD700' }}>★</span>
-                      <span className="text-xs font-bold">{p.rating}</span>
-                      <span className="text-[10px] text-slate-400 ml-1">({p.reviews} đánh giá)</span>
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center gap-1 text-gold">
+                        <span className="text-sm" style={{ color: '#FFD700' }}>★</span>
+                        <span className="text-xs font-bold">{p.rating}</span>
+                        <span className="text-[10px] text-slate-400 ml-1">({p.reviews})</span>
+                      </div>
+                      {p.totalSold !== undefined && p.totalSold > 0 && (
+                        <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                          Đã bán {p.totalSold}
+                        </span>
+                      )}
                     </div>
                     <h3 className="text-lg font-bold mb-2 group-hover:text-primary transition-colors leading-tight">{p.name}</h3>
                     {p.vendorName && (

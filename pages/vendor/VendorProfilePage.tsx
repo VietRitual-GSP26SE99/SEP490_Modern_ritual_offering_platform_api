@@ -5,27 +5,48 @@ import { packageService } from '../../services/packageService';
 import { Product } from '../../types';
 import toast from '../../services/toast';
 
-// Simple, minimal ProductCard inline for synchronization (B&W)
-const MinimalProductCard: React.FC<{
-  id: string | number;
-  name: string;
-  price: number;
-  image: string;
-  rating: number;
+// Premium ProductCard for Vendor Shop (synchronized with /shop)
+const ProductCard: React.FC<{
+  product: Product;
   onNavigate: (path: string) => void;
-}> = ({ id, name, price, image, rating, onNavigate }) => (
+}> = ({ product, onNavigate }) => (
   <div
-    className="bg-white rounded-none overflow-hidden border border-slate-100 hover:border-slate-300 transition-all cursor-pointer group flex flex-col h-full"
-    onClick={() => onNavigate(`/product/${id}`)}
+    className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-2xl transition-all border border-gold/10 group flex flex-col h-full cursor-pointer"
+    onClick={() => onNavigate(`/product/${product.id}`)}
   >
     <div className="relative w-full pt-[100%] overflow-hidden bg-slate-50 shrink-0">
-      <img src={image} alt={name} className="absolute top-0 left-0 w-full h-full object-cover grayscale-[0.5] group-hover:grayscale-0 transition-all duration-500" />
+      <img 
+        src={product.image} 
+        alt={product.name} 
+        className="absolute top-0 left-0 w-full h-full object-cover group-hover:scale-110 transition-all duration-700" 
+      />
+      {product.tag && (
+        <div className="absolute top-4 left-4 bg-primary/90 backdrop-blur-sm text-white text-[10px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-lg">
+          {product.tag}
+        </div>
+      )}
     </div>
-    <div className="p-4 flex-1 flex flex-col">
-      <h4 className="text-sm font-bold text-slate-800 line-clamp-2 min-h-[40px] leading-snug mb-2">{name}</h4>
-      <div className="flex justify-between items-baseline pt-2 mt-auto">
-        <p className="text-slate-900 font-bold text-sm tracking-tight">{price.toLocaleString('vi-VN')}đ</p>
-        <span className="text-[10px] font-bold text-slate-400">★ {rating}</span>
+    <div className="p-6 flex-1 flex flex-col">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-1 text-gold">
+          <span className="text-sm" style={{ color: '#FFD700' }}>★</span>
+          <span className="text-xs font-bold">{product.rating}</span>
+          <span className="text-[10px] text-slate-400 ml-1">({product.reviews || 0})</span>
+        </div>
+        {product.totalSold !== undefined && product.totalSold > 0 && (
+          <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+            Đã bán {product.totalSold}
+          </span>
+        )}
+      </div>
+      <h4 className="text-sm font-bold text-slate-800 line-clamp-2 min-h-[40px] leading-snug mb-2 group-hover:text-primary transition-colors">{product.name}</h4>
+      <div className="pt-4 mt-auto border-t border-gold/10 flex items-center justify-between">
+        <p className="text-lg font-black text-primary tracking-tight">{product.price.toLocaleString('vi-VN')}đ</p>
+        <div className="bg-primary text-white p-2 rounded-xl scale-90 group-hover:scale-100 transition-transform">
+          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+          </svg>
+        </div>
       </div>
     </div>
   </div>
@@ -49,6 +70,8 @@ const VendorProfilePage: React.FC<VendorProfilePageProps> = ({ onNavigate }) => 
   const [vendorOverallReviews, setVendorOverallReviews] = useState<any[]>([]); // Use any for quick fix or import Review
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'home' | 'products' | 'about'>('home');
+  const [categories, setCategories] = useState<{ categoryId: number; name: string }[]>([]);
+  const [activeFilter, setActiveFilter] = useState('All');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -58,14 +81,25 @@ const VendorProfilePage: React.FC<VendorProfilePageProps> = ({ onNavigate }) => 
         const profile = await vendorService.getVendorCached(id);
         if (profile) {
           setVendor(profile);
-          
-          // Concurrent fetch for products and reviews
+          // Concurrent fetch for products, reviews and categories
           Promise.all([
              packageService.getPackagesByVendor(id),
              // Assuming reviewService is available (need to import it)
-             import('../../services/reviewService').then(m => m.reviewService.getReviewsByVendorId(id))
-          ]).then(([pkgs, reviews]) => {
-             packageService.mapToProductsWithVendors(pkgs).then(setProducts);
+             import('../../services/reviewService').then(m => m.reviewService.getReviewsByVendorId(id)),
+             packageService.getCeremonyCategories()
+          ]).then(([pkgs, reviews, cats]) => {
+             const activeCats = cats.filter((c: any) => c.isActive);
+             setCategories(activeCats);
+
+             packageService.mapToProductsWithVendors(pkgs).then(products => {
+                // Ensure product categories match the dynamic category names for filtering
+                const fixedProducts = products.map((p, idx) => {
+                  const apiPkg = pkgs[idx];
+                  const catName = activeCats.find(c => c.categoryId === apiPkg.categoryId)?.name;
+                  return catName ? { ...p, category: catName } : p;
+                });
+                setProducts(fixedProducts);
+             });
              setVendorOverallReviews(reviews);
           }).catch(e => console.warn('⚠️ Error fetching vendor extra data:', e));
           
@@ -209,40 +243,72 @@ const VendorProfilePage: React.FC<VendorProfilePageProps> = ({ onNavigate }) => 
 
             <div className="space-y-10">
               <h3 className="text-lg font-bold text-slate-900 uppercase tracking-widest border-b border-slate-100 pb-4">Đề xuất</h3>
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
                 {products.slice(0, 10).map((product) => (
-                  <MinimalProductCard
+                  <ProductCard
                     key={product.id}
-                    id={product.id}
-                    name={product.name}
-                    price={product.price}
-                    image={product.image}
-                    rating={product.rating}
+                    product={product}
                     onNavigate={onNavigate}
                   />
                 ))}
-              </div>
+            </div>
             </div>
           </div>
         )}
 
         {activeTab === 'products' && (
-          <div className="space-y-10">
-            <div className="flex justify-between items-baseline border-b border-slate-100 pb-4">
-              <h3 className="text-lg font-bold text-slate-900 uppercase tracking-widest">Tất cả sản phẩm ({products.length})</h3>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-6">
-              {products.map((product) => (
-                <MinimalProductCard
-                  key={product.id}
-                  id={product.id}
-                  name={product.name}
-                  price={product.price}
-                  image={product.image}
-                  rating={product.rating}
-                  onNavigate={onNavigate}
-                />
-              ))}
+          <div className="flex flex-col lg:flex-row gap-12">
+            {/* Sidebar Filter */}
+            <aside className="w-full lg:w-64 shrink-0 space-y-8">
+              <div>
+                <h3 className="text-sm font-black text-slate-900 uppercase tracking-[0.2em] mb-6 border-b border-slate-100 pb-4">Danh mục</h3>
+                <div className="space-y-2">
+                  <button
+                    onClick={() => setActiveFilter('All')}
+                    className={`w-full text-left px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${activeFilter === 'All' ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}
+                  >
+                    Tất cả sản phẩm
+                  </button>
+                  {categories
+                    .filter(cat => products.some(p => p.category === cat.name))
+                    .map((cat) => (
+                      <button
+                        key={cat.categoryId}
+                        onClick={() => setActiveFilter(cat.name)}
+                        className={`w-full text-left px-5 py-3 rounded-2xl text-[11px] font-black uppercase tracking-widest transition-all ${activeFilter === cat.name ? 'bg-slate-900 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-50'}`}
+                      >
+                        {cat.name}
+                      </button>
+                    ))}
+                </div>
+              </div>
+            </aside>
+
+            {/* Product Grid */}
+            <div className="flex-1 space-y-10">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                <h3 className="text-lg font-display font-black text-slate-900 uppercase tracking-widest">
+                  {activeFilter === 'All' ? 'Tất cả sản phẩm' : activeFilter} ({products.filter(p => activeFilter === 'All' || p.category === activeFilter).length})
+                </h3>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+                {products
+                  .filter(p => activeFilter === 'All' || p.category === activeFilter)
+                  .map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      onNavigate={onNavigate}
+                    />
+                  ))}
+              </div>
+
+              {products.filter(p => activeFilter === 'All' || p.category === activeFilter).length === 0 && (
+                <div className="py-20 text-center bg-slate-50 rounded-3xl border border-dashed border-slate-200">
+                  <p className="text-slate-400 font-bold uppercase tracking-widest">Không tìm thấy sản phẩm phù hợp</p>
+                </div>
+              )}
             </div>
           </div>
         )}

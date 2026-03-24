@@ -105,8 +105,8 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
           image: Array.isArray((item as any).imageUrls) && (item as any).imageUrls.length > 0
             ? ((item as any).imageUrls[(item as any).primaryImageIndex || 0] || (item as any).imageUrls[0])
             : String((item as any).imageUrl || ''),
-          rating: 0,
-          orders: 0,
+          rating: Number((item as any).ratingAvg || 0),
+          orders: Number((item as any).totalSold || 0),
           status: Boolean((item as any).isActive) ? 'active' : 'inactive',
           created: String((item as any).createdAt || ''),
           vendorName: String((item as any).vendorProfileId || (item as any).vendorId || ''),
@@ -283,6 +283,7 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
                     <th className="p-4 font-semibold text-sm">Sản Phẩm</th>
                     <th className="p-4 font-semibold text-sm">Danh Mục</th>
                     <th className="p-4 font-semibold text-sm text-right">Giá (VNĐ)</th>
+                    <th className="p-4 font-semibold text-sm text-center">Đơn Hàng</th>
                     <th className="p-4 font-semibold text-sm text-center">Trạng Thái</th>
                     <th className="p-4 font-semibold text-sm text-center">Thao Tác</th>
                   </tr>
@@ -313,6 +314,9 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
                       </td>
                       <td className="p-4 text-right font-medium text-gray-900">
                         {product.price.toLocaleString('vi-VN')}₫
+                      </td>
+                      <td className="p-4 text-center font-semibold text-gray-800">
+                        {product.orders}
                       </td>
                       <td className="p-4 text-center">
                         <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold ${product.status === 'active' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
@@ -549,6 +553,10 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
                     <div className="flex justify-between items-center border-b border-gray-50 pb-3">
                       <span className="text-gray-500 font-semibold">Ngày Đăng Hàng</span>
                       <span className="font-bold text-gray-800 bg-gray-50 px-3 py-1.5 rounded-xl">{viewProductDetails.createdAt ? new Date(viewProductDetails.createdAt).toLocaleString('vi-VN') : 'N/A'}</span>
+                    </div>
+                    <div className="flex justify-between items-center border-b border-gray-50 pb-3">
+                      <span className="text-gray-500 font-semibold">Số lượng đã bán</span>
+                      <span className="font-bold text-primary bg-primary/5 px-3 py-1.5 rounded-xl">{viewProductDetails.totalSold || 0} đơn hàng</span>
                     </div>
                     <div className="flex justify-between items-center pb-1">
                       <span className="text-gray-500 font-semibold">Vendor ID</span>

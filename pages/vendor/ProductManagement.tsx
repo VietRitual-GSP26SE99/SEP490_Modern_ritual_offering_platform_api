@@ -242,7 +242,7 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
             ? ((item as any).imageUrls[(item as any).primaryImageIndex || 0] || (item as any).imageUrls[0])
             : String((item as any).imageUrl || ''),
           rating: Number((item as any).ratingAvg || 0),
-          orders: 0,
+          orders: Number((item as any).totalSold || 0),
           status: Boolean((item as any).isActive) ? 'active' : 'inactive',
           created: String((item as any).createdAt || ''),
         };
@@ -1134,6 +1134,10 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
                       <div className="flex justify-between items-center border-b border-gray-50 pb-3">
                         <span className="text-gray-500 font-semibold">Ngày khởi tạo</span>
                         <span className="font-bold text-gray-800 bg-gray-50 px-3 py-1.5 rounded-xl">{viewProductDetails.createdAt ? new Date(viewProductDetails.createdAt).toLocaleString('vi-VN') : 'N/A'}</span>
+                      </div>
+                      <div className="flex justify-between items-center pb-1">
+                        <span className="text-gray-500 font-semibold">Số lượng đã bán</span>
+                        <span className="font-bold text-primary bg-primary/5 px-3 py-1.5 rounded-xl">{viewProductDetails.totalSold || 0} đơn hàng</span>
                       </div>
                       {/* <div className="flex justify-between items-center pb-1">
                         <span className="text-gray-500 font-semibold">Người xét duyệt</span>

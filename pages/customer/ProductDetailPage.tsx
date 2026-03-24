@@ -438,9 +438,19 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                 <p className="text-lg text-slate-400 line-through">{product.originalPrice.toLocaleString()}đ</p>
               )}
             </div>
-            <div className="flex items-center gap-2">
-              <span style={{ color: '#FFD700' }}>★</span>
-              <span className="text-sm font-bold text-slate-600">{product.rating} ({reviewsToDisplay.length > 0 ? reviewsToDisplay.length : 0} đánh giá)</span>
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1.5">
+                <span style={{ color: '#FFD700' }}>★</span>
+                <span className="text-sm font-bold text-slate-600">
+                  {product.rating} ({reviewsToDisplay.length > 0 ? reviewsToDisplay.length : 0} đánh giá)
+                </span>
+              </div>
+              {product.totalSold !== undefined && product.totalSold > 0 && (
+                <div className="h-4 w-[1px] bg-slate-200"></div>
+              )}
+              {product.totalSold !== undefined && product.totalSold > 0 && (
+                <span className="text-sm font-bold text-slate-600 italic">Đã bán {product.totalSold}</span>
+              )}
             </div>
           </div>
 

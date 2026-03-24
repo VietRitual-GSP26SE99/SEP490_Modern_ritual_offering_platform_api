@@ -316,7 +316,7 @@ class PackageService {
       id: pkgId,
       name: pkgName,
       description: apiPackage.description || 'Mâm cúng truyền thống với đầy đủ lễ vật',
-      category: this.mapCategoryIdToOccasion(apiPackage.categoryId?.toString() || '1'),
+      category: (apiPackage as any).categoryName || (apiPackage as any).ceremonyCategory?.name || this.mapCategoryIdToOccasion(apiPackage.categoryId?.toString() || '1'),
       price: defaultVariant?.price || 2500000,
       image: ((apiPackage as any).imageUrls && (apiPackage as any).imageUrls.length > 0)
         ? ((apiPackage as any).imageUrls[(apiPackage as any).primaryImageIndex || 0] || (apiPackage as any).imageUrls[0])
@@ -326,6 +326,9 @@ class PackageService {
         : this.generateGalleryImages(pkgId),
       rating: apiPackage.ratingAvg || 0,
       reviews: apiPackage.reviewCount || 0,
+      totalSold: Number((apiPackage as any).totalSold || 0),
+      orders: 0,
+      status: apiPackage.isActive ? 'active' : 'inactive',
       tag: apiPackage.isActive ? 'NEW' : undefined,
       variants: parsedVariants,
       vendorId: vendorId,
