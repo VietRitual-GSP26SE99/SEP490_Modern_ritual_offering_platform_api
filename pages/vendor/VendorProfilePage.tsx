@@ -20,11 +20,6 @@ const ProductCard: React.FC<{
         alt={product.name} 
         className="absolute top-0 left-0 w-full h-full object-cover group-hover:scale-110 transition-all duration-700" 
       />
-      {product.tag && (
-        <div className="absolute top-4 left-4 bg-primary/90 backdrop-blur-sm text-white text-[10px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-lg">
-          {product.tag}
-        </div>
-      )}
     </div>
     <div className="p-6 flex-1 flex flex-col">
       <div className="flex items-center justify-between mb-2">

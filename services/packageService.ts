@@ -329,7 +329,7 @@ class PackageService {
       totalSold: Number((apiPackage as any).totalSold || 0),
       orders: 0,
       status: apiPackage.isActive ? 'active' : 'inactive',
-      tag: apiPackage.isActive ? 'NEW' : undefined,
+      tag: undefined,
       variants: parsedVariants,
       vendorId: vendorId,
       vendorName: vendor?.shopName || (vendorId ? `Shop ${vendorId.substring(0, 8)}` : 'Shop'),

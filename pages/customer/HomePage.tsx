@@ -170,11 +170,6 @@ const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
             >
                     <div className="relative h-72 overflow-hidden shrink-0">
                         <img alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" src={product.image} />
-                        {product.tag && (
-                            <div className="absolute top-4 left-4 bg-primary text-white text-[10px] font-black tracking-widest px-3 py-1.5 rounded-full uppercase">
-                                {product.tag}
-                            </div>
-                        )}
                     </div>
                     <div className="p-8 flex-1 flex flex-col">
                         <h3 className="text-xl font-black mb-2 group-hover:text-primary transition-colors leading-tight">{product.name}</h3>

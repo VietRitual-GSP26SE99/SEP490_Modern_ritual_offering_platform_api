@@ -400,13 +400,6 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
                     onClick={() => handleNavigateToProductDetail(p.id)}
                   >
                     <img className="absolute top-0 left-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" src={p.image} alt={p.name} />
-                    <div className="absolute top-4 left-4 flex flex-col gap-2">
-                      {p.tag && (
-                        <span className="bg-primary/90 backdrop-blur-sm text-white text-[10px] font-black px-3 py-1.5 rounded-full uppercase tracking-widest shadow-lg">
-                          {p.tag}
-                        </span>
-                      )}
-                    </div>
                   </div>
                   <div
                     className="p-6 cursor-pointer flex-1 flex flex-col"

@@ -416,9 +416,6 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
         <div className="lg:col-span-5 space-y-8">
           <div className="space-y-4">
             <div className="flex gap-2">
-              {product.tag && (
-                <span className="px-2.5 py-1 bg-primary text-white text-[10px] font-black uppercase tracking-widest rounded-md">{product.tag}</span>
-              )}
               <span className="px-2.5 py-1 bg-gold/10 text-gold text-[10px] font-black uppercase tracking-widest rounded-md">Truyền thống</span>
             </div>
             <h1 className="text-4xl font-display font-black leading-tight text-primary">{product.name}</h1>
