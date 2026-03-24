@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MOCK_PRODUCTS } from '../../constants';
-import { AppRoute, Occasion, Product } from '../../types';
+import { AppRoute, Occasion, Product, CeremonyCategory } from '../../types';
 import { useSearchParams } from 'react-router-dom';
 import { packageService } from '../../services/packageService';
 import { cartService } from '../../services/cartService';
@@ -25,6 +25,7 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
   });
   const [sortBy, setSortBy] = useState('popular');
   const [searchQuery, setSearchQuery] = useState('');
+  const [categories, setCategories] = useState<CeremonyCategory[]>([]);
 
   const getProductDetailPath = (rawId: string): string => {
     const numericId = Number(String(rawId).trim());
@@ -39,29 +40,49 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
   };
 
   useEffect(() => {
-    const fetchProducts = async () => {
+    const fetchData = async () => {
       setLoading(true);
       try {
-        console.log(' Starting to fetch products...');
+        console.log(' Starting to fetch data...');
+        
+        // Fetch categories first
+        const apiCategories = await packageService.getCeremonyCategories();
+        console.log(' Received categories:', apiCategories);
+        setCategories(apiCategories);
+
         const apiPackages = await packageService.getAllPackages();
         console.log(' Received packages:', apiPackages);
 
         if (apiPackages.length > 0) {
           const mappedProducts = await packageService.mapToProductsWithVendors(apiPackages);
-          console.log(' Mapped products with vendors:', mappedProducts);
-          setProducts(mappedProducts);
+          
+          // Update product categories based on dynamic names if possible
+          // This ensures filtering works with the names from API
+          const enhancedProducts = mappedProducts.map(p => {
+            const apiPkg = apiPackages.find(pkg => String(pkg.packageId) === String(p.id) || String((pkg as any).id) === String(p.id));
+            if (apiPkg && apiPkg.categoryId) {
+              const categoryObj = apiCategories.find(c => c.categoryId === apiPkg.categoryId);
+              if (categoryObj) {
+                return { ...p, category: categoryObj.name };
+              }
+            }
+            return p;
+          });
+
+          console.log(' Mapped products with dynamic categories:', enhancedProducts);
+          setProducts(enhancedProducts);
         } else {
-          setProducts([]); // If no packages, set to empty array
+          setProducts([]);
         }
       } catch (error) {
-        console.error('Error fetching products:', error);
-        setProducts([]); // On error, set to empty array
+        console.error('Error fetching data:', error);
+        setProducts([]);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchProducts();
+    fetchData();
   }, []);
 
   useEffect(() => {
@@ -178,27 +199,31 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
             <h3 className="text-lg font-bold text-primary mb-6">
               Bộ lọc
             </h3>
-            <div className="space-y-2">
-              {[
-                { value: 'All', label: 'Tất cả dịp lễ' },
-                { value: 'Full Moon', label: 'Cúng Rằm' },
-                { value: 'Grand Opening', label: 'Khai Trương' },
-                { value: 'House Warming', label: 'Tân Gia' },
-                { value: 'Ancestral', label: 'Cúng Giỗ' },
-                { value: 'Year End', label: 'Cúng Tết' }
-              ].map((cat) => (
+              <div className="space-y-2">
                 <button
-                  key={cat.value}
-                  onClick={() => {
-                    setActiveFilter(cat.value as any);
-                  }}
-                  className={`w-full text-left px-4 py-3 rounded-xl text-sm font-semibold transition-all ${activeFilter === cat.value ? 'border-2 border-primary bg-primary/5 text-primary' : 'text-slate-600 hover:bg-gold/10'
+                  onClick={() => setActiveFilter('All')}
+                  className={`w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold transition-all duration-300 ease-out hover:scale-[1.02] active:scale-[0.98] ${activeFilter === 'All' 
+                    ? 'border-2 border-primary bg-primary/5 text-primary shadow-md' 
+                    : 'text-slate-600 hover:bg-gold/10 hover:pl-7'
                     }`}
                 >
-                  {cat.label}
+                  Tất cả dịp lễ
                 </button>
-              ))}
-            </div>
+                {categories.filter(c => c.isActive).map((cat) => (
+                  <button
+                    key={cat.categoryId}
+                    onClick={() => {
+                      setActiveFilter(cat.name);
+                    }}
+                    className={`w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold transition-all duration-300 ease-out hover:scale-[1.02] active:scale-[0.98] ${activeFilter === cat.name 
+                      ? 'border-2 border-primary bg-primary/5 text-primary shadow-md' 
+                      : 'text-slate-600 hover:bg-gold/10 hover:pl-7'
+                      }`}
+                  >
+                    {cat.name}
+                  </button>
+                ))}
+              </div>
           </div>
 
           <div className="pt-8 border-t border-gold/10">

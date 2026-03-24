@@ -3,6 +3,7 @@ import Swal from 'sweetalert2';
 import toast from '../../services/toast';
 import { packageService } from '../../services/packageService';
 import { getCurrentUser } from '../../services/auth';
+import { CeremonyCategory } from '../../types';
 
 interface ProductManagementProps {
   onNavigate: (path: string) => void;
@@ -11,6 +12,7 @@ interface ProductManagementProps {
 interface Product {
   id: string;
   name: string;
+  categoryId: number;
   category: string;
   price: number;
   stock: number;
@@ -64,6 +66,20 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
     variants: [{ variantName: '', description: '', price: 0 }],
   });
 
+  const [categories, setCategories] = useState<CeremonyCategory[]>([]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const data = await packageService.getCeremonyCategories();
+        setCategories(data.filter(c => c.isActive));
+      } catch (error) {
+        console.error('Failed to fetch categories:', error);
+      }
+    };
+    fetchCategories();
+  }, []);
+
   const fallbackProductImage = `data:image/svg+xml;utf8,${encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="88" height="88" viewBox="0 0 88 88">
       <rect width="88" height="88" rx="14" fill="#F1F5F9"/>
@@ -87,7 +103,11 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
     5: 'Khác',
   };
 
-  const mapCategory = (categoryId: number): string => categoryLabelMap[categoryId] || 'Khác';
+  const mapCategory = (categoryId: number): string => {
+    const found = categories.find(c => c.categoryId === categoryId);
+    if (found) return found.name;
+    return categoryLabelMap[categoryId] || 'Khác';
+  };
 
   const getCategoryId = (label: string) => {
     const entry = Object.entries(categoryLabelMap).find(([k, v]) => v === label);
@@ -214,6 +234,7 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
         return {
           id: String((item as any).packageId ?? (item as any).id ?? ''),
           name: String((item as any).packageName || (item as any).name || 'Sản phẩm'),
+          categoryId: Number((item as any).categoryId || 0),
           category: mapCategory(Number((item as any).categoryId || 0)),
           price: Number.isFinite(price) ? price : 0,
           stock: activeVariants.length,
@@ -242,11 +263,11 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
   }, [selectedStatus]);
 
   const totalPages = Math.max(1, Math.ceil(products.length / PRODUCTS_PER_PAGE));
-  const categoryOptions = Array.from(new Set(products.map((product) => product.category))).sort((a, b) => a.localeCompare(b));
+  const categoryOptions = Array.from(new Set(products.map((product) => mapCategory(product.categoryId)))).sort((a, b) => a.localeCompare(b));
 
   const filteredProducts = selectedCategory === 'all'
     ? products
-    : products.filter((product) => product.category === selectedCategory);
+    : products.filter((product) => mapCategory(product.categoryId) === selectedCategory);
 
   const filteredTotalPages = Math.max(1, Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE));
   const safeCurrentPage = Math.min(currentPage, filteredTotalPages);
@@ -356,11 +377,19 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
                     onChange={e => setCreateForm({ ...createForm, categoryId: Number(e.target.value) })}
                     className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl text-sm text-sky-700 font-bold bg-sky-50 focus:border-primary focus:outline-none transition"
                   >
-                    <option value={1}>Đầy Tháng</option>
-                    <option value={2}>Tân Gia</option>
-                    <option value={3}>Khai Trương</option>
-                    <option value={4}>Tổ Tiên</option>
-                    <option value={5}>Khác</option>
+                    {categories.length > 0 ? (
+                      categories.map(cat => (
+                        <option key={cat.categoryId} value={cat.categoryId}>{cat.name}</option>
+                      ))
+                    ) : (
+                      <>
+                        <option value={1}>Đầy Tháng</option>
+                        <option value={2}>Tân Gia</option>
+                        <option value={3}>Khai Trương</option>
+                        <option value={4}>Tổ Tiên</option>
+                        <option value={5}>Khác</option>
+                      </>
+                    )}
                   </select>
                 </div>
 
@@ -648,7 +677,7 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
                         </td>
                         <td className="px-6 py-4">
                           <span className="inline-flex px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-semibold whitespace-nowrap">
-                            {product.category}
+                            {mapCategory(product.categoryId)}
                           </span>
                         </td>
                         <td className="px-6 py-4 font-bold text-primary">
@@ -857,11 +886,19 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
                             onChange={e => setEditForm({ ...editForm, categoryId: Number(e.target.value) })}
                             className="w-full px-4 py-2 border-2 border-primary/30 rounded-xl text-sm font-bold text-sky-700 bg-sky-50 focus:border-primary focus:outline-none transition"
                           >
-                            <option value={1}>Đầy Tháng</option>
-                            <option value={2}>Tân Gia</option>
-                            <option value={3}>Khai Trương</option>
-                            <option value={4}>Tổ Tiên</option>
-                            <option value={5}>Khác</option>
+                            {categories.length > 0 ? (
+                              categories.map(cat => (
+                                <option key={cat.categoryId} value={cat.categoryId}>{cat.name}</option>
+                              ))
+                            ) : (
+                              <>
+                                <option value={1}>Đầy Tháng</option>
+                                <option value={2}>Tân Gia</option>
+                                <option value={3}>Khai Trương</option>
+                                <option value={4}>Tổ Tiên</option>
+                                <option value={5}>Khác</option>
+                              </>
+                            )}
                           </select>
                         </div>
                         <div>

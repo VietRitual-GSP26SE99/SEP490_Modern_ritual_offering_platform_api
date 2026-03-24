@@ -1,5 +1,12 @@
 
-export type Occasion = 'Full Moon' | 'House Warming' | 'Grand Opening' | 'Ancestral' | 'Year End';
+export interface CeremonyCategory {
+  categoryId: number;
+  name: string;
+  description?: string;
+  isActive: boolean;
+}
+
+export type Occasion = 'Full Moon' | 'House Warming' | 'Grand Opening' | 'Ancestral' | 'Year End' | string;
 
 export type UserRole = 'customer' | 'vendor' | 'admin' | 'staff' | 'guest';
 

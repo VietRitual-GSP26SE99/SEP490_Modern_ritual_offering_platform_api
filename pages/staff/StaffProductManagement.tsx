@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import toast from '../../services/toast';
 import { packageService } from '../../services/packageService';
+import { CeremonyCategory } from '../../types';
 
 interface StaffProductManagementProps {
   onNavigate: (path: string) => void;
@@ -10,6 +11,7 @@ interface StaffProductManagementProps {
 interface StaffProduct {
   id: string;
   name: string;
+  categoryId: number;
   category: string;
   price: number;
   stock: number;
@@ -35,6 +37,19 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
   const [viewProductDetails, setViewProductDetails] = useState<any | null>(null);
   const [viewDisplayImageIndex, setViewDisplayImageIndex] = useState<number>(0);
   const [rawPackages, setRawPackages] = useState<any[]>([]);
+  const [categories, setCategories] = useState<CeremonyCategory[]>([]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const data = await packageService.getCeremonyCategories();
+        setCategories(data.filter(c => c.isActive));
+      } catch (error) {
+        console.error('Failed to fetch categories:', error);
+      }
+    };
+    fetchCategories();
+  }, []);
 
   const fallbackProductImage = `data:image/svg+xml;utf8,${encodeURIComponent(
     `<svg xmlns="http://www.w3.org/2000/svg" width="88" height="88" viewBox="0 0 88 88">
@@ -59,7 +74,11 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
     5: 'Khác',
   };
 
-  const mapCategory = (categoryId: number): string => categoryLabelMap[categoryId] || 'Khác';
+  const mapCategory = (categoryId: number): string => {
+    const found = categories.find(c => c.categoryId === categoryId);
+    if (found) return found.name;
+    return categoryLabelMap[categoryId] || 'Khác';
+  };
 
   const loadPackages = async () => {
     setLoadingProducts(true);
@@ -79,6 +98,7 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
         return {
           id: String((item as any).packageId ?? (item as any).id ?? ''),
           name: String((item as any).packageName || (item as any).name || 'Sản phẩm'),
+          categoryId: Number((item as any).categoryId || 0),
           category: mapCategory(Number((item as any).categoryId || 0)),
           price: Number.isFinite(price) ? price : 0,
           stock: activeVariants.length,
@@ -108,11 +128,11 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
   }, [selectedStatus]);
 
   const totalPages = Math.max(1, Math.ceil(products.length / PRODUCTS_PER_PAGE));
-  const categoryOptions = Array.from(new Set(products.map((product) => product.category))).sort((a, b) => a.localeCompare(b));
+  const categoryOptions = Array.from(new Set(products.map((product) => mapCategory(product.categoryId)))).sort((a, b) => a.localeCompare(b));
 
   const filteredProducts = selectedCategory === 'all'
     ? products
-    : products.filter((product) => product.category === selectedCategory);
+    : products.filter((product) => mapCategory(product.categoryId) === selectedCategory);
 
   const filteredTotalPages = Math.max(1, Math.ceil(filteredProducts.length / PRODUCTS_PER_PAGE));
   const safeCurrentPage = Math.min(currentPage, filteredTotalPages);
@@ -288,7 +308,7 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
                       </td>
                       <td className="p-4">
                         <span className="inline-flex px-2 py-1 bg-gray-100 text-gray-700 rounded-md text-xs font-medium">
-                          {product.category}
+                          {mapCategory(product.categoryId)}
                         </span>
                       </td>
                       <td className="p-4 text-right font-medium text-gray-900">

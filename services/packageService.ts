@@ -1,4 +1,4 @@
-import { ApiPackage, ApiResponse, Product, PackageVariant } from '../types';
+import { ApiPackage, ApiResponse, Product, PackageVariant, CeremonyCategory } from '../types';
 import { vendorService, VendorProfile } from './vendorService';
 import { getAuthToken } from './auth';
 
@@ -390,13 +390,13 @@ class PackageService {
    */
   private mapCategoryIdToOccasion(categoryId: string): any {
     const categoryMap: Record<string, string> = {
-      '1': 'Full Moon',
-      '2': 'House Warming',
-      '3': 'Grand Opening',
-      '4': 'Ancestral',
-      '5': 'Year End',
+      '1': 'Cúng Rằm',
+      '2': 'Tân Gia',
+      '3': 'Khai Trương',
+      '4': 'Cúng Giỗ',
+      '5': 'Cúng Tết',
     };
-    return categoryMap[categoryId] || 'Full Moon';
+    return categoryMap[categoryId] || 'Khác';
   }
 
   /**
@@ -532,6 +532,42 @@ class PackageService {
       
       xhr.send(formData);
     });
+  }
+
+  /**
+   * Lấy danh sách danh mục đang hoạt động
+   * @returns Promise<CeremonyCategory[]>
+   */
+  async getCeremonyCategories(): Promise<CeremonyCategory[]> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/ceremony-categories`, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json, text/plain, */*',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data: any = await response.json();
+      
+      // Handle ApiResponse format
+      if (data?.isSuccess && Array.isArray(data.result)) {
+        return data.result as CeremonyCategory[];
+      }
+      
+      // Handle raw array format
+      if (Array.isArray(data)) {
+        return data as CeremonyCategory[];
+      }
+
+      return [];
+    } catch (error) {
+      console.error('Failed to fetch ceremony categories:', error);
+      return [];
+    }
   }
 }
 
