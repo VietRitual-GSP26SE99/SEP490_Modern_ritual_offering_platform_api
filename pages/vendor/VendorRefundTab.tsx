@@ -60,6 +60,8 @@ const VendorRefundTab: React.FC<Props> = ({ onPendingCount }) => {
   const [refunds, setRefunds]             = useState<RefundRecord[]>([]);
   const [loading, setLoading]             = useState(true);
   const [filterTab, setFilterTab]         = useState('all');
+  const [currentPage, setCurrentPage]     = useState(1);
+  const ITEMS_PER_PAGE = 5;
   
   // Detail modal + action
   const [selected, setSelected]           = useState<RefundRecord | null>(null);
@@ -187,6 +189,9 @@ const VendorRefundTab: React.FC<Props> = ({ onPendingCount }) => {
     .filter(r => filterTab === 'all' || r.status === filterTab)
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
 
+  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+  const currentRefunds = filtered.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
  
 
   return (
@@ -195,7 +200,10 @@ const VendorRefundTab: React.FC<Props> = ({ onPendingCount }) => {
         {SUB_TABS.map(tab => (
           <button
             key={tab.id}
-            onClick={() => setFilterTab(tab.id)}
+            onClick={() => {
+              setFilterTab(tab.id);
+              setCurrentPage(1);
+            }}
             className={`whitespace-nowrap px-5 py-3 rounded-t-xl font-bold text-sm transition-all border-b-2 ${
               filterTab === tab.id
                 ? 'border-primary text-primary bg-primary/5'
@@ -224,7 +232,7 @@ const VendorRefundTab: React.FC<Props> = ({ onPendingCount }) => {
         </div>
       ) : (
         <div className="space-y-4">
-          {filtered.map(refund => {
+          {currentRefunds.map(refund => {
             const cfg = getStatusCfg(refund.status);
             const remaining = refund.status === 'Pending' ? getRemainingAutoAccept(refund.createdAt) : null;
             return (
@@ -360,6 +368,44 @@ const VendorRefundTab: React.FC<Props> = ({ onPendingCount }) => {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="mt-8 flex flex-col md:flex-row items-center justify-between gap-3 px-6 py-4 border border-slate-200 bg-white rounded-2xl shadow-sm">
+          <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+            Hiển thị <span className="text-slate-900">{Math.min(filtered.length, (currentPage - 1) * ITEMS_PER_PAGE + 1)}</span>
+            - <span className="text-slate-900">{Math.min(filtered.length, currentPage * ITEMS_PER_PAGE)}</span>
+            trên <span className="text-slate-900">{filtered.length}</span> kết quả
+          </p>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+              disabled={currentPage === 1}
+              className="px-4 py-2 bg-white rounded-xl flex items-center justify-center text-slate-500 hover:bg-black hover:text-white transition-all shadow-sm disabled:opacity-30 disabled:hover:bg-white disabled:hover:text-slate-500 border border-slate-200 text-[10px] font-bold uppercase tracking-widest"
+            >
+              Trước
+            </button>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                <button
+                  key={pageNum}
+                  onClick={() => setCurrentPage(pageNum)}
+                  className={`w-10 h-10 rounded-xl font-bold text-[10px] transition-all ${currentPage === pageNum ? 'bg-black text-white shadow-lg' : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-200'}`}
+                >
+                  {pageNum}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+              disabled={currentPage === totalPages}
+              className="px-4 py-2 bg-white rounded-xl flex items-center justify-center text-slate-500 hover:bg-black hover:text-white transition-all shadow-sm disabled:opacity-30 disabled:hover:bg-white disabled:hover:text-slate-500 border border-slate-200 text-[10px] font-bold uppercase tracking-widest"
+            >
+              Sau
+            </button>
+          </div>
         </div>
       )}
 

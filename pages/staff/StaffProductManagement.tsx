@@ -26,7 +26,7 @@ interface StaffProduct {
 type PackageStatusFilter = '' | 'Draft' | 'Pending' | 'Approved' | 'Rejected';
 
 const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavigate }) => {
-  const PRODUCTS_PER_PAGE = 10;
+  const PRODUCTS_PER_PAGE = 5;
 
   const [products, setProducts] = useState<StaffProduct[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
@@ -355,22 +355,38 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
 
           {/* Pagination */}
           {!loadingProducts && !productsError && filteredTotalPages > 1 && (
-            <div className="p-4 border-t border-gray-200 flex items-center justify-between">
-              <span className="text-sm text-gray-600">
-                Hiển thị trang {safeCurrentPage} / {filteredTotalPages} ({filteredProducts.length} sản phẩm)
-              </span>
-              <div className="flex gap-2">
+            <div className="flex flex-col md:flex-row items-center justify-between gap-3 border-t border-gray-200 px-4 md:px-6 py-4 bg-white">
+              <p className="text-sm text-gray-600">
+                Hiển thị trang <span className="font-semibold">{safeCurrentPage}</span> / <span className="font-semibold">{filteredTotalPages}</span>
+                <span className="hidden sm:inline"> ({filteredProducts.length} sản phẩm)</span>
+              </p>
+
+              <div className="flex items-center gap-2">
                 <button
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
                   disabled={safeCurrentPage === 1}
-                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  className="px-4 py-2 bg-white border border-gray-300 rounded-xl flex items-center justify-center text-gray-500 hover:bg-black hover:text-white transition-all shadow-sm disabled:opacity-50 text-[10px] font-bold uppercase tracking-widest"
                 >
                   Trước
                 </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: filteredTotalPages }, (_, index) => index + 1).map((page) => (
+                    <button
+                      key={page}
+                      onClick={() => setCurrentPage(page)}
+                      className={`w-10 h-10 rounded-xl font-bold text-[10px] transition-all ${safeCurrentPage === page
+                        ? 'bg-black text-white shadow-lg'
+                        : 'border border-gray-300 text-gray-700 hover:bg-gray-50'
+                        }`}
+                    >
+                      {page}
+                    </button>
+                  ))}
+                </div>
                 <button
-                  onClick={() => setCurrentPage(prev => Math.min(filteredTotalPages, prev + 1))}
+                  onClick={() => setCurrentPage((prev) => Math.min(filteredTotalPages, prev + 1))}
                   disabled={safeCurrentPage === filteredTotalPages}
-                  className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm font-medium hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+                  className="px-4 py-2 bg-white border border-gray-300 rounded-xl flex items-center justify-center text-gray-500 hover:bg-black hover:text-white transition-all shadow-sm disabled:opacity-50 text-[10px] font-bold uppercase tracking-widest"
                 >
                   Sau
                 </button>
@@ -394,12 +410,9 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
             <div className="bg-white px-6 md:px-8 py-5 flex flex-wrap items-center gap-4 border-b border-gray-100">
               <button
                 onClick={() => setViewProductDetails(null)}
-                className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-200 hover:bg-gray-50 transition flex-shrink-0"
-                title="Đóng"
+                className="px-5 py-2.5 bg-white rounded-xl flex items-center justify-center shadow-sm border border-gray-200 hover:bg-gray-50 transition flex-shrink-0 font-bold text-xs uppercase tracking-widest text-gray-600"
               >
-                <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-                </svg>
+                Đóng
               </button>
               <div className="flex gap-2 items-center flex-1">
                 <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest flex-shrink-0 ${viewProductDetails.approvalStatus === 'Approved' ? 'bg-green-100 text-green-700 border border-green-200' :

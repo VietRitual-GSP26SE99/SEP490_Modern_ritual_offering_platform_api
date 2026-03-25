@@ -20,17 +20,8 @@ const StaffShell: React.FC<StaffShellProps> = ({
   return (
     <div className="min-h-screen bg-[radial-gradient(circle_at_top,_#f6f3ee,_#f4f2ec_45%,_#efede6_100%)] text-slate-900">
       <header className="sticky top-0 z-40 border-b border-slate-200/70 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex w-full max-w-7xl items-center justify-between px-5 py-4 md:px-8">
+        <div className="mx-auto flex w-full max-w-full items-center justify-between px-5 py-4 md:px-8">
           <div className="flex items-center gap-4">
-            {onBack && (
-              <button
-                onClick={onBack}
-                className="h-10 w-10 rounded-full border border-slate-200 bg-white text-slate-700 transition hover:border-slate-300 hover:text-slate-900"
-                aria-label={backLabel}
-              >
-                <span className="text-lg">←</span>
-              </button>
-            )}
             <div className="flex items-center gap-3">
               <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-slate-900 text-white shadow-sm">
                 <span className="text-lg font-bold font-display">M</span>
@@ -58,7 +49,7 @@ const StaffShell: React.FC<StaffShellProps> = ({
         </div>
       </header>
 
-      <main className="mx-auto w-full max-w-7xl px-5 py-8 md:px-8">
+      <main className="mx-auto w-full max-w-full px-5 py-8 md:px-8 lg:px-12 xl:px-16">
         {children}
       </main>
     </div>

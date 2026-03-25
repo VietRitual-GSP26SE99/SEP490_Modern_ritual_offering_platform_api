@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  getMyTransactions, 
-  getMyWallet, 
-  getTransactionById, 
+import {
+  getMyTransactions,
+  getMyWallet,
+  getTransactionById,
   getRelatedTransactions,
   createTopupLink,
-  WalletInfo, 
+  WalletInfo,
   WalletTransaction,
-  TransactionFilter 
+  TransactionFilter
 } from '../../services/walletService';
 import toast from '../../services/toast';
 
@@ -87,7 +87,7 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
   const handleTopup = async () => {
     const amountStr = window.prompt('Nhập số tiền muốn nạp (₫):', '100000');
     if (!amountStr) return;
-    
+
     const amount = Number(amountStr);
     if (isNaN(amount) || amount < 5000) {
       toast.error('Số tiền nạp tối thiểu là 5.000 ₫');
@@ -130,11 +130,11 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
   return (
     <div className="bg-slate-50 min-h-screen py-12 px-4 md:px-8 font-sans">
       <div className="max-w-7xl mx-auto">
-        
+
         {/* Header Section */}
         <div className="mb-12 flex flex-col md:flex-row md:items-center justify-between gap-8">
           <div className="flex items-start gap-5">
-            <button
+            {/* <button
               onClick={() => onNavigate('/vendor/dashboard')}
               className="w-14 h-14 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-slate-700 flex-shrink-0 hover:bg-slate-50 hover:text-black transition-all group"
               title="Quay lại Bảng điều khiền"
@@ -142,7 +142,7 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
-            </button>
+            </button> */}
             <div>
               <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-2">Giao Dịch</h1>
               <p className="text-slate-500 font-bold text-sm">Quản lý dòng tiền, doanh thu và lịch sử thanh toán.</p>
@@ -202,20 +202,20 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
           <div className="p-8 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <h3 className="text-xl font-black text-slate-900">Lịch sử giao dịch</h3>
             <div className="flex flex-wrap gap-3">
-              <select 
+              <select
                 className="bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm font-bold text-slate-600 focus:ring-2 focus:ring-black transition-all"
                 value={filter.type || ''}
-                onChange={(e) => setFilter({...filter, type: e.target.value})}
+                onChange={(e) => setFilter({ ...filter, type: e.target.value })}
               >
                 <option value="">Tất cả loại</option>
                 {Object.entries(TRANSACTION_TYPE_LABELS).map(([val, label]) => (
                   <option key={val} value={val}>{label}</option>
                 ))}
               </select>
-              <select 
+              <select
                 className="bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm font-bold text-slate-600 focus:ring-2 focus:ring-black transition-all"
                 value={filter.status || ''}
-                onChange={(e) => setFilter({...filter, status: e.target.value})}
+                onChange={(e) => setFilter({ ...filter, status: e.target.value })}
               >
                 <option value="">Tất cả trạng thái</option>
                 {Object.entries(TRANSACTION_STATUS_LABELS).map(([val, label]) => (
@@ -271,9 +271,8 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
                         </p>
                       </td>
                       <td className="px-8 py-6">
-                        <p className={`text-base font-black tabular-nums ${
-                          tx.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'
-                        }`}>
+                        <p className={`text-base font-black tabular-nums ${tx.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                          }`}>
                           {tx.amount >= 0 ? '+' : ''}{formatVnd(tx.amount)}
                         </p>
                       </td>
@@ -283,7 +282,7 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
                         </span>
                       </td>
                       <td className="px-8 py-6">
-                        <button 
+                        <button
                           onClick={() => handleShowDetail(tx)}
                           className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 hover:bg-black hover:text-white transition-all shadow-sm"
                         >

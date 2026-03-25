@@ -351,13 +351,34 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
     } else if (isStaff) {
       return [
         { path: '/staff/dashboard', label: 'Bảng điều khiển' },
-        { path: '/staff-customers', label: 'Khách hàng' },
-        { path: '/staff-vendors', label: 'Xác minh Vendor' },
-        { path: '/staff-product', label: 'Sản phẩm' },
-        { path: '/staff-transactions', label: 'Giao dịch' },
-        { path: '/staff-refunds', label: 'Hoàn tiền' },
-        { path: '/staff-audit-logs', label: 'Nhật ký' },
-        { path: '/staff-settings', label: 'Hệ thống' },
+      ];
+    }
+    return [];
+  };
+
+  const getSidebarItems = (): { id: string; label: string; icon: string; path: string }[] => {
+    if (isStaff) {
+      return [
+        { id: 'overview', label: 'Tổng quan', icon: 'dashboard', path: '/staff/dashboard' },
+        { id: 'customers', label: 'Khách hàng', icon: 'group', path: '/staff-customers' },
+        { id: 'vendors', label: 'Duyệt Vendor', icon: 'verified_user', path: '/staff-vendors' },
+        { id: 'products', label: 'Quản lý Sản phẩm', icon: 'inventory_2', path: '/staff-product' },
+        { id: 'transactions', label: 'Giao dịch', icon: 'account_balance_wallet', path: '/staff-transactions' },
+        { id: 'refunds', label: 'Hoàn tiền', icon: 'assignment_return', path: '/staff-refunds' },
+        { id: 'audit', label: 'Nhật ký hệ thống', icon: 'history_edu', path: '/staff-audit-logs' },
+        { id: 'settings', label: 'Cài đặt hệ thống', icon: 'settings_suggest', path: '/staff-settings' },
+      ];
+    }
+    if (isVendor) {
+      return [
+        { id: 'overview', label: 'Bảng điều khiển', icon: 'dashboard', path: '/vendor/dashboard' },
+        { id: 'orders', label: 'Đơn hàng', icon: 'shopping_cart', path: '/vendor/orders' },
+        { id: 'products', label: 'Sản phẩm', icon: 'inventory_2', path: '/vendor/products' },
+        { id: 'shop', label: 'Cửa hàng', icon: 'store', path: '/vendor/shop' },
+        { id: 'analytics', label: 'Phân tích', icon: 'analytics', path: '/vendor/analytics' },
+        { id: 'shipping', label: 'Vận chuyển', icon: 'local_shipping', path: '/vendor/shipping' },
+        { id: 'transactions', label: 'Giao dịch', icon: 'receipt_long', path: '/vendor/transactions' },
+        { id: 'settings', label: 'Cài đặt', icon: 'settings', path: '/vendor/settings' },
       ];
     }
     return [];
@@ -929,7 +950,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
     <div className="min-h-screen flex flex-col font-sans">
       {!hideHeader && isCustomer && activeRoute === '/' && hasVendorRole && (
         <div className="bg-gradient-to-r from-amber-50 via-white to-amber-50 border-b border-amber-100">
-          <div className="max-w-7xl mx-auto px-6 md:px-10 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div className={`${(isStaff || isVendor) ? 'max-w-full' : 'max-w-7xl'} mx-auto px-6 md:px-10 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2`}>
             <div className="flex items-center gap-2 text-amber-800">
               <span className="text-sm font-semibold tracking-wide">Tài khoản của bạn có quyền Người Bán</span>
             </div>
@@ -949,11 +970,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
           <div className="max-w-[92rem] mx-auto px-6 md:px-10 py-4 flex items-center justify-between">
             <div className="flex items-center gap-12">
               <div
-                className={isAdmin || isStaff ? "cursor-default" : "cursor-pointer"}
+                className="cursor-pointer"
                 onClick={() => {
-                  if (!isAdmin && !isStaff) {
-                    onNavigate('/');
-                  }
+                  if (isAdmin) onNavigate('/admin/dashboard');
+                  else if (isStaff) onNavigate('/staff/dashboard');
+                  else if (isVendor) onNavigate('/vendor/dashboard');
+                  else onNavigate('/');
                 }}
               >
                 <div className="w-[240px] h-[72px] md:w-[288px] md:h-[84px] lg:w-[312px] lg:h-[96px] -ml-16">
@@ -1460,14 +1482,14 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                   </button>
                 </>
               )}
-              {isVendor && (
+              {/* {isVendor && (
                 <button
                   onClick={() => onNavigate('/vendor/dashboard')}
                   className="border-2 border-primary text-primary hover:bg-primary/5 rounded-lg px-6 py-2 text-sm font-bold transition-all"
                 >
                   Bảng điều khiển
                 </button>
-              )}
+              )} */}
               {isAdmin && (
                 <button
                   onClick={() => onNavigate('/admin/dashboard')}
@@ -1490,8 +1512,55 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
         </header>
       )}
 
-      <main className={hideHeader ? "flex-grow" : "flex-grow"}>
-        {children}
+      <main className="flex-grow">
+        {(isStaff || isVendor) ? (
+          <div className="bg-ritual-bg/20 py-12">
+            <div className="w-full mx-auto px-6 md:px-10 lg:px-12 xl:px-16">
+              <div className="flex flex-col lg:flex-row gap-10 items-start">
+                <aside className="w-full lg:w-80 flex-shrink-0 lg:sticky lg:top-[120px] z-30">
+                  <div className="bg-white rounded-[2.5rem] p-4 border border-gold/10 shadow-xl backdrop-blur-sm bg-white/90">
+                    <div className="px-6 py-8 mb-4 border-b border-gold/5 text-center lg:text-left">
+                      <h1 className="text-2xl font-display font-black text-primary tracking-tight">
+                        {isStaff ? 'Nhân Viên' : 'Nhà Cung Cấp'}
+                      </h1>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">
+                        {isStaff ? 'Hệ thống nhân viên' : 'Kênh người bán'}
+                      </p>
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      {getSidebarItems().map((item) => (
+                        <button
+                          key={item.id}
+                          onClick={() => onNavigate(item.path)}
+                          className={`flex items-center w-full px-6 py-4 rounded-3xl font-bold text-sm uppercase transition-all tracking-wider ${activeRoute === item.path || (item.path === '/staff/dashboard' && activeRoute === '/staff-dashboard')
+                            ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-[1.02]'
+                            : 'text-slate-500 hover:bg-ritual-bg hover:text-primary'
+                            }`}
+                        >
+                          {item.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="mt-8 p-6 bg-ritual-bg/50 rounded-[2rem] border border-gold/5">
+                      <p className="text-[10px] font-black text-gold uppercase tracking-[0.2em] mb-2">Trạng thái làm việc</p>
+                      <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                        {isStaff
+                          ? 'Đảm bảo quy trình phê duyệt đúng quy định của nền tảng.'
+                          : 'Cung cấp sản phẩm và dịch vụ mâm cúng tinh tế nhất.'}
+                      </p>
+                    </div>
+                  </div>
+                </aside>
+                <div className="flex-1 w-full overflow-hidden">
+                  {children}
+                </div>
+              </div>
+            </div>
+          </div>
+        ) : (
+          children
+        )}
       </main>
 
       {/* Footer - Hidden during first-time setup */}

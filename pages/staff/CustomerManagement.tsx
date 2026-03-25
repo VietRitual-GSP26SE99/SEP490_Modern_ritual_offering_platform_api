@@ -22,6 +22,8 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ onNavigate, onL
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [filterStatus, setFilterStatus] = useState<'all' | Customer['status']>('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 5;
 
   const [customers, setCustomers] = useState<Customer[]>([
     {
@@ -150,6 +152,9 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ onNavigate, onL
     return matchesStatus && matchesSearch;
   });
 
+  const totalPages = Math.ceil(filteredCustomers.length / ITEMS_PER_PAGE);
+  const currentCustomers = filteredCustomers.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
   const handleBlockCustomer = (customerId: string) => {
     if (confirm('Bạn có chắc muốn chặn khách hàng này?')) {
       setCustomers(customers.map(c =>
@@ -204,7 +209,10 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ onNavigate, onL
               ] as const).map(tab => (
                 <button
                   key={tab.id}
-                  onClick={() => setFilterStatus(tab.id)}
+                  onClick={() => {
+                    setFilterStatus(tab.id);
+                    setCurrentPage(1);
+                  }}
                   className={`px-4 py-2 rounded-full text-sm font-semibold transition ${filterStatus === tab.id
                       ? 'bg-slate-900 text-white'
                       : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
@@ -219,7 +227,10 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ onNavigate, onL
               <input
                 type="text"
                 value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
                 placeholder="Tìm theo tên, email, SĐT, ID..."
                 className="w-full px-4 py-2 rounded-full border border-slate-200 focus:border-slate-400 focus:outline-none"
               />
@@ -242,7 +253,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ onNavigate, onL
                 </tr>
               </thead>
               <tbody>
-                {filteredCustomers.map((customer) => {
+                {currentCustomers.map((customer) => {
                   const statusBadge = getStatusBadge(customer.status);
                   const levelBadge = getLevelBadge(customer.level);
 
@@ -263,7 +274,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ onNavigate, onL
                         </div>
                       </td>
                       <td className="py-4 px-4">
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${levelBadge.style}`}>
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold border whitespace-nowrap ${levelBadge.style}`}>
                           {levelBadge.label}
                         </span>
                       </td>
@@ -276,7 +287,7 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ onNavigate, onL
                         </span>
                       </td>
                       <td className="py-4 px-4">
-                        <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${statusBadge.style}`}>
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold border whitespace-nowrap ${statusBadge.style}`}>
                           {statusBadge.label}
                         </span>
                       </td>
@@ -312,111 +323,148 @@ const CustomerManagement: React.FC<CustomerManagementProps> = ({ onNavigate, onL
             </table>
           </div>
 
-          {filteredCustomers.length === 0 && (
-            <div className="py-12 text-center">
-              <div className="text-5xl mb-3">👥</div>
-              <h3 className="text-lg font-bold text-gray-900 mb-2">Không tìm thấy khách hàng</h3>
-              <p className="text-gray-600">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex flex-col md:flex-row items-center justify-between gap-3 px-6 py-4 border-t border-slate-100 bg-slate-50/30">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                Hiển thị <span className="text-slate-900">{Math.min(filteredCustomers.length, (currentPage - 1) * ITEMS_PER_PAGE + 1)}</span>
+                - <span className="text-slate-900">{Math.min(filteredCustomers.length, currentPage * ITEMS_PER_PAGE)}</span>
+                trên <span className="text-slate-900">{filteredCustomers.length}</span> kết quả
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 bg-white border border-slate-200 rounded-xl flex items-center justify-center text-slate-500 hover:bg-black hover:text-white transition-all shadow-sm disabled:opacity-50 text-[10px] font-bold uppercase tracking-widest"
+                >
+                  Trước
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`w-10 h-10 rounded-xl font-bold text-[10px] transition-all ${currentPage === pageNum ? 'bg-black text-white shadow-lg' : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-200'}`}
+                    >
+                      {pageNum}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="px-4 py-2 bg-white border border-slate-200 rounded-xl flex items-center justify-center text-slate-500 hover:bg-black hover:text-white transition-all shadow-sm disabled:opacity-50 text-[10px] font-bold uppercase tracking-widest"
+                >
+                  Sau
+                </button>
+              </div>
             </div>
           )}
         </div>
-      </div>
 
-      {selectedCustomer && (
-        <div
-          className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto"
-          onClick={() => setSelectedCustomer(null)}
-        >
+        {filteredCustomers.length === 0 && (
+          <div className="py-12 text-center">
+            <div className="text-5xl mb-3">👥</div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Không tìm thấy khách hàng</h3>
+            <p className="text-gray-600">Thử thay đổi bộ lọc hoặc từ khóa tìm kiếm</p>
+          </div>
+        )}
+        {selectedCustomer && (
           <div
-            className="bg-white rounded-2xl p-8 max-w-3xl w-full border border-slate-200 my-8"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50 overflow-y-auto"
+            onClick={() => setSelectedCustomer(null)}
           >
-            <div className="flex justify-between items-start mb-6">
-              <div>
-                <h2 className="text-2xl font-bold text-gray-900 mb-2">{selectedCustomer.name}</h2>
-                <p className="text-gray-600">{selectedCustomer.id}</p>
-              </div>
-              <button
-                onClick={() => setSelectedCustomer(null)}
-                className="text-gray-500 hover:text-gray-900 text-2xl"
-              >
-                ×
-              </button>
-            </div>
-
-            <div className="space-y-4 mb-6">
-              <div className="flex gap-2">
-                {(() => {
-                  const statusBadge = getStatusBadge(selectedCustomer.status);
-                  const levelBadge = getLevelBadge(selectedCustomer.level);
-                  return (
-                    <>
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${statusBadge.style}`}>
-                        {statusBadge.label}
-                      </span>
-                      <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${levelBadge.style}`}>
-                        {levelBadge.label}
-                      </span>
-                    </>
-                  );
-                })()}
+            <div
+              className="bg-white rounded-2xl p-8 max-w-3xl w-full border border-slate-200 my-8"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <h2 className="text-2xl font-bold text-gray-900 mb-2">{selectedCustomer.name}</h2>
+                  <p className="text-gray-600">{selectedCustomer.id}</p>
+                </div>
+                <button
+                  onClick={() => setSelectedCustomer(null)}
+                  className="text-gray-500 hover:text-gray-900 text-2xl"
+                >
+                  ×
+                </button>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                  <p className="text-sm text-gray-600 mb-1">Email</p>
-                  <p className="font-semibold text-gray-900">{selectedCustomer.email}</p>
+              <div className="space-y-4 mb-6">
+                <div className="flex gap-2">
+                  {(() => {
+                    const statusBadge = getStatusBadge(selectedCustomer.status);
+                    const levelBadge = getLevelBadge(selectedCustomer.level);
+                    return (
+                      <>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border whitespace-nowrap ${statusBadge.style}`}>
+                          {statusBadge.label}
+                        </span>
+                        <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border whitespace-nowrap ${levelBadge.style}`}>
+                          {levelBadge.label}
+                        </span>
+                      </>
+                    );
+                  })()}
                 </div>
 
-                <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                  <p className="text-sm text-gray-600 mb-1">Số điện thoại</p>
-                  <p className="font-semibold text-gray-900">{selectedCustomer.phone}</p>
-                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <p className="text-sm text-gray-600 mb-1">Email</p>
+                    <p className="font-semibold text-gray-900">{selectedCustomer.email}</p>
+                  </div>
 
-                <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                  <p className="text-sm text-gray-600 mb-1">Ngày tham gia</p>
-                  <p className="font-semibold text-gray-900">
-                    {new Date(selectedCustomer.joinDate).toLocaleDateString('vi-VN')}
-                  </p>
-                </div>
+                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <p className="text-sm text-gray-600 mb-1">Số điện thoại</p>
+                    <p className="font-semibold text-gray-900">{selectedCustomer.phone}</p>
+                  </div>
 
-                <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                  <p className="text-sm text-gray-600 mb-1">Đơn hàng cuối</p>
-                  <p className="font-semibold text-gray-900">
-                    {selectedCustomer.lastOrder
-                      ? new Date(selectedCustomer.lastOrder).toLocaleDateString('vi-VN')
-                      : 'Chưa có'}
-                  </p>
-                </div>
+                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <p className="text-sm text-gray-600 mb-1">Ngày tham gia</p>
+                    <p className="font-semibold text-gray-900">
+                      {new Date(selectedCustomer.joinDate).toLocaleDateString('vi-VN')}
+                    </p>
+                  </div>
 
-                <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                  <p className="text-sm text-gray-600 mb-1">Tổng đơn hàng</p>
-                  <p className="font-bold text-gray-900 text-lg">{selectedCustomer.totalOrders}</p>
-                </div>
+                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <p className="text-sm text-gray-600 mb-1">Đơn hàng cuối</p>
+                    <p className="font-semibold text-gray-900">
+                      {selectedCustomer.lastOrder
+                        ? new Date(selectedCustomer.lastOrder).toLocaleDateString('vi-VN')
+                        : 'Chưa có'}
+                    </p>
+                  </div>
 
-                <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
-                  <p className="text-sm text-gray-600 mb-1">Tổng chi tiêu</p>
-                  <p className="font-bold text-gray-900 text-lg">
-                    {selectedCustomer.totalSpent.toLocaleString('vi-VN')}₫
-                  </p>
+                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <p className="text-sm text-gray-600 mb-1">Tổng đơn hàng</p>
+                    <p className="font-bold text-gray-900 text-lg">{selectedCustomer.totalOrders}</p>
+                  </div>
+
+                  <div className="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                    <p className="text-sm text-gray-600 mb-1">Tổng chi tiêu</p>
+                    <p className="font-bold text-gray-900 text-lg">
+                      {selectedCustomer.totalSpent.toLocaleString('vi-VN')}₫
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            <div className="flex gap-3">
-              <button className="flex-1 py-3 bg-slate-900 text-white rounded-lg font-semibold hover:bg-slate-800 transition">
-                Gửi email
-              </button>
-              <button className="flex-1 py-3 border border-slate-900 text-slate-900 rounded-lg font-semibold hover:bg-slate-50 transition">
-                Gọi điện
-              </button>
-              <button className="flex-1 py-3 border border-slate-900 text-slate-900 rounded-lg font-semibold hover:bg-slate-50 transition">
-                Xem lịch sử
-              </button>
+              <div className="flex gap-3">
+                <button className="flex-1 py-3 bg-slate-900 text-white rounded-lg font-semibold hover:bg-slate-800 transition">
+                  Gửi email
+                </button>
+                <button className="flex-1 py-3 border border-slate-900 text-slate-900 rounded-lg font-semibold hover:bg-slate-50 transition">
+                  Gọi điện
+                </button>
+                <button className="flex-1 py-3 border border-slate-900 text-slate-900 rounded-lg font-semibold hover:bg-slate-50 transition">
+                  Xem lịch sử
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 };

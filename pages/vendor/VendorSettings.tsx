@@ -820,7 +820,7 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
         {/* Header Section */}
         <div className="mb-12 flex flex-col md:flex-row md:items-center justify-between gap-8">
           <div className="flex items-start gap-5">
-            <button
+            {/* <button
               onClick={() => onNavigate('/vendor/dashboard')}
               className="w-14 h-14 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-slate-700 flex-shrink-0 hover:bg-slate-50 hover:text-black transition-all group"
               title="Quay lại Bảng điều khiền"
@@ -828,7 +828,7 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
-            </button>
+            </button> */}
             <div>
               <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-2">Cài Đặt</h1>
               <p className="text-slate-500 font-bold text-sm">Quản lý thông tin cửa hàng và thanh toán của bạn.</p>
@@ -856,8 +856,8 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`px-6 py-3 font-bold transition-all border-b-4 ${activeTab === tab.id
-                    ? 'text-primary border-primary'
-                    : 'text-gray-600 border-transparent hover:text-primary'
+                  ? 'text-primary border-primary'
+                  : 'text-gray-600 border-transparent hover:text-primary'
                   }`}
               >
                 {tab.label}
@@ -874,10 +874,10 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
                   disabled={profile?.verificationStatus === 'Banned'}
                   onClick={() => setIsEditing(!isEditing)}
                   className={`px-6 py-2 rounded-lg font-bold transition-all border-2 ${profile?.verificationStatus === 'Banned'
-                      ? 'border-gray-200 text-gray-400 cursor-not-allowed'
-                      : isEditing
-                        ? 'border-red-600 text-red-600 hover:bg-red-50'
-                        : 'border-slate-400 text-slate-600 hover:bg-slate-50'
+                    ? 'border-gray-200 text-gray-400 cursor-not-allowed'
+                    : isEditing
+                      ? 'border-red-600 text-red-600 hover:bg-red-50'
+                      : 'border-slate-400 text-slate-600 hover:bg-slate-50'
                     }`}
                 >
                   {isEditing ? 'Hủy' : 'Chỉnh Sửa'}
@@ -1319,8 +1319,8 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
                 <button
                   onClick={() => setIsEditing(!isEditing)}
                   className={`px-6 py-2 rounded-lg font-bold transition-all border-2 ${isEditing
-                      ? 'border-red-600 text-red-600 hover:bg-red-50'
-                      : 'border-slate-400 text-slate-600 hover:bg-slate-50'
+                    ? 'border-red-600 text-red-600 hover:bg-red-50'
+                    : 'border-slate-400 text-slate-600 hover:bg-slate-50'
                     }`}
                 >
                   {isEditing ? ' Hủy' : ' Chỉnh Sửa'}

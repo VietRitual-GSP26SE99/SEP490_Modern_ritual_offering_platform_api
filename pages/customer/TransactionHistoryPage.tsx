@@ -382,7 +382,7 @@ const TransactionHistoryPage: React.FC<TransactionHistoryPageProps> = () => {
                       <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">
                         {getTransactionTypeLabel(tx.type)}
                       </span>
-                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${statusClass}`}>
+                      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border whitespace-nowrap ${statusClass}`}>
                         {statusLabel}
                       </span>
                     </div>
@@ -460,7 +460,7 @@ const TransactionHistoryPage: React.FC<TransactionHistoryPageProps> = () => {
                 </div>
                 <div>
                   <p className="text-xs text-slate-400 uppercase tracking-widest mb-1">Trạng thái</p>
-                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-semibold border ${getTransactionStatusClass(detailTx.status)}`}>
+                  <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border whitespace-nowrap ${getTransactionStatusClass(detailTx.status)}`}>
                     {getTransactionStatusLabel(detailTx.status)}
                   </span>
                 </div>
@@ -542,7 +542,7 @@ const TransactionHistoryPage: React.FC<TransactionHistoryPageProps> = () => {
                                     {getTransactionTypeLabel(rt.type)}
                                   </span>
                                   <span
-                                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold border ${getTransactionStatusClass(rt.status)}`}
+                                    className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border whitespace-nowrap ${getTransactionStatusClass(rt.status)}`}
                                   >
                                     {getTransactionStatusLabel(rt.status)}
                                   </span>

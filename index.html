@@ -52,6 +52,22 @@
         .animate-slideDown {
             animation: slideDown 0.2s ease-out;
         }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        
+        /* Global scrollbar hiding for cleaner dashboard */
+        .overflow-x-auto::-webkit-scrollbar {
+            display: none;
+        }
+        .overflow-x-auto {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
     </style>
 <script type="importmap">
 {

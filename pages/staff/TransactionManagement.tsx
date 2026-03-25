@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { 
-  getAllTransactions, 
-  getTransactionById, 
+import {
+  getAllTransactions,
+  getTransactionById,
   getRelatedTransactions,
   WalletTransaction,
-  AllTransactionFilter 
+  AllTransactionFilter
 } from '../../services/walletService';
 import toast from '../../services/toast';
 
@@ -49,15 +49,15 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ onNavigat
     try {
       setLoading(true);
       let data = await getAllTransactions(filter);
-      
+
       // BR-057: Staff bị loại trừ PlatformFee và system wallet transactions
       if (userRole === 'staff') {
-        data = data.filter(tx => 
-          tx.type !== 'PlatformFee' && 
+        data = data.filter(tx =>
+          tx.type !== 'PlatformFee' &&
           tx.walletType !== 'System' // Giả sử walletType 'System' là system wallet
         );
       }
-      
+
       setTransactions(data);
     } catch (err) {
       console.error('Failed to fetch transactions:', err);
@@ -114,18 +114,18 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ onNavigat
   return (
     <div className="bg-slate-50 min-h-screen py-12 px-4 md:px-8 font-sans">
       <div className="max-w-7xl mx-auto">
-        
+
         {/* Header Section */}
         <div className="mb-12 flex flex-col md:flex-row md:items-center justify-between gap-8">
           <div className="flex items-start gap-5">
-            <button
+            {/* <button
               onClick={() => onNavigate(userRole === 'admin' ? '/admin/dashboard' : '/staff/dashboard')}
               className="w-14 h-14 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-slate-700 flex-shrink-0 hover:bg-slate-50 hover:text-black transition-all group"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
-            </button>
+            </button> */}
             <div>
               <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-2">Quản lý giao dịch</h1>
               <p className="text-slate-500 font-bold text-sm">
@@ -141,20 +141,20 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ onNavigat
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Mã Ví</label>
-              <input 
+              <input
                 type="text"
                 placeholder="Nhập mã ví..."
                 className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-black transition-all"
                 value={filter.walletId || ''}
-                onChange={(e) => setFilter({...filter, walletId: e.target.value})}
+                onChange={(e) => setFilter({ ...filter, walletId: e.target.value })}
               />
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Loại GD</label>
-              <select 
+              <select
                 className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-black transition-all"
                 value={filter.type || ''}
-                onChange={(e) => setFilter({...filter, type: e.target.value})}
+                onChange={(e) => setFilter({ ...filter, type: e.target.value })}
               >
                 <option value="">Tất cả loại</option>
                 {Object.entries(TRANSACTION_TYPE_LABELS)
@@ -166,10 +166,10 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ onNavigat
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Trạng thái</label>
-              <select 
+              <select
                 className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-black transition-all"
                 value={filter.status || ''}
-                onChange={(e) => setFilter({...filter, status: e.target.value})}
+                onChange={(e) => setFilter({ ...filter, status: e.target.value })}
               >
                 <option value="">Tất cả trạng thái</option>
                 {Object.entries(TRANSACTION_STATUS_LABELS).map(([val, label]) => (
@@ -179,24 +179,24 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ onNavigat
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Từ ngày</label>
-              <input 
+              <input
                 type="date"
                 className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-black transition-all"
                 value={filter.from || ''}
-                onChange={(e) => setFilter({...filter, from: e.target.value})}
+                onChange={(e) => setFilter({ ...filter, from: e.target.value })}
               />
             </div>
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Đến ngày</label>
-              <input 
+              <input
                 type="date"
                 className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-black transition-all"
                 value={filter.to || ''}
-                onChange={(e) => setFilter({...filter, to: e.target.value})}
+                onChange={(e) => setFilter({ ...filter, to: e.target.value })}
               />
             </div>
             <div className="flex items-end">
-              <button 
+              <button
                 onClick={() => setFilter({})}
                 className="w-full h-[46px] bg-slate-100 text-slate-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-50 hover:text-rose-600 transition-all"
               >
@@ -259,9 +259,8 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ onNavigat
                         </p>
                       </td>
                       <td className="px-8 py-6">
-                        <p className={`text-base font-black tabular-nums ${
-                          tx.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'
-                        }`}>
+                        <p className={`text-base font-black tabular-nums ${tx.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'
+                          }`}>
                           {tx.amount >= 0 ? '+' : ''}{formatVnd(tx.amount)}
                         </p>
                       </td>
@@ -271,7 +270,7 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ onNavigat
                         </span>
                       </td>
                       <td className="px-8 py-6 text-right">
-                        <button 
+                        <button
                           onClick={() => handleShowDetail(tx)}
                           className="w-10 h-10 bg-slate-100 rounded-xl inline-flex items-center justify-center text-slate-500 hover:bg-black hover:text-white transition-all shadow-sm"
                         >
@@ -292,8 +291,8 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ onNavigat
           {!loading && transactions.length > 0 && (
             <div className="bg-slate-50/50 px-8 py-4 flex items-center justify-between border-t border-slate-100">
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                Hiển thị <span className="text-slate-900">{Math.min(transactions.length, (currentPage - 1) * ITEMS_PER_PAGE + 1)}</span> 
-                - <span className="text-slate-900">{Math.min(transactions.length, currentPage * ITEMS_PER_PAGE)}</span> 
+                Hiển thị <span className="text-slate-900">{Math.min(transactions.length, (currentPage - 1) * ITEMS_PER_PAGE + 1)}</span>
+                - <span className="text-slate-900">{Math.min(transactions.length, currentPage * ITEMS_PER_PAGE)}</span>
                 trên <span className="text-slate-900">{transactions.length}</span> kết quả
               </p>
               <div className="flex items-center gap-2">

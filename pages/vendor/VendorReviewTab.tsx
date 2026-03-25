@@ -8,6 +8,8 @@ const VendorReviewTab: React.FC = () => {
     const [replyingTo, setReplyingTo] = useState<string | null>(null);
     const [replyText, setReplyText] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 5;
 
     const fetchReviews = useCallback(async () => {
         try {
@@ -64,119 +66,168 @@ const VendorReviewTab: React.FC = () => {
                 <span className="text-sm font-medium text-slate-500">{reviews.length} đánh giá</span>
             </div>
 
-            {reviews.length === 0 ? (
-                <div className="text-center py-12 bg-white rounded-3xl border border-gray-200 shadow-sm">
-                    <div className="text-6xl mb-4">⭐</div>
-                    <p className="text-slate-500 font-medium">Bạn chưa có đánh giá nào.</p>
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 gap-6">
-                    {reviews.map((review) => (
-                        <div key={review.reviewId} className="bg-white rounded-[2rem] border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-all">
-                            <div className="p-6 md:p-8">
-                                <div className="flex items-start gap-4">
-                                    <div className="w-12 h-12 rounded-full overflow-hidden bg-primary/10 flex items-center justify-center text-primary font-bold shadow-inner flex-shrink-0">
-                                        {review.customerAvatar ? (
-                                            <img src={review.customerAvatar} alt={review.customerName} className="w-full h-full object-cover" />
-                                        ) : (
-                                            review.customerName?.charAt(0).toUpperCase()
-                                        )}
-                                    </div>
-                                    <div className="flex-1">
-                                        <div className="flex items-center justify-between mb-2">
-                                            <div>
-                                                <h4 className="font-bold text-slate-900">{review.customerName}</h4>
-                                                <div className="flex items-center gap-2">
-                                                    <div className="flex">
-                                                        {[1, 2, 3, 4, 5].map((star) => (
-                                                            <span key={star} className="text-sm" style={{ color: star <= review.rating ? '#FFD700' : '#cbd5e1' }}>★</span>
+            {(() => {
+                const totalPages = Math.ceil(reviews.length / ITEMS_PER_PAGE);
+                const currentReviews = reviews.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+                
+                if (reviews.length === 0) {
+                    return (
+                        <div className="text-center py-12 bg-white rounded-3xl border border-gray-200 shadow-sm">
+                            <div className="text-6xl mb-4">⭐</div>
+                            <p className="text-slate-500 font-medium">Bạn chưa có đánh giá nào.</p>
+                        </div>
+                    );
+                }
+
+                return (
+                    <>
+                        <div className="grid grid-cols-1 gap-6">
+                            {currentReviews.map((review) => (
+                                <div key={review.reviewId} className="bg-white rounded-[2rem] border border-gray-200 overflow-hidden shadow-sm hover:shadow-md transition-all">
+                                    <div className="p-6 md:p-8">
+                                        <div className="flex items-start gap-4">
+                                            <div className="w-12 h-12 rounded-full overflow-hidden bg-primary/10 flex items-center justify-center text-primary font-bold shadow-inner flex-shrink-0">
+                                                {review.customerAvatar ? (
+                                                    <img src={review.customerAvatar} alt={review.customerName} className="w-full h-full object-cover" />
+                                                ) : (
+                                                    review.customerName?.charAt(0).toUpperCase()
+                                                )}
+                                            </div>
+                                            <div className="flex-1">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <div>
+                                                        <h4 className="font-bold text-slate-900">{review.customerName}</h4>
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="flex">
+                                                                {[1, 2, 3, 4, 5].map((star) => (
+                                                                    <span key={star} className="text-sm" style={{ color: star <= review.rating ? '#FFD700' : '#cbd5e1' }}>★</span>
+                                                                ))}
+                                                            </div>
+                                                            <span className="text-xs text-slate-400">• {new Date(review.createdAt).toLocaleDateString('vi-VN')}</span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <span className="text-xs font-bold text-slate-400 block mb-1 uppercase tracking-widest">Sản phẩm</span>
+                                                        <span className="text-xs font-bold text-primary italic">({review.variantName})</span>
+                                                    </div>
+                                                </div>
+                                                <p className="text-gray-700 mb-4 leading-relaxed">{review.comment}</p>
+
+                                                {/* Review Images */}
+                                                {review.reviewImageUrls && review.reviewImageUrls.length > 0 && (
+                                                    <div className="flex flex-wrap gap-2 mb-4">
+                                                        {review.reviewImageUrls.map((url, i) => (
+                                                            <div key={i} className="size-20 rounded-xl overflow-hidden border border-gray-100 shadow-sm">
+                                                                <img src={url} alt={`review-${i}`} className="w-full h-full object-cover" />
+                                                            </div>
                                                         ))}
                                                     </div>
-                                                    <span className="text-xs text-slate-400">• {new Date(review.createdAt).toLocaleDateString('vi-VN')}</span>
-                                                </div>
-                                            </div>
-                                            <div className="text-right">
-                                                <span className="text-xs font-bold text-slate-400 block mb-1 uppercase tracking-widest">Sản phẩm</span>
-                                                <span className="text-xs font-bold text-primary italic">({review.variantName})</span>
+                                                )}
+
+                                                {/* Vendor Reply Display */}
+                                                {review.vendorReply ? (
+                                                    <div className="mt-4 p-5 bg-primary/5 rounded-2xl border-l-4 border-primary relative">
+                                                        <p className="text-xs font-bold text-primary uppercase tracking-widest mb-1">Phản hồi của bạn</p>
+                                                        <p className="text-sm text-slate-700 italic">"{review.vendorReply}"</p>
+                                                        <button 
+                                                            onClick={() => {
+                                                                setReplyingTo(review.reviewId);
+                                                                setReplyText(review.vendorReply || '');
+                                                            }}
+                                                            className="absolute top-4 right-4 text-xs font-bold text-primary hover:underline"
+                                                        >
+                                                            Chỉnh sửa
+                                                        </button>
+                                                    </div>
+                                                ) : (
+                                                    replyingTo !== review.reviewId && (
+                                                        <button 
+                                                            onClick={() => setReplyingTo(review.reviewId)}
+                                                            className="mt-2 text-sm font-bold text-primary hover:bg-primary/5 px-4 py-2 rounded-lg border-2 border-primary transition-all uppercase tracking-widest"
+                                                        >
+                                                            Phản hồi ngay
+                                                        </button>
+                                                    )
+                                                )}
+
+                                                {/* Reply Form */}
+                                                {replyingTo === review.reviewId && (
+                                                    <div className="mt-4 space-y-3 bg-gray-50 p-6 rounded-2xl border border-gray-200 animate-in fade-in slide-in-from-top-2">
+                                                        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Viết phản hồi</p>
+                                                        <textarea 
+                                                            value={replyText}
+                                                            onChange={(e) => setReplyText(e.target.value)}
+                                                            placeholder="Cảm ơn khách hàng hoặc giải quyết vấn đề của họ..."
+                                                            className="w-full px-4 py-3 rounded-xl bg-white border border-gray-200 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all min-h-[100px]"
+                                                        />
+                                                        <div className="flex gap-2">
+                                                            <button 
+                                                                onClick={() => handleReply(review.reviewId)}
+                                                                disabled={submitting}
+                                                                className="px-6 py-2.5 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 transition-all disabled:opacity-50 uppercase tracking-widest text-sm"
+                                                            >
+                                                                {submitting ? 'Đang gửi...' : 'Gửi phản hồi'}
+                                                            </button>
+                                                            <button 
+                                                                onClick={() => {
+                                                                    setReplyingTo(null);
+                                                                    setReplyText('');
+                                                                }}
+                                                                disabled={submitting}
+                                                                className="px-6 py-2.5 border-2 border-slate-300 text-slate-500 font-bold rounded-lg hover:bg-gray-100 transition-all uppercase tracking-widest text-sm"
+                                                            >
+                                                                Hủy
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
-                                        <p className="text-gray-700 mb-4 leading-relaxed">{review.comment}</p>
-
-                                        {/* Review Images */}
-                                        {review.reviewImageUrls && review.reviewImageUrls.length > 0 && (
-                                            <div className="flex flex-wrap gap-2 mb-4">
-                                                {review.reviewImageUrls.map((url, i) => (
-                                                    <div key={i} className="size-20 rounded-xl overflow-hidden border border-gray-100 shadow-sm">
-                                                        <img src={url} alt={`review-${i}`} className="w-full h-full object-cover" />
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-
-                                        {/* Vendor Reply Display */}
-                                        {review.vendorReply ? (
-                                            <div className="mt-4 p-5 bg-primary/5 rounded-2xl border-l-4 border-primary relative">
-                                                <p className="text-xs font-bold text-primary uppercase tracking-widest mb-1">Phản hồi của bạn</p>
-                                                <p className="text-sm text-slate-700 italic">"{review.vendorReply}"</p>
-                                                <button 
-                                                    onClick={() => {
-                                                        setReplyingTo(review.reviewId);
-                                                        setReplyText(review.vendorReply || '');
-                                                    }}
-                                                    className="absolute top-4 right-4 text-xs font-bold text-primary hover:underline"
-                                                >
-                                                    Chỉnh sửa
-                                                </button>
-                                            </div>
-                                        ) : (
-                                            replyingTo !== review.reviewId && (
-                                                <button 
-                                                    onClick={() => setReplyingTo(review.reviewId)}
-                                                    className="mt-2 text-sm font-bold text-primary hover:bg-primary/5 px-4 py-2 rounded-lg border-2 border-primary transition-all uppercase tracking-widest"
-                                                >
-                                                    Phản hồi ngay
-                                                </button>
-                                            )
-                                        )}
-
-                                        {/* Reply Form */}
-                                        {replyingTo === review.reviewId && (
-                                            <div className="mt-4 space-y-3 bg-gray-50 p-6 rounded-2xl border border-gray-200 animate-in fade-in slide-in-from-top-2">
-                                                <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Viết phản hồi</p>
-                                                <textarea 
-                                                    value={replyText}
-                                                    onChange={(e) => setReplyText(e.target.value)}
-                                                    placeholder="Cảm ơn khách hàng hoặc giải quyết vấn đề của họ..."
-                                                    className="w-full px-4 py-3 rounded-xl bg-white border border-gray-200 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all min-h-[100px]"
-                                                />
-                                                <div className="flex gap-2">
-                                                    <button 
-                                                        onClick={() => handleReply(review.reviewId)}
-                                                        disabled={submitting}
-                                                        className="px-6 py-2.5 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 transition-all disabled:opacity-50 uppercase tracking-widest text-sm"
-                                                    >
-                                                        {submitting ? 'Đang gửi...' : 'Gửi phản hồi'}
-                                                    </button>
-                                                    <button 
-                                                        onClick={() => {
-                                                            setReplyingTo(null);
-                                                            setReplyText('');
-                                                        }}
-                                                        disabled={submitting}
-                                                        className="px-6 py-2.5 border-2 border-slate-300 text-slate-500 font-bold rounded-lg hover:bg-gray-100 transition-all uppercase tracking-widest text-sm"
-                                                    >
-                                                        Hủy
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        )}
                                     </div>
                                 </div>
-                            </div>
+                            ))}
                         </div>
-                    ))}
-                </div>
-            )}
+
+                        {/* Pagination Controls */}
+                        {totalPages > 1 && (
+                            <div className="mt-8 flex flex-col md:flex-row items-center justify-between gap-3 px-6 py-4 border border-slate-200 bg-white rounded-2xl shadow-sm">
+                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                                    Hiển thị <span className="text-slate-900">{Math.min(reviews.length, (currentPage - 1) * ITEMS_PER_PAGE + 1)}</span>
+                                    - <span className="text-slate-900">{Math.min(reviews.length, currentPage * ITEMS_PER_PAGE)}</span>
+                                    trên <span className="text-slate-900">{reviews.length}</span> kết quả
+                                </p>
+                                <div className="flex items-center gap-2">
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                        disabled={currentPage === 1}
+                                        className="px-4 py-2 bg-white rounded-xl flex items-center justify-center text-slate-500 hover:bg-black hover:text-white transition-all shadow-sm disabled:opacity-30 disabled:hover:bg-white disabled:hover:text-slate-500 border border-slate-200 text-[10px] font-bold uppercase tracking-widest"
+                                    >
+                                        Trước
+                                    </button>
+                                    <div className="flex items-center gap-1">
+                                        {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                                            <button
+                                                key={pageNum}
+                                                onClick={() => setCurrentPage(pageNum)}
+                                                className={`w-10 h-10 rounded-xl font-bold text-[10px] transition-all ${currentPage === pageNum ? 'bg-black text-white shadow-lg' : 'bg-white text-slate-500 hover:bg-slate-50 border border-slate-200'}`}
+                                            >
+                                                {pageNum}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <button
+                                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                        disabled={currentPage === totalPages}
+                                        className="px-4 py-2 bg-white rounded-xl flex items-center justify-center text-slate-500 hover:bg-black hover:text-white transition-all shadow-sm disabled:opacity-30 disabled:hover:bg-white disabled:hover:text-slate-500 border border-slate-200 text-[10px] font-bold uppercase tracking-widest"
+                                    >
+                                        Sau
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+                    </>
+                );
+            })()}
         </div>
     );
 };

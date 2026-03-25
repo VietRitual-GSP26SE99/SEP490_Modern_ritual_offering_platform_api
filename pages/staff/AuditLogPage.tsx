@@ -116,14 +116,12 @@ const AuditLogPage: React.FC<AuditLogPageProps> = ({ onNavigate, userRole }) => 
         {/* Header Section */}
         <div className="mb-12 flex flex-col md:flex-row md:items-center justify-between gap-8">
           <div className="flex items-start gap-5">
-            <button
+            {/* <button
               onClick={() => onNavigate(userRole === 'admin' ? '/admin/dashboard' : '/staff/dashboard')}
-              className="w-14 h-14 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-slate-700 flex-shrink-0 hover:bg-slate-50 transition-all group"
+              className="px-6 py-4 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-slate-700 flex-shrink-0 hover:bg-slate-50 transition-all group font-black text-[10px] uppercase tracking-widest"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-            </button>
+              Quay lại Dashboard
+            </button> */}
             <div>
               <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-2">Nhật ký hệ thống</h1>
               <p className="text-slate-500 font-bold text-sm uppercase tracking-widest flex items-center gap-2">
@@ -271,12 +269,9 @@ const AuditLogPage: React.FC<AuditLogPageProps> = ({ onNavigate, userRole }) => 
                       <td className="px-8 py-6 text-right">
                         <button
                           onClick={() => handleShowDetail(log.auditId)}
-                          className="w-10 h-10 bg-slate-100 rounded-xl inline-flex items-center justify-center text-slate-500 hover:bg-black hover:text-white transition-all shadow-sm"
+                          className="px-5 py-2.5 bg-white rounded-xl flex items-center justify-center shadow-sm border border-gray-200 hover:bg-gray-50 transition flex-shrink-0 font-bold text-xs uppercase tracking-widest text-gray-600"
                         >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
+                          Chi tiết
                         </button>
                       </td>
                     </tr>
@@ -345,10 +340,11 @@ const AuditLogPage: React.FC<AuditLogPageProps> = ({ onNavigate, userRole }) => 
                   <h4 className="text-3xl font-black text-slate-900 mb-2">Chi tiết nhật ký</h4>
                   <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">ID: {selectedLog?.auditId || '...'}</p>
                 </div>
-                <button onClick={() => setSelectedLog(null)} className="p-3 bg-slate-50 rounded-2xl text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-all">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
+                <button
+                  onClick={() => setSelectedLog(null)}
+                  className="px-5 py-2.5 bg-white rounded-xl flex items-center justify-center shadow-sm border border-gray-200 hover:bg-gray-50 transition flex-shrink-0 font-bold text-xs uppercase tracking-widest text-gray-600"
+                >
+                  Đóng
                 </button>
               </div>
 

@@ -34,12 +34,15 @@ const VendorVerificationPage: React.FC<Props> = ({ onNavigate }) => {
   const [actionNote, setActionNote] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [imageModal, setImageModal] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 5;
 
   const fetchVerifications = useCallback(async () => {
     try {
       setLoading(true);
       const data = await staffService.getVendorVerifications(filterStatus);
       setVerifications(data);
+      setCurrentPage(1);
     } catch (error) {
       toast.error('Không thể tải danh sách xác minh.');
     } finally {
@@ -152,55 +155,95 @@ const VendorVerificationPage: React.FC<Props> = ({ onNavigate }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {verifications.map((v) => (
-                  <tr key={v.profileId} className="hover:bg-slate-50/50 transition-colors group">
-                    <td className="px-6 py-5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-2xl overflow-hidden shadow-sm bg-slate-100 flex-shrink-0">
-                          {v.shopAvatarUrl ? (
-                            <img src={v.shopAvatarUrl} alt={v.shopName} className="w-full h-full object-cover" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center text-xl">🏪</div>
-                          )}
+                {verifications
+                  .slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
+                  .map((v) => (
+                    <tr key={v.profileId} className="hover:bg-slate-50/50 transition-colors group">
+                      <td className="px-6 py-5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-12 h-12 rounded-2xl overflow-hidden shadow-sm bg-slate-100 flex-shrink-0">
+                            {v.shopAvatarUrl ? (
+                              <img src={v.shopAvatarUrl} alt={v.shopName} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-xl">🏪</div>
+                            )}
+                          </div>
+                          <div>
+                            <p className="font-bold text-slate-800 line-clamp-1">{v.shopName}</p>
+                            <p className="text-xs text-slate-500">{v.fullName} · {v.phoneNumber}</p>
+                          </div>
                         </div>
-                        <div>
-                          <p className="font-bold text-slate-800 line-clamp-1">{v.shopName}</p>
-                          <p className="text-xs text-slate-500">{v.fullName} · {v.phoneNumber}</p>
+                      </td>
+                      <td className="px-6 py-5">
+                        <span className="text-sm font-semibold text-slate-600">
+                          {BUSINESS_TYPE_LABELS[v.businessType] || v.businessType}
+                        </span>
+                      </td>
+                      <td className="px-6 py-5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-black text-slate-800">{v.documentCount}</span>
+                          <span className="text-xs text-slate-400">tài liệu</span>
                         </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-5">
-                      <span className="text-sm font-semibold text-slate-600">
-                        {BUSINESS_TYPE_LABELS[v.businessType] || v.businessType}
-                      </span>
-                    </td>
-                    <td className="px-6 py-5">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-black text-slate-800">{v.documentCount}</span>
-                        <span className="text-xs text-slate-400">tài liệu</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-5 text-sm text-slate-500">
-                      {formatDateVi(v.createdAt)}
-                    </td>
-                    <td className="px-6 py-5 text-center">
-                      <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${STATUS_BADGE_STYLE[v.verificationStatus]}`}>
-                        {VERIFICATION_STATUS_LABELS[v.verificationStatus] || v.verificationStatus}
-                      </span>
-                    </td>
-                    <td className="px-6 py-5 text-right">
-                      <button
-                        onClick={() => handleViewDetail(v.profileId)}
-                        className="p-3 bg-slate-50 text-slate-900 rounded-xl font-bold text-xs hover:bg-slate-900 hover:text-white transition-all shadow-sm group-hover:shadow-md"
-                      >
-                        Chi tiết hồ sơ
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                      <td className="px-6 py-5 text-sm text-slate-500">
+                        {formatDateVi(v.createdAt)}
+                      </td>
+                      <td className="px-6 py-5 text-center">
+                        <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wide border whitespace-nowrap ${STATUS_BADGE_STYLE[v.verificationStatus]}`}>
+                          {VERIFICATION_STATUS_LABELS[v.verificationStatus] || v.verificationStatus}
+                        </span>
+                      </td>
+                      <td className="px-6 py-5 text-right">
+                        <button
+                          onClick={() => handleViewDetail(v.profileId)}
+                          className="p-3 bg-slate-50 text-slate-900 rounded-xl font-bold text-xs hover:bg-slate-900 hover:text-white transition-all shadow-sm group-hover:shadow-md"
+                        >
+                          Chi tiết hồ sơ
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {verifications.length > ITEMS_PER_PAGE && (
+            <div className="bg-slate-50/50 px-8 py-4 flex items-center justify-between border-t border-slate-100">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                Hiển thị <span className="text-slate-900">{Math.min(verifications.length, (currentPage - 1) * ITEMS_PER_PAGE + 1)}</span>
+                - <span className="text-slate-900">{Math.min(verifications.length, currentPage * ITEMS_PER_PAGE)}</span>
+                trên <span className="text-slate-900">{verifications.length}</span> kết quả
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="px-4 py-2 bg-white rounded-xl flex items-center justify-center text-slate-500 hover:bg-black hover:text-white transition-all shadow-sm disabled:opacity-30 disabled:hover:bg-white disabled:hover:text-slate-500 border border-slate-200 text-[10px] font-bold uppercase tracking-widest"
+                >
+                  Trước
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.ceil(verifications.length / ITEMS_PER_PAGE) }, (_, i) => i + 1).map((pageNum) => (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`w-10 h-10 rounded-xl font-bold text-[10px] transition-all ${currentPage === pageNum ? 'bg-black text-white' : 'bg-white text-slate-500 hover:bg-slate-50 shadow-sm border border-slate-100'}`}
+                    >
+                      {pageNum}
+                    </button>
+                  ))}
+                </div>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(Math.ceil(verifications.length / ITEMS_PER_PAGE), prev + 1))}
+                  disabled={currentPage === Math.ceil(verifications.length / ITEMS_PER_PAGE)}
+                  className="px-4 py-2 bg-white rounded-xl flex items-center justify-center text-slate-500 hover:bg-black hover:text-white transition-all shadow-sm disabled:opacity-30 disabled:hover:bg-white disabled:hover:text-slate-500 border border-slate-200 text-[10px] font-bold uppercase tracking-widest"
+                >
+                  Sau
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

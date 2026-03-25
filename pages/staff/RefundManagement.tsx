@@ -18,17 +18,17 @@ const formatDateVi = (value: unknown): string => {
 };
 
 const STATUS_CONFIG: Record<string, { badge: string; label: string; icon: string }> = {
-  Pending:  { badge: 'bg-yellow-100 text-yellow-700 border-yellow-200',  label: 'Chờ xử lý', icon: '' },
-  Approved: { badge: 'bg-green-100 text-green-700 border-green-200',     label: 'Đã duyệt',  icon: '' },
-  Rejected: { badge: 'bg-red-100 text-red-700 border-red-200',           label: 'Đã từ chối', icon: '' },
+  Pending: { badge: 'bg-yellow-100 text-yellow-700 border-yellow-200', label: 'Chờ xử lý', icon: '' },
+  Approved: { badge: 'bg-green-100 text-green-700 border-green-200', label: 'Đã duyệt', icon: '' },
+  Rejected: { badge: 'bg-red-100 text-red-700 border-red-200', label: 'Đã từ chối', icon: '' },
 };
 
 const getStatusCfg = (status: string) =>
   STATUS_CONFIG[status] ?? { badge: 'bg-gray-100 text-gray-600 border-gray-200', label: status, icon: '' };
 
 const TABS = [
-  { id: 'all',      label: 'Tất cả' },
-  { id: 'Pending',  label: 'Chờ xử lý' },
+  { id: 'all', label: 'Tất cả' },
+  { id: 'Pending', label: 'Chờ xử lý' },
   { id: 'Approved', label: 'Đã duyệt' },
   { id: 'Rejected', label: 'Từ chối' },
 ];
@@ -157,128 +157,126 @@ const RefundManagement: React.FC<Props> = ({ onNavigate }) => {
         <h1 className="text-2xl font-bold text-gray-900">Quản lý hoàn tiền</h1>
         <p className="text-gray-600 mt-1">Ghi chú và chuyển tiếp yêu cầu cho admin</p>
       </div>
-        {/* Stats */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-          {[
-            { label: 'Tổng yêu cầu',  value: stats.total,    color: 'text-primary',    icon: '' },
-            { label: 'Chờ xử lý',     value: stats.pending,  color: 'text-yellow-600', icon: '' },
-            { label: 'Đã duyệt',      value: stats.approved, color: 'text-green-600',  icon: '' },
-            { label: 'Từ chối',       value: stats.rejected, color: 'text-red-500',    icon: '' },
-            { label: 'Tổng hoàn tiền', value: formatVnd(stats.totalAmount), color: 'text-blue-600', icon: '' },
-          ].map(s => (
-            <div key={s.label} className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
-              <p className="text-xl mb-1">{s.icon}</p>
-              <p className={`text-2xl font-black ${s.color}`}>{s.value}</p>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{s.label}</p>
-            </div>
-          ))}
-        </div>
-
-        {/* Search + Tabs */}
-        <div className="flex flex-col md:flex-row items-start md:items-center gap-4 mb-4">
-          <div className="relative w-full md:w-80">
-            <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text"
-              value={searchText}
-              onChange={e => setSearchText(e.target.value)}
-              placeholder="Tìm theo tên, mã đơn, lý do..."
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
-            />
+      {/* Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
+        {[
+          { label: 'Tổng yêu cầu', value: stats.total, color: 'text-primary', icon: '' },
+          { label: 'Chờ xử lý', value: stats.pending, color: 'text-yellow-600', icon: '' },
+          { label: 'Đã duyệt', value: stats.approved, color: 'text-green-600', icon: '' },
+          { label: 'Từ chối', value: stats.rejected, color: 'text-red-500', icon: '' },
+          { label: 'Tổng hoàn tiền', value: formatVnd(stats.totalAmount), color: 'text-blue-600', icon: '' },
+        ].map(s => (
+          <div key={s.label} className="bg-white rounded-2xl border border-gray-200 p-5 shadow-sm">
+            <p className="text-xl mb-1">{s.icon}</p>
+            <p className={`text-2xl font-black ${s.color}`}>{s.value}</p>
+            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{s.label}</p>
           </div>
-        </div>
+        ))}
+      </div>
 
-        <div className="flex flex-wrap gap-1 pb-4 mb-6 border-b border-gray-200">
-          {TABS.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setFilterTab(tab.id)}
-              className={`whitespace-nowrap px-5 py-3 rounded-t-xl font-bold text-sm transition-all border-b-2 ${
-                filterTab === tab.id
-                  ? 'border-primary text-primary bg-primary/5'
-                  : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-gray-100'
+      {/* Search + Tabs */}
+      <div className="flex flex-col md:flex-row items-start md:items-center gap-4 mb-4">
+        <div className="relative w-full md:w-80">
+          <svg className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <input
+            type="text"
+            value={searchText}
+            onChange={e => setSearchText(e.target.value)}
+            placeholder="Tìm theo tên, mã đơn, lý do..."
+            className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
+          />
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-1 pb-4 mb-6 border-b border-gray-200">
+        {TABS.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setFilterTab(tab.id)}
+            className={`whitespace-nowrap px-5 py-3 rounded-t-xl font-bold text-sm transition-all border-b-2 ${filterTab === tab.id
+                ? 'border-primary text-primary bg-primary/5'
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-gray-100'
               }`}
-            >
-              {tab.label}
-              {tab.id !== 'all' && (
-                <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-current/10">
-                  {refunds.filter(r => r.status === tab.id).length}
-                </span>
-              )}
-            </button>
-          ))}
+          >
+            {tab.label}
+            {tab.id !== 'all' && (
+              <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] font-black bg-current/10">
+                {refunds.filter(r => r.status === tab.id).length}
+              </span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* List */}
+      {filtered.length === 0 ? (
+        <div className="bg-white p-12 rounded-3xl border border-gray-200 shadow-sm text-center">
+          <h3 className="text-xl font-bold text-gray-800 mb-2">Chưa có yêu cầu nào</h3>
+          <p className="text-gray-500">Không có yêu cầu hoàn tiền nào ở trạng thái này.</p>
         </div>
+      ) : (
+        <div className="space-y-4">
+          {filtered.map(refund => {
+            const cfg = getStatusCfg(refund.status);
+            return (
+              <div key={refund.refundId}
+                className="bg-white rounded-[2rem] border border-gray-200 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300">
 
-        {/* List */}
-        {filtered.length === 0 ? (
-          <div className="bg-white p-12 rounded-3xl border border-gray-200 shadow-sm text-center">
-            <div className="text-5xl mb-4">📭</div>
-            <h3 className="text-xl font-bold text-gray-800 mb-2">Chưa có yêu cầu nào</h3>
-            <p className="text-gray-500">Không có yêu cầu hoàn tiền nào ở trạng thái này.</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {filtered.map(refund => {
-              const cfg = getStatusCfg(refund.status);
-              return (
-                <div key={refund.refundId}
-                  className="bg-white rounded-[2rem] border border-gray-200 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300">
-
-                  {/* Card header */}
-                  <div className="p-5 md:p-6 flex flex-col md:flex-row gap-3 justify-between items-start md:items-center border-b border-gray-100 bg-gray-50/50">
-                    <div className="flex flex-wrap gap-4 md:items-center">
-                      <div>
-                        <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-0.5">Khách hàng</span>
-                        <span className="text-gray-900 font-semibold">{refund.customerName}</span>
-                      </div>
-                      <div className="hidden md:block w-px h-8 bg-gray-300" />
-                      <div>
-                        <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-0.5">Mã đơn</span>
-                        <span className="font-mono text-gray-900 font-bold">#{refund.orderCode || refund.orderId.substring(0, 8).toUpperCase()}</span>
-                      </div>
-                      <div className="hidden md:block w-px h-8 bg-gray-300" />
-                      <div>
-                        <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-0.5">Ngày gửi</span>
-                        <span className="text-gray-700 font-medium text-sm">{formatDateVi(refund.createdAt)}</span>
-                      </div>
-                      <div className="hidden md:block w-px h-8 bg-gray-300" />
-                      <div>
-                        <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-0.5">Số tiền hoàn</span>
-                        <span className="text-primary font-black">{formatVnd(refund.refundAmount)}</span>
-                      </div>
+                {/* Card header */}
+                <div className="p-5 md:p-6 flex flex-col md:flex-row gap-3 justify-between items-start md:items-center border-b border-gray-100 bg-gray-50/50">
+                  <div className="flex flex-wrap gap-4 md:items-center">
+                    <div>
+                      <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-0.5">Khách hàng</span>
+                      <span className="text-gray-900 font-semibold">{refund.customerName}</span>
                     </div>
-                    <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest border flex-shrink-0 ${cfg.badge}`}>
-                      {cfg.icon} {cfg.label}
-                    </span>
+                    <div className="hidden md:block w-px h-8 bg-gray-300" />
+                    <div>
+                      <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-0.5">Mã đơn</span>
+                      <span className="font-mono text-gray-900 font-bold">#{refund.orderCode || refund.orderId.substring(0, 8).toUpperCase()}</span>
+                    </div>
+                    <div className="hidden md:block w-px h-8 bg-gray-300" />
+                    <div>
+                      <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-0.5">Ngày gửi</span>
+                      <span className="text-gray-700 font-medium text-sm">{formatDateVi(refund.createdAt)}</span>
+                    </div>
+                    <div className="hidden md:block w-px h-8 bg-gray-300" />
+                    <div>
+                      <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-0.5">Số tiền hoàn</span>
+                      <span className="text-primary font-black">{formatVnd(refund.refundAmount)}</span>
+                    </div>
                   </div>
+                  <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wide border flex-shrink-0 whitespace-nowrap ${cfg.badge}`}>
+                    {cfg.icon} {cfg.label}
+                  </span>
+                </div>
 
-                  {/* Card body */}
-                  <div className="p-5 md:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-1">Lý do hoàn tiền</p>
-                      <p className="text-gray-700 text-sm leading-relaxed line-clamp-2">{refund.reason || 'Không có lý do'}</p>
-                      {refund.items.length > 0 && (
-                        <p className="text-xs text-gray-400 mt-2">
-                          {refund.items.length} sản phẩm yêu cầu hoàn
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex gap-3 flex-shrink-0">
-                      <button
-                        onClick={() => openDetail(refund)}
-                        className="px-5 py-2.5 bg-primary text-white font-bold text-sm rounded-xl hover:bg-primary/90 transition shadow-lg shadow-primary/20"
-                      >
-                        Xem chi tiết
-                      </button>
-                    </div>
+                {/* Card body */}
+                <div className="p-5 md:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-1">Lý do hoàn tiền</p>
+                    <p className="text-gray-700 text-sm leading-relaxed line-clamp-2">{refund.reason || 'Không có lý do'}</p>
+                    {refund.items.length > 0 && (
+                      <p className="text-xs text-gray-400 mt-2">
+                        {refund.items.length} sản phẩm yêu cầu hoàn
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex gap-3 flex-shrink-0">
+                    <button
+                      onClick={() => openDetail(refund)}
+                      className="px-5 py-2.5 bg-primary text-white font-bold text-sm rounded-xl hover:bg-primary/90 transition shadow-lg shadow-primary/20"
+                    >
+                      Xem chi tiết
+                    </button>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
+              </div>
+            );
+          })}
+        </div>
+      )}
       {/* Detail Modal */}
       {selected && (
         <div
@@ -293,11 +291,9 @@ const RefundManagement: React.FC<Props> = ({ onNavigate }) => {
             <div className="bg-white px-8 py-6 flex items-center gap-4 border-b border-gray-100">
               <button
                 onClick={() => setSelected(null)}
-                className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-200 hover:bg-gray-50 transition flex-shrink-0"
+                className="px-5 py-2.5 bg-white rounded-xl flex items-center justify-center shadow-sm border border-gray-200 hover:bg-gray-50 transition flex-shrink-0 font-bold text-xs uppercase tracking-widest text-gray-600"
               >
-                <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-                </svg>
+                Đóng
               </button>
               <div className="flex-1">
                 <h2 className="text-2xl font-black text-gray-900">Chi tiết yêu cầu hoàn tiền</h2>
@@ -306,7 +302,7 @@ const RefundManagement: React.FC<Props> = ({ onNavigate }) => {
                   &nbsp;·&nbsp;Khách: {selected.customerName}
                 </p>
               </div>
-              <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest border ${getStatusCfg(selected.status).badge}`}>
+              <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wide border whitespace-nowrap ${getStatusCfg(selected.status).badge}`}>
                 {getStatusCfg(selected.status).icon} {getStatusCfg(selected.status).label}
               </span>
             </div>

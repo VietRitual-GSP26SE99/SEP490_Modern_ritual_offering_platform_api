@@ -496,15 +496,12 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
         {/* Header Section */}
         <div className="mb-12 flex flex-col md:flex-row md:items-center justify-between gap-8">
           <div className="flex items-start gap-5">
-            <button
+            {/* <button
               onClick={() => _onNavigate('/vendor/dashboard')}
-              className="w-14 h-14 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-slate-700 flex-shrink-0 hover:bg-slate-50 hover:text-black transition-all group"
-              title="Quay lại Bảng điều khiền"
+              className="px-6 py-4 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-slate-700 flex-shrink-0 hover:bg-slate-50 hover:text-black transition-all group font-black text-[10px] uppercase tracking-widest"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-            </button>
+              Quay lại Dashboard
+            </button> */}
             <div>
               <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-2">Đơn Hàng</h1>
               <p className="text-slate-500 font-bold text-sm">Theo dõi và xử lý các đơn hàng của bạn.</p>
@@ -570,7 +567,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                       className="px-3 py-2 border-l border-gray-200 text-slate-500 hover:bg-gray-50"
                       aria-label="Chọn ngày bắt đầu"
                     >
-                      
+
                     </button>
                   </div>
                   <input
@@ -602,7 +599,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                       className="px-3 py-2 border-l border-gray-200 text-slate-500 hover:bg-gray-50"
                       aria-label="Chọn ngày kết thúc"
                     >
-                      
+
                     </button>
                   </div>
                   <input
@@ -870,11 +867,9 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
             <div className="bg-white px-6 md:px-8 py-5 flex items-center gap-4 border-b border-gray-100">
               <button
                 onClick={() => { setSelectedOrder(null); setNewStatus(''); setStatusReason(''); setStatusError(null); setStatusSuccess(null); setDeliveryProofImages([]); }}
-                className="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-sm border border-gray-200 hover:bg-gray-50 transition flex-shrink-0"
+                className="px-5 py-2.5 bg-white rounded-xl flex items-center justify-center shadow-sm border border-gray-200 hover:bg-gray-50 transition flex-shrink-0 font-bold text-xs uppercase tracking-widest text-gray-600"
               >
-                <svg className="w-5 h-5 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-                </svg>
+                Đóng
               </button>
               <div className="flex-1 flex items-center gap-4">
                 {/* {selectedOrder.customer?.avatarUrl || selectedOrder.customerAvatar ? (
@@ -957,19 +952,19 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                         const firstProof = Array.isArray(proof) ? proof[0] : proof;
                         return firstProof;
                       })() && (
-                        <div className="mt-3">
-                          <a
-                            href={(Array.isArray(selectedOrder.delivery.deliveryProofImageUrl)
-                              ? selectedOrder.delivery.deliveryProofImageUrl[0]
-                              : selectedOrder.delivery.deliveryProofImageUrl) as string}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center text-sm font-semibold text-primary hover:underline"
-                          >
-                            Xem ảnh giao hàng
-                          </a>
-                        </div>
-                      )}
+                          <div className="mt-3">
+                            <a
+                              href={(Array.isArray(selectedOrder.delivery.deliveryProofImageUrl)
+                                ? selectedOrder.delivery.deliveryProofImageUrl[0]
+                                : selectedOrder.delivery.deliveryProofImageUrl) as string}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center text-sm font-semibold text-primary hover:underline"
+                            >
+                              Xem ảnh giao hàng
+                            </a>
+                          </div>
+                        )}
                       {Array.isArray((selectedOrder.delivery as any).preparationProofImages)
                         && (selectedOrder.delivery as any).preparationProofImages.length > 0 && (
                           <div className="mt-2">
