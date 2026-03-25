@@ -1224,6 +1224,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
                     </table>
                   )}
                 </div>
+
+                {/* Pagination for Vendor Tiers */}
+                {!isLoadingTiers && vendorTiers.length > ITEMS_PER_PAGE && (
+                  <div className="px-8 py-4 bg-ritual-bg/30 border-t border-gold/10 flex items-center justify-between">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      Trang {vendorsPage} / {Math.ceil(vendorTiers.length / ITEMS_PER_PAGE)}
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setVendorsPage(p => Math.max(1, p - 1))}
+                        disabled={vendorsPage === 1}
+                        className="p-2 rounded-lg border border-gold/10 bg-white text-primary disabled:opacity-30 disabled:cursor-not-allowed hover:bg-primary hover:text-white transition-all flex items-center justify-center shadow-sm"
+                      >
+                        <span className="material-symbols-outlined text-sm">chevron_left</span>
+                      </button>
+                      <button
+                        onClick={() => setVendorsPage(p => Math.min(Math.ceil(vendorTiers.length / ITEMS_PER_PAGE), p + 1))}
+                        disabled={vendorsPage >= Math.ceil(vendorTiers.length / ITEMS_PER_PAGE)}
+                        className="p-2 rounded-lg border border-gold/10 bg-white text-primary disabled:opacity-30 disabled:cursor-not-allowed hover:bg-primary hover:text-white transition-all flex items-center justify-center shadow-sm"
+                      >
+                        <span className="material-symbols-outlined text-sm">chevron_right</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1341,6 +1366,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
                     </table>
                   )}
                 </div>
+
+                {/* Pagination for Users */}
+                {!isLoadingUsers && users.length > ITEMS_PER_PAGE && (
+                  <div className="px-8 py-4 bg-ritual-bg/30 border-t border-gold/10 flex items-center justify-between">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      Trang {usersPage} / {Math.ceil(users.length / ITEMS_PER_PAGE)}
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setUsersPage(p => Math.max(1, p - 1))}
+                        disabled={usersPage === 1}
+                        className="p-2 rounded-lg border border-gold/10 bg-white text-primary disabled:opacity-30 disabled:cursor-not-allowed hover:bg-primary hover:text-white transition-all flex items-center justify-center shadow-sm"
+                      >
+                        <span className="material-symbols-outlined text-sm">chevron_left</span>
+                      </button>
+                      <button
+                        onClick={() => setUsersPage(p => Math.min(Math.ceil(users.length / ITEMS_PER_PAGE), p + 1))}
+                        disabled={usersPage >= Math.ceil(users.length / ITEMS_PER_PAGE)}
+                        className="p-2 rounded-lg border border-gold/10 bg-white text-primary disabled:opacity-30 disabled:cursor-not-allowed hover:bg-primary hover:text-white transition-all flex items-center justify-center shadow-sm"
+                      >
+                        <span className="material-symbols-outlined text-sm">chevron_right</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1584,6 +1634,31 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
                     </table>
                   )}
                 </div>
+
+                {/* Pagination for Withdrawals */}
+                {!isLoadingWithdrawals && withdrawalRequests.length > ITEMS_PER_PAGE && (
+                  <div className="px-8 py-4 bg-ritual-bg/30 border-t border-gold/10 flex items-center justify-between">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      Trang {withdrawalsPage} / {Math.ceil(withdrawalRequests.length / ITEMS_PER_PAGE)}
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setWithdrawalsPage(p => Math.max(1, p - 1))}
+                        disabled={withdrawalsPage === 1}
+                        className="p-2 rounded-lg border border-gold/10 bg-white text-primary disabled:opacity-30 disabled:cursor-not-allowed hover:bg-primary hover:text-white transition-all flex items-center justify-center shadow-sm"
+                      >
+                        <span className="material-symbols-outlined text-sm">chevron_left</span>
+                      </button>
+                      <button
+                        onClick={() => setWithdrawalsPage(p => Math.min(Math.ceil(withdrawalRequests.length / ITEMS_PER_PAGE), p + 1))}
+                        disabled={withdrawalsPage >= Math.ceil(withdrawalRequests.length / ITEMS_PER_PAGE)}
+                        className="p-2 rounded-lg border border-gold/10 bg-white text-primary disabled:opacity-30 disabled:cursor-not-allowed hover:bg-primary hover:text-white transition-all flex items-center justify-center shadow-sm"
+                      >
+                        <span className="material-symbols-outlined text-sm">chevron_right</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
