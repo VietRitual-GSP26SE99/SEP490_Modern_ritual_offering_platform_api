@@ -355,6 +355,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
         { path: '/staff-product', label: 'Sản phẩm' },
         { path: '/staff-transactions', label: 'Giao dịch' },
         { path: '/staff-refunds', label: 'Hoàn tiền' },
+        { path: '/staff-audit-logs', label: 'Nhật ký' },
         { path: '/staff-settings', label: 'Hệ thống' },
       ];
     }

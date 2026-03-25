@@ -40,6 +40,7 @@ import SystemSettings from './pages/staff/SystemSettings';
 import RefundManagement from './pages/staff/RefundManagement';
 import VendorVerificationPage from './pages/staff/VendorVerification';
 import TransactionManagement from './pages/staff/TransactionManagement';
+import AuditLogPage from './pages/staff/AuditLogPage';
 
 // Assistant
 import Assistant from './components/Assistant';
@@ -165,10 +166,12 @@ const AppContent: React.FC<{
       <Route path="/staff-refunds" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-refunds" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><RefundManagement onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
       <Route path="/staff-vendors" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-vendors" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><VendorVerificationPage onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
       <Route path="/staff-transactions" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-transactions" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><TransactionManagement onNavigate={handleNavigate} userRole="staff" /></Layout> : <Navigate to="/auth" />} />
+      <Route path="/staff-audit-logs" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-audit-logs" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><AuditLogPage onNavigate={handleNavigate} userRole="staff" /></Layout> : <Navigate to="/auth" />} />
 
       {/* Admin Routes */}
       <Route path="/admin/dashboard" element={isAuthenticated && userRole === 'admin' ? <Layout activeRoute="/admin/dashboard" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><AdminDashboard onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
       <Route path="/admin/transactions" element={isAuthenticated && userRole === 'admin' ? <Layout activeRoute="/admin/transactions" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><TransactionManagement onNavigate={handleNavigate} userRole="admin" /></Layout> : <Navigate to="/auth" />} />
+      <Route path="/admin/audit-logs" element={isAuthenticated && userRole === 'admin' ? <Layout activeRoute="/admin/audit-logs" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><AuditLogPage onNavigate={handleNavigate} userRole="admin" /></Layout> : <Navigate to="/auth" />} />
 
       {/* Fallback */}
       <Route path="*" element={<Navigate to="/" />} />

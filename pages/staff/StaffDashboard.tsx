@@ -97,7 +97,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
         try {
           const pendingData = await staffService.getVendorVerifications('2'); // 2 = Pending
           setPendingVendors(pendingData.slice(0, 5));
-          
+
           setStats(prev => [
             ...prev,
             { label: 'Vendor chờ duyệt', value: String(pendingData.length), change: 'new' }
@@ -155,24 +155,45 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
             </div>
           ))}
         </div>
-        
-        {/* Transaction Quick Access */}
-        <div className="bg-white rounded-2xl p-8 border-2 border-gray-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
-          <div className="flex items-center gap-6">
-            <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 text-3xl">
-              💸
+
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Transaction Quick Access */}
+          <div className="bg-white rounded-2xl p-8 border-2 border-gray-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-6">
+              {/* <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 text-3xl">
+                💸
+              </div> */}
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 mb-1">Giao dịch</h2>
+                <p className="text-sm text-gray-500 font-medium">Theo dõi dòng tiền hệ thống.</p>
+              </div>
             </div>
-            <div>
-              <h2 className="text-xl font-bold text-gray-900 mb-1">Dòng tiền & Giao dịch</h2>
-              <p className="text-sm text-gray-500 font-medium">Theo dõi và kiểm soát toàn bộ giao dịch tài chính trong hệ thống.</p>
-            </div>
+            <button
+              onClick={() => onNavigate('/staff-transactions')}
+              className="w-full md:w-auto px-6 py-2.5 bg-black text-white rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-gray-800 transition-all shadow-lg"
+            >
+              Quản lý
+            </button>
           </div>
-          <button 
-            onClick={() => onNavigate('/staff-transactions')}
-            className="w-full md:w-auto px-8 py-3 bg-black text-white rounded-xl font-bold text-sm uppercase tracking-widest hover:bg-gray-800 transition-all shadow-lg shadow-black/10"
-          >
-            Quản lý tài chính
-          </button>
+
+          {/* Audit Log Quick Access */}
+          <div className="bg-white rounded-2xl p-8 border-2 border-gray-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
+            <div className="flex items-center gap-6">
+              {/* <div className="w-16 h-16 bg-blue-100 rounded-2xl flex items-center justify-center text-blue-600 text-3xl">
+                📜
+              </div> */}
+              <div>
+                <h2 className="text-xl font-bold text-gray-900 mb-1">Nhật ký</h2>
+                <p className="text-sm text-gray-500 font-medium">Theo dõi hoạt động hệ thống.</p>
+              </div>
+            </div>
+            <button
+              onClick={() => onNavigate('/staff-audit-logs')}
+              className="w-full md:w-auto px-6 py-2.5 bg-black text-white rounded-xl font-bold text-xs uppercase tracking-widest hover:bg-gray-800 transition-all shadow-lg"
+            >
+              Xem log
+            </button>
+          </div>
         </div>
 
         {/* Pending Vendors Section */}
@@ -183,22 +204,22 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
           </div>
 
           {loading ? (
-             <p className="text-gray-500 py-4">Đang tải dữ liệu...</p>
+            <p className="text-gray-500 py-4">Đang tải dữ liệu...</p>
           ) : pendingVendors.length === 0 ? (
             <div className="py-8 text-center bg-gray-50 rounded-xl border border-dashed border-gray-300">
-               <p className="text-gray-500 font-medium">Không có hồ sơ nào chờ duyệt.</p>
+              <p className="text-gray-500 font-medium">Không có hồ sơ nào chờ duyệt.</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {pendingVendors.map((vendor) => (
-                <div 
+                <div
                   key={vendor.profileId}
                   onClick={() => onNavigate('/staff-vendors')}
                   className="flex items-center gap-4 p-4 bg-gray-50 rounded-xl border border-gray-200 hover:border-slate-900 transition-all cursor-pointer group"
                 >
                   <div className="w-12 h-12 rounded-lg overflow-hidden bg-white shadow-sm flex-shrink-0">
                     {vendor.shopAvatarUrl ? (
-                       <img src={vendor.shopAvatarUrl} alt={vendor.shopName} className="w-full h-full object-cover" />
+                      <img src={vendor.shopAvatarUrl} alt={vendor.shopName} className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-xl">🏪</div>
                     )}
