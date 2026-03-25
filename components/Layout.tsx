@@ -374,10 +374,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
         { id: 'overview', label: 'Bảng điều khiển', icon: 'dashboard', path: '/vendor/dashboard' },
         { id: 'orders', label: 'Đơn hàng', icon: 'shopping_cart', path: '/vendor/orders' },
         { id: 'products', label: 'Sản phẩm', icon: 'inventory_2', path: '/vendor/products' },
-        { id: 'shop', label: 'Cửa hàng', icon: 'store', path: '/vendor/shop' },
         { id: 'analytics', label: 'Phân tích', icon: 'analytics', path: '/vendor/analytics' },
         { id: 'shipping', label: 'Vận chuyển', icon: 'local_shipping', path: '/vendor/shipping' },
         { id: 'transactions', label: 'Giao dịch', icon: 'receipt_long', path: '/vendor/transactions' },
+        { id: 'shop', label: 'Cửa hàng', icon: 'store', path: '/vendor/shop' },
         { id: 'settings', label: 'Cài đặt', icon: 'settings', path: '/vendor/settings' },
       ];
     }
