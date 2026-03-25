@@ -346,6 +346,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
     } else if (isAdmin) {
       return [
         { path: '/admin/dashboard', label: 'Quản lý hệ thống' },
+
       ];
     } else if (isStaff) {
       return [

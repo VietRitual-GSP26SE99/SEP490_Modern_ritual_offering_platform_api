@@ -42,6 +42,8 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ onNavigat
   const [selectedTx, setSelectedTx] = useState<WalletTransaction | null>(null);
   const [relatedTxs, setRelatedTxs] = useState<WalletTransaction[]>([]);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 5;
 
   const fetchData = useCallback(async () => {
     try {
@@ -62,6 +64,7 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ onNavigat
       toast.error('Không thể tải danh sách giao dịch.');
     } finally {
       setLoading(false);
+      setCurrentPage(1);
     }
   }, [filter]);
 
@@ -105,6 +108,8 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ onNavigat
         return 'bg-slate-100 text-slate-700';
     }
   };
+  const totalPages = Math.ceil(transactions.length / ITEMS_PER_PAGE);
+  const currentTransactions = transactions.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   return (
     <div className="bg-slate-50 min-h-screen py-12 px-4 md:px-8 font-sans">
@@ -235,7 +240,7 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ onNavigat
                     </td>
                   </tr>
                 ) : (
-                  transactions.map((tx) => (
+                  currentTransactions.map((tx) => (
                     <tr key={tx.id} className="hover:bg-slate-50/50 transition-colors group">
                       <td className="px-8 py-6 whitespace-nowrap">
                         <p className="text-sm font-bold text-slate-900">
@@ -265,10 +270,10 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ onNavigat
                           {TRANSACTION_STATUS_LABELS[tx.status] || tx.status}
                         </span>
                       </td>
-                      <td className="px-8 py-6">
+                      <td className="px-8 py-6 text-right">
                         <button 
                           onClick={() => handleShowDetail(tx)}
-                          className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 hover:bg-black hover:text-white transition-all shadow-sm"
+                          className="w-10 h-10 bg-slate-100 rounded-xl inline-flex items-center justify-center text-slate-500 hover:bg-black hover:text-white transition-all shadow-sm"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -282,6 +287,52 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ onNavigat
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {!loading && transactions.length > 0 && (
+            <div className="bg-slate-50/50 px-8 py-4 flex items-center justify-between border-t border-slate-100">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                Hiển thị <span className="text-slate-900">{Math.min(transactions.length, (currentPage - 1) * ITEMS_PER_PAGE + 1)}</span> 
+                - <span className="text-slate-900">{Math.min(transactions.length, currentPage * ITEMS_PER_PAGE)}</span> 
+                trên <span className="text-slate-900">{transactions.length}</span> kết quả
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-slate-500 hover:bg-black hover:text-white transition-all shadow-sm disabled:opacity-30 disabled:hover:bg-white disabled:hover:text-slate-500"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum = currentPage <= 3 ? i + 1 : (currentPage >= totalPages - 2 ? totalPages - 4 + i : currentPage - 2 + i);
+                    if (pageNum < 1 || pageNum > totalPages) return null;
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`w-10 h-10 rounded-xl font-bold text-[10px] transition-all ${currentPage === pageNum ? 'bg-black text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-slate-500 hover:bg-black hover:text-white transition-all shadow-sm disabled:opacity-30 disabled:hover:bg-white disabled:hover:text-slate-500"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

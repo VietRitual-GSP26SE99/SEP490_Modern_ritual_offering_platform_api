@@ -35,6 +35,8 @@ const AuditLogPage: React.FC<AuditLogPageProps> = ({ onNavigate, userRole }) => 
   const [filter, setFilter] = useState<AuditLogFilter>({});
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 5;
 
   const fetchLogs = useCallback(async () => {
     try {
@@ -43,6 +45,7 @@ const AuditLogPage: React.FC<AuditLogPageProps> = ({ onNavigate, userRole }) => 
       // Sắp xếp mới nhất lên đầu nếu backend chưa làm
       const sorted = data.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       setLogs(sorted);
+      setCurrentPage(1); // Reset page on new fetch
     } catch (err) {
       console.error('Failed to fetch audit logs:', err);
       toast.error('Không thể tải nhật ký hệ thống.');
@@ -103,6 +106,8 @@ const AuditLogPage: React.FC<AuditLogPageProps> = ({ onNavigate, userRole }) => 
     };
     return mapping[s] || s;
   };
+  const totalPages = Math.ceil(logs.length / ITEMS_PER_PAGE);
+  const currentLogs = logs.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   return (
     <div className="bg-slate-50 min-h-screen py-12 px-4 md:px-8 font-sans">
@@ -148,7 +153,10 @@ const AuditLogPage: React.FC<AuditLogPageProps> = ({ onNavigate, userRole }) => 
                 placeholder="Ví dụ: Approve, Create..."
                 className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-black transition-all"
                 value={filter.action || ''}
-                onChange={(e) => setFilter({ ...filter, action: e.target.value })}
+                onChange={(e) => {
+                  setFilter({ ...filter, action: e.target.value });
+                  setCurrentPage(1);
+                }}
               />
             </div>
             <div className="space-y-2">
@@ -158,7 +166,10 @@ const AuditLogPage: React.FC<AuditLogPageProps> = ({ onNavigate, userRole }) => 
                 placeholder="Ví dụ: Vendor, User..."
                 className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-black transition-all"
                 value={filter.entityType || ''}
-                onChange={(e) => setFilter({ ...filter, entityType: e.target.value })}
+                onChange={(e) => {
+                  setFilter({ ...filter, entityType: e.target.value });
+                  setCurrentPage(1);
+                }}
               />
             </div>
             <div className="space-y-2">
@@ -168,7 +179,10 @@ const AuditLogPage: React.FC<AuditLogPageProps> = ({ onNavigate, userRole }) => 
                 placeholder="Mã người dùng..."
                 className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-black transition-all"
                 value={filter.performedBy || ''}
-                onChange={(e) => setFilter({ ...filter, performedBy: e.target.value })}
+                onChange={(e) => {
+                  setFilter({ ...filter, performedBy: e.target.value });
+                  setCurrentPage(1);
+                }}
               />
             </div>
             <div className="space-y-2">
@@ -191,7 +205,10 @@ const AuditLogPage: React.FC<AuditLogPageProps> = ({ onNavigate, userRole }) => 
             </div>
             <div className="flex items-end">
               <button
-                onClick={() => setFilter({})}
+                onClick={() => {
+                  setFilter({});
+                  setCurrentPage(1);
+                }}
                 className="w-full h-[46px] bg-slate-100 text-slate-400 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-50 hover:text-rose-600 transition-all"
               >
                 Xóa lọc
@@ -228,7 +245,7 @@ const AuditLogPage: React.FC<AuditLogPageProps> = ({ onNavigate, userRole }) => 
                     </td>
                   </tr>
                 ) : (
-                  logs.map((log) => (
+                  currentLogs.map((log) => (
                     <tr key={log.auditId} className="hover:bg-slate-50/50 transition-colors group">
                       <td className="px-8 py-6 whitespace-nowrap">
                         <p className="text-sm font-bold text-slate-900">{new Date(log.timestamp).toLocaleDateString('vi-VN')}</p>
@@ -251,10 +268,10 @@ const AuditLogPage: React.FC<AuditLogPageProps> = ({ onNavigate, userRole }) => 
                       <td className="px-8 py-6">
                         <p className="text-xs text-slate-600 line-clamp-1 max-w-[200px]">{log.description || 'Không có mô tả'}</p>
                       </td>
-                      <td className="px-8 py-6">
+                      <td className="px-8 py-6 text-right">
                         <button
                           onClick={() => handleShowDetail(log.auditId)}
-                          className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 hover:bg-black hover:text-white transition-all shadow-sm"
+                          className="w-10 h-10 bg-slate-100 rounded-xl inline-flex items-center justify-center text-slate-500 hover:bg-black hover:text-white transition-all shadow-sm"
                         >
                           <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
@@ -268,6 +285,52 @@ const AuditLogPage: React.FC<AuditLogPageProps> = ({ onNavigate, userRole }) => 
               </tbody>
             </table>
           </div>
+
+          {/* Pagination Controls */}
+          {!loading && logs.length > 0 && (
+            <div className="bg-slate-50/50 px-8 py-4 flex items-center justify-between border-t border-slate-100">
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                Hiển thị <span className="text-slate-900">{Math.min(logs.length, (currentPage - 1) * ITEMS_PER_PAGE + 1)}</span>
+                - <span className="text-slate-900">{Math.min(logs.length, currentPage * ITEMS_PER_PAGE)}</span>
+                trên <span className="text-slate-900">{logs.length}</span> kết quả
+              </p>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={currentPage === 1}
+                  className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-slate-500 hover:bg-black hover:text-white transition-all shadow-sm disabled:opacity-30 disabled:hover:bg-white disabled:hover:text-slate-500"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                  </svg>
+                </button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                    let pageNum = currentPage <= 3 ? i + 1 : (currentPage >= totalPages - 2 ? totalPages - 4 + i : currentPage - 2 + i);
+                    if (pageNum < 1 || pageNum > totalPages) return null;
+                    return (
+                      <button
+                        key={pageNum}
+                        onClick={() => setCurrentPage(pageNum)}
+                        className={`w-10 h-10 rounded-xl font-bold text-[10px] transition-all ${currentPage === pageNum ? 'bg-black text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
+                      >
+                        {pageNum}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button
+                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                  disabled={currentPage === totalPages}
+                  className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-slate-500 hover:bg-black hover:text-white transition-all shadow-sm disabled:opacity-30 disabled:hover:bg-white disabled:hover:text-slate-500"
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
