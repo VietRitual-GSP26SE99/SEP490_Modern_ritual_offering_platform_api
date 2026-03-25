@@ -5,13 +5,14 @@ import toast from '../../services/toast';
 import Swal from 'sweetalert2';
 import { userService, UserListItem, CreateUserRequest } from '../../services/userService';
 import { vendorService, VendorTier } from '../../services/vendorService';
+import TransactionManagement from '../staff/TransactionManagement';
 
 interface AdminDashboardProps {
   onNavigate: (path: string) => void;
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'vendors' | 'users' | 'orders' | 'disputes' | 'content' | 'withdrawals'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'vendors' | 'users' | 'orders' | 'disputes' | 'content' | 'withdrawals' | 'transactions'>('overview');
   const [withdrawalRequests, setWithdrawalRequests] = useState<WithdrawalListItem[]>([]);
   const [isLoadingWithdrawals, setIsLoadingWithdrawals] = useState(false);
   const [withdrawalsError, setWithdrawalsError] = useState<string | null>(null);
@@ -1023,7 +1024,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
 
         {/* Tabs */}
         <div className="flex gap-2 mb-8 bg-white rounded-2xl p-2 border border-gold/10 shadow-sm overflow-x-auto sticky top-[132px] z-40">
-          {['overview', 'vendors', 'users', 'orders', 'disputes', 'content', 'withdrawals'].map((tab) => (
+          {['overview', 'vendors', 'users', 'orders', 'disputes', 'content', 'withdrawals', 'transactions'].map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab as any)}
@@ -1039,6 +1040,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
               {tab === 'disputes' && ' khiếu nại'}
               {tab === 'withdrawals' && ' Quản lý rút tiền'}
               {tab === 'content' && ' Nội dung'}
+              {tab === 'transactions' && ' Giao dịch'}
             </button>
           ))}
         </div>
@@ -1532,6 +1534,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
               )}
             </div>
           </div>
+        )}
+
+        {activeTab === 'transactions' && (
+          <TransactionManagement onNavigate={onNavigate} userRole="admin" />
         )}
       </div>
     </div>

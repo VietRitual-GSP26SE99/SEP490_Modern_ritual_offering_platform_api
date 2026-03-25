@@ -340,7 +340,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
     } else if (isVendor) {
       return [
         { path: '/vendor/dashboard', label: 'Bảng điều khiển' },
-        // { path: '/vendor/shipping', label: 'Vận chuyển' },
+        { path: '/vendor/transactions', label: 'Giao dịch' },
         { path: '/vendor/shop', label: 'Cửa hàng' },
       ];
     } else if (isAdmin) {
@@ -353,6 +353,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
         { path: '/staff-customers', label: 'Khách hàng' },
         { path: '/staff-vendors', label: 'Xác minh Vendor' },
         { path: '/staff-product', label: 'Sản phẩm' },
+        { path: '/staff-transactions', label: 'Giao dịch' },
         { path: '/staff-refunds', label: 'Hoàn tiền' },
         { path: '/staff-settings', label: 'Hệ thống' },
       ];

@@ -54,6 +54,10 @@ export interface TransactionFilter {
   to?: string;
 }
 
+export interface AllTransactionFilter extends TransactionFilter {
+  walletId?: string;
+}
+
 export interface WalletTransaction {
   id: string;
   type: string;
@@ -653,6 +657,71 @@ export async function getRelatedTransactions(id: string): Promise<WalletTransact
         ? ((payload as { message?: string }).message as string)
         : '') ||
       `Không thể tải chuỗi giao dịch liên quan (${response.status}).`;
+
+    throw new Error(message);
+  }
+
+  const items = unwrapResultArray(payload);
+  return items.map((item, index) => normalizeTransactionItem(item, index));
+}
+
+export async function getAllTransactions(filter: AllTransactionFilter = {}): Promise<WalletTransaction[]> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Bạn chưa đăng nhập.');
+  }
+
+  const params = new URLSearchParams();
+  if (filter.walletId && filter.walletId.trim()) {
+    params.append('walletId', filter.walletId.trim());
+  }
+  if (filter.type && filter.type.trim()) {
+    params.append('type', filter.type.trim());
+  }
+  if (filter.status && filter.status.trim()) {
+    params.append('status', filter.status.trim());
+  }
+  if (filter.from && filter.from.trim()) {
+    params.append('from', filter.from.trim());
+  }
+  if (filter.to && filter.to.trim()) {
+    params.append('to', filter.to.trim());
+  }
+
+  const queryString = params.toString();
+
+  const response = await fetch(`/api/transactions${queryString ? `?${queryString}` : ''}`, {
+    method: 'GET',
+    headers: {
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+  });
+
+  const payload = await response.json().catch(() => null);
+
+  if (
+    !response.ok ||
+    (payload && typeof payload === 'object' && (payload as { isSuccess?: boolean; isSucceeded?: boolean }).isSuccess === false) ||
+    (payload && typeof payload === 'object' && (payload as { isSuccess?: boolean; isSucceeded?: boolean }).isSucceeded === false)
+  ) {
+    const errorMessages =
+      payload &&
+      typeof payload === 'object' &&
+      Array.isArray((payload as { errorMessages?: unknown[] }).errorMessages)
+        ? ((payload as { errorMessages?: unknown[] }).errorMessages as unknown[]).filter(
+            (item): item is string => typeof item === 'string',
+          )
+        : [];
+
+    const message =
+      errorMessages.join(', ') ||
+      (payload &&
+      typeof payload === 'object' &&
+      typeof (payload as { message?: unknown }).message === 'string'
+        ? ((payload as { message?: string }).message as string)
+        : '') ||
+      `Không thể tải danh sách giao dịch (${response.status}).`;
 
     throw new Error(message);
   }

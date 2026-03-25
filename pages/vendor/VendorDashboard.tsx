@@ -274,6 +274,16 @@ const VendorDashboard: React.FC<VendorDashboardProps> = ({ onNavigate }) => {
                 </button>
               </div>
               <div className="bg-white rounded-[2rem] border border-gray-200 shadow-sm p-8 text-center hover:shadow-lg transition-all cursor-pointer">
+                <h3 className="font-bold text-primary mb-2">Giao Dịch & Ví</h3>
+                <p className="text-xs text-slate-500 mb-4">Quản lý doanh thu và rút tiền</p>
+                <button
+                  onClick={() => onNavigate('/vendor/transactions')}
+                  className="w-full border-2 border-primary text-primary py-2 rounded-lg font-bold text-sm uppercase hover:bg-primary/5 transition-all"
+                >
+                  Xem ví
+                </button>
+              </div>
+              <div className="bg-white rounded-[2rem] border border-gray-200 shadow-sm p-8 text-center hover:shadow-lg transition-all cursor-pointer">
                 <h3 className="font-bold text-primary mb-2">Cài Đặt Cửa Hàng</h3>
                 <p className="text-xs text-slate-500 mb-4">Quản lý thông tin cửa hàng</p>
                 <button

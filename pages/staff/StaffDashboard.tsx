@@ -155,6 +155,25 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
             </div>
           ))}
         </div>
+        
+        {/* Transaction Quick Access */}
+        <div className="bg-white rounded-2xl p-8 border-2 border-gray-200 shadow-sm flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-6">
+            <div className="w-16 h-16 bg-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 text-3xl">
+              💸
+            </div>
+            <div>
+              <h2 className="text-xl font-bold text-gray-900 mb-1">Dòng tiền & Giao dịch</h2>
+              <p className="text-sm text-gray-500 font-medium">Theo dõi và kiểm soát toàn bộ giao dịch tài chính trong hệ thống.</p>
+            </div>
+          </div>
+          <button 
+            onClick={() => onNavigate('/staff-transactions')}
+            className="w-full md:w-auto px-8 py-3 bg-black text-white rounded-xl font-bold text-sm uppercase tracking-widest hover:bg-gray-800 transition-all shadow-lg shadow-black/10"
+          >
+            Quản lý tài chính
+          </button>
+        </div>
 
         {/* Pending Vendors Section */}
         <div className="bg-white rounded-2xl p-6 border-2 border-gray-200 shadow-sm">
