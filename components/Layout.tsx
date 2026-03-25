@@ -322,24 +322,25 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
             { path: '/shop', label: 'Tất cả sản phẩm' },
             ...(categories.length > 0
               ? categories.map(cat => ({
-                  path: `/shop?category=${encodeURIComponent(cat.name)}`,
-                  label: cat.name
-                }))
+                path: `/shop?category=${encodeURIComponent(cat.name)}`,
+                label: cat.name
+              }))
               : [
-                  { path: '/shop?category=Full Moon', label: 'Cúng Đầy Tháng' },
-                  { path: '/shop?category=House Warming', label: 'Cúng Tân Gia' },
-                  { path: '/shop?category=Grand Opening', label: 'Cúng Khai Trương' },
-                  { path: '/shop?category=Ancestral', label: 'Cúng Giỗ' },
-                  { path: '/shop?category=Year End', label: 'Cúng Tết' }
-                ])
+                { path: '/shop?category=Full Moon', label: 'Cúng Đầy Tháng' },
+                { path: '/shop?category=House Warming', label: 'Cúng Tân Gia' },
+                { path: '/shop?category=Grand Opening', label: 'Cúng Khai Trương' },
+                { path: '/shop?category=Ancestral', label: 'Cúng Giỗ' },
+                { path: '/shop?category=Year End', label: 'Cúng Tết' }
+              ])
           ]
         },
-       
+
         // { path: '/tracking', label: 'Theo dõi' },
       ];
     } else if (isVendor) {
       return [
         { path: '/vendor/dashboard', label: 'Bảng điều khiển' },
+        // { path: '/vendor/shipping', label: 'Vận chuyển' },
         { path: '/vendor/shop', label: 'Cửa hàng' },
       ];
     } else if (isAdmin) {
@@ -1106,13 +1107,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                             }}
                           >
                             <div
-                              className={`mt-1 size-2.5 rounded-full flex-shrink-0 ${
-                                item.type === 'orderplaced' || item.type === 'order'
-                                  ? 'bg-emerald-500'
-                                  : item.type === 'review' || item.type === 'rating'
+                              className={`mt-1 size-2.5 rounded-full flex-shrink-0 ${item.type === 'orderplaced' || item.type === 'order'
+                                ? 'bg-emerald-500'
+                                : item.type === 'review' || item.type === 'rating'
                                   ? 'bg-sky-500'
                                   : 'bg-amber-500'
-                              }`}
+                                }`}
                             ></div>
                             <div className="flex-1 min-w-0">
                               <p className="text-xs font-bold text-slate-800 mb-1 truncate">

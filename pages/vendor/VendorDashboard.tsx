@@ -6,7 +6,7 @@ interface VendorDashboardProps {
 }
 
 const VendorDashboard: React.FC<VendorDashboardProps> = ({ onNavigate }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'orders' | 'settings'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'products' | 'orders' | 'shippings' | 'settings'>('overview');
   const [allVendorOrders, setAllVendorOrders] = useState<VendorOrder[]>([]);
   const [paidPendingOrders, setPaidPendingOrders] = useState<VendorOrder[]>([]);
   const [isLoadingPaidPendingOrders, setIsLoadingPaidPendingOrders] = useState(false);
@@ -153,7 +153,7 @@ const VendorDashboard: React.FC<VendorDashboardProps> = ({ onNavigate }) => {
 
         {/* Tabs */}
         <div className="flex gap-2 mb-8 bg-white rounded-2xl p-2 border border-gray-200 shadow-sm overflow-x-auto">
-          {['overview', 'products', 'orders', 'settings'].map((tab) => (
+          {['overview', 'products', 'orders', 'shippings', 'settings'].map((tab) => (
             <button
               key={tab}
               onClick={() => {
@@ -161,15 +161,17 @@ const VendorDashboard: React.FC<VendorDashboardProps> = ({ onNavigate }) => {
                 else if (tab === 'products') onNavigate('/vendor/products');
                 else if (tab === 'orders') onNavigate('/vendor/orders');
                 else if (tab === 'settings') onNavigate('/vendor/settings');
+                else if (tab === 'shippings') onNavigate('/vendor/shipping');
               }}
               className={`flex-1 md:flex-none md:px-6 py-3 rounded-lg font-bold text-sm uppercase transition-all tracking-wider whitespace-nowrap border-2 ${activeTab === tab
-                  ? 'border-primary bg-primary/5 text-primary'
-                  : 'border-slate-300 text-slate-500 hover:text-primary'
+                ? 'border-primary bg-primary/5 text-primary'
+                : 'border-slate-300 text-slate-500 hover:text-primary'
                 }`}
             >
               {tab === 'overview' && 'Tổng quan'}
               {tab === 'products' && 'Sản phẩm'}
               {tab === 'orders' && 'Đơn hàng'}
+              {tab === 'shippings' && 'Phí vận chuyển'}
               {tab === 'settings' && 'Cài đặt'}
             </button>
           ))}
@@ -249,6 +251,16 @@ const VendorDashboard: React.FC<VendorDashboardProps> = ({ onNavigate }) => {
                   className="w-full border-2 border-primary text-primary py-2 rounded-lg font-bold text-sm uppercase hover:bg-primary/5 transition-all"
                 >
                   Xem Đơn
+                </button>
+              </div>
+              <div className="bg-white rounded-[2rem] border border-gray-200 shadow-sm p-8 text-center hover:shadow-lg transition-all cursor-pointer">
+                <h3 className="font-bold text-primary mb-2">Cấu Hình Vận Chuyển</h3>
+                <p className="text-xs text-slate-500 mb-4">Quản lý phí giao hàng và khoảng cách</p>
+                <button
+                  onClick={() => onNavigate('/vendor/shipping')}
+                  className="w-full border-2 border-primary text-primary py-2 rounded-lg font-bold text-sm uppercase hover:bg-primary/5 transition-all"
+                >
+                  Cài Đặt
                 </button>
               </div>
               <div className="bg-white rounded-[2rem] border border-gray-200 shadow-sm p-8 text-center hover:shadow-lg transition-all cursor-pointer">

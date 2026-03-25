@@ -321,17 +321,32 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
   return (
     <div className="min-h-screen bg-white p-6 font-sans text-slate-800">
       <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-8">
-          <div>
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight text-primary mb-2">Quản Lý Sản Phẩm</h1>
-            <p className="text-gray-600">Quản lý danh mục sản phẩm mâm cúng của bạn</p>
+        {/* Header Section */}
+        <div className="mb-12 flex flex-col md:flex-row md:items-center justify-between gap-8">
+          <div className="flex items-start gap-5">
+            <button
+              onClick={() => onNavigate('/vendor/dashboard')}
+              className="w-14 h-14 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-slate-700 flex-shrink-0 hover:bg-slate-50 hover:text-black transition-all group"
+              title="Quay lại Bảng điều khiền"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+            </button>
+            <div>
+              <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-2">Sản Phẩm</h1>
+              <p className="text-slate-500 font-bold text-sm">Quản lý danh mục sản phẩm mâm cúng của bạn.</p>
+            </div>
           </div>
+          
           <button
             onClick={() => setShowAddForm(true)}
-            className="flex items-center gap-2 px-6 py-2 border-2 border-primary text-primary rounded-lg font-bold transition-all hover:bg-primary/5"
+            className="px-10 py-4 bg-black text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-black/10 hover:shadow-black/20 hover:-translate-y-1 transition-all flex items-center gap-3 text-xs"
           >
-            Thêm Sản Phẩm
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
+            </svg>
+            <span>Thêm sản phẩm</span>
           </button>
         </div>
 

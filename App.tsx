@@ -25,6 +25,7 @@ import ProductManagement from './pages/vendor/ProductManagement';
 import OrderManagement from './pages/vendor/OrderManagement';
 import VendorAnalytics from './pages/vendor/VendorAnalytics';
 import VendorSettings from './pages/vendor/VendorSettings';
+import ShippingConfigPage from './pages/vendor/ShippingConfigPage';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -149,6 +150,7 @@ const AppContent: React.FC<{
       <Route path="/vendor/orders" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/orders" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><OrderManagement onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
       <Route path="/vendor/analytics" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/analytics" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorAnalytics onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
       <Route path="/vendor/settings" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/settings" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorSettings onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
+      <Route path="/vendor/shipping" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/shipping" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><ShippingConfigPage onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
 
       {/* Staff Routes */}
       <Route path="/staff/dashboard" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff/dashboard" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><StaffDashboard onNavigate={handleNavigate} onLogout={onLogout} /></Layout> : <Navigate to="/auth" />} />

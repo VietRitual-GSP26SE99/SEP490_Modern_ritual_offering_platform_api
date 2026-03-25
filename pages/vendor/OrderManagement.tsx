@@ -493,9 +493,23 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
     <div className="bg-gray-50 min-h-screen py-12">
       <div className="max-w-7xl mx-auto px-4 md:px-8">
 
-        <div className="mb-6">
-          <h1 className="text-3xl font-black text-primary font-display italic">Quản Lý Đơn Hàng</h1>
-          <p className="text-slate-500 mt-2">Theo dõi, xử lý đơn hàng và yêu cầu hoàn tiền của gian hàng.</p>
+        {/* Header Section */}
+        <div className="mb-12 flex flex-col md:flex-row md:items-center justify-between gap-8">
+          <div className="flex items-start gap-5">
+            <button
+              onClick={() => _onNavigate('/vendor/dashboard')}
+              className="w-14 h-14 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-slate-700 flex-shrink-0 hover:bg-slate-50 hover:text-black transition-all group"
+              title="Quay lại Bảng điều khiền"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+            </button>
+            <div>
+              <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-2">Đơn Hàng</h1>
+              <p className="text-slate-500 font-bold text-sm">Theo dõi và xử lý các đơn hàng của bạn.</p>
+            </div>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
