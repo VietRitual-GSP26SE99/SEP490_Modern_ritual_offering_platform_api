@@ -278,6 +278,71 @@ class VendorService {
     }
   }
 
+  /**
+   * Yêu cầu đóng cửa hàng.
+   * POST /api/vendor/closure/request
+   */
+  async requestStoreClosure(reason: string): Promise<ApiResponse<any>> {
+    try {
+      const token = localStorage.getItem('smart-child-token');
+      const response = await fetch(`${API_BASE_URL}/vendor/closure/request`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ reason }),
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('❌ Failed to request store closure:', error);
+      return { isSuccess: false, statusCode: '500', errorMessages: ['Lỗi kết nối hệ thống'], result: null };
+    }
+  }
+
+  /**
+   * Xem tiến trình thanh lý cửa hàng.
+   * GET /api/vendor/closure/status
+   */
+  async getStoreClosureStatus(): Promise<ApiResponse<any>> {
+    try {
+      const token = localStorage.getItem('smart-child-token');
+      const response = await fetch(`${API_BASE_URL}/vendor/closure/status`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('❌ Failed to get store closure status:', error);
+      return { isSuccess: false, statusCode: '500', errorMessages: ['Lỗi kết nối hệ thống'], result: null };
+    }
+  }
+
+  /**
+   * Hủy yêu cầu đóng cửa hàng.
+   * POST /api/vendor/closure/cancel
+   */
+  async cancelStoreClosure(): Promise<ApiResponse<any>> {
+    try {
+      const token = localStorage.getItem('smart-child-token');
+      const response = await fetch(`${API_BASE_URL}/vendor/closure/cancel`, {
+        method: 'POST',
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+      return await response.json();
+    } catch (error) {
+      console.error('❌ Failed to cancel store closure:', error);
+      return { isSuccess: false, statusCode: '500', errorMessages: ['Lỗi kết nối hệ thống'], result: null };
+    }
+  }
+
   // Cache để tránh gọi API nhiều lần
   private vendorCache: Map<string, VendorProfile> = new Map();
 

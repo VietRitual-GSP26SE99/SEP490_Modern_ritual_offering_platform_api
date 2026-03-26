@@ -19,6 +19,7 @@ import {
   getDistrictsByProvince,
   getWardsByDistrict,
 } from '../../services/vietnamAddressApi';
+import { vendorService } from '../../services/vendorService';
 import AddressMapPicker from '../../components/AddressMapPicker';
 
 const DEFAULT_MAP_POSITION = { latitude: 10.8231, longitude: 106.6297 };
@@ -113,6 +114,12 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
     businessType: string;
     avatarUrl: string;
   } | null>(null);
+
+  // Store Closure states
+  const [closureStatus, setClosureStatus] = useState<any>(null);
+  const [closureLoading, setClosureLoading] = useState(false);
+  const [closureReason, setClosureReason] = useState('');
+  const [isClosureRequested, setIsClosureRequested] = useState(false);
   const isNameMatch = (name1: string | undefined, name2: string | undefined): boolean => {
     if (!name1 || !name2) return false;
     const normalize = (s: string) =>
@@ -814,6 +821,72 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
     }
   };
 
+  // Store Closure Logic
+  const fetchClosureStatus = async () => {
+    try {
+      setClosureLoading(true);
+      const res = await vendorService.getStoreClosureStatus();
+      if (res.isSuccess) {
+        setClosureStatus(res.result);
+        setIsClosureRequested(true);
+      } else {
+        // If 400 with "Bạn chưa gửi yêu cầu đóng cửa hàng", it means no request active
+        setIsClosureRequested(false);
+        setClosureStatus(null);
+      }
+    } catch (err) {
+      console.error('Failed to fetch closure status:', err);
+    } finally {
+      setClosureLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'closure') {
+      fetchClosureStatus();
+    }
+  }, [activeTab]);
+
+  const handleRequestClosure = async () => {
+    if (!closureReason.trim()) {
+      toast.error('Vui lòng nhập lý do đóng cửa hàng');
+      return;
+    }
+
+    try {
+      setClosureLoading(true);
+      const res = await vendorService.requestStoreClosure(closureReason);
+      if (res.isSuccess) {
+        toast.success('Gửi yêu cầu đóng cửa hàng thành công');
+        setClosureReason('');
+        fetchClosureStatus();
+      } else {
+        toast.error(res.errorMessages?.[0] || 'Gửi yêu cầu thất bại');
+      }
+    } catch (err) {
+      toast.error('Có lỗi xảy ra khi gửi yêu cầu');
+    } finally {
+      setClosureLoading(false);
+    }
+  };
+
+  const handleCancelClosure = async () => {
+    try {
+      setClosureLoading(true);
+      const res = await vendorService.cancelStoreClosure();
+      if (res.isSuccess) {
+        toast.success('Đã hủy yêu cầu đóng cửa hàng thành công');
+        fetchClosureStatus();
+      } else {
+        toast.error(res.errorMessages?.[0] || 'Hủy yêu cầu thất bại');
+      }
+    } catch (err) {
+      toast.error('Có lỗi xảy ra khi hủy yêu cầu');
+    } finally {
+      setClosureLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-white p-6">
       <div className="max-w-5xl mx-auto">
@@ -851,6 +924,7 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
               { id: 'bank', label: ' Thông Tin Ngân Hàng' },
               { id: 'commission', label: ' Hoa Hồng & Phí' },
               { id: 'notifications', label: ' Thông Báo' },
+              { id: 'closure', label: ' Đóng Cửa Hàng' },
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -1467,6 +1541,92 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
               <button className="mt-6 w-full px-6 py-2.5 border-2 border-primary text-primary rounded-lg font-bold transition-all hover:bg-primary/5">
                 Lưu Cài Đặt Thông Báo
               </button>
+            </div>
+          )}
+
+          {/* Store Closure Tab */}
+          {activeTab === 'closure' && (
+            <div className="bg-white rounded-2xl shadow-lg p-8 border-2 border-gold/20">
+              <h2 className="text-2xl font-bold text-primary mb-6">Đóng Cửa Hàng</h2>
+
+              {closureLoading && !closureStatus ? (
+                <div className="flex flex-col items-center justify-center py-10">
+                  <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary mb-4"></div>
+                  <p className="text-gray-500">Đang tải thông tin...</p>
+                </div>
+              ) : !isClosureRequested ? (
+                <div className="space-y-6">
+                  <div className="p-6 bg-red-50 border-2 border-red-200 rounded-xl">
+                    <h3 className="text-lg font-bold text-red-900 mb-2">Lưu ý quan trọng</h3>
+                    <ul className="list-disc list-inside text-sm text-red-800 space-y-2">
+                      <li>Khi bắt đầu yêu cầu đóng cửa hàng, trạng thái của bạn sẽ chuyển sang <strong>PendingClosure</strong>.</li>
+                      <li>Hệ thống <strong>không nhận đơn hàng mới</strong> từ khách hàng.</li>
+                      <li>Bạn cần hoàn tất tất cả các đơn hàng đang dang dở.</li>
+                      <li>Tiền trong tài khoản sẽ được giải phóng sau khi các thủ tục thanh lý hoàn tất.</li>
+                    </ul>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-gray-700 mb-2">Lý do đóng cửa hàng</label>
+                    <textarea
+                      value={closureReason}
+                      onChange={(e) => setClosureReason(e.target.value)}
+                      placeholder="Nhập lý do bạn muốn ngừng kinh doanh tại đây..."
+                      className="w-full px-4 py-3 border-2 border-gold/20 rounded-lg focus:border-primary focus:outline-none min-h-[150px]"
+                    />
+                  </div>
+
+                  <button
+                    onClick={handleRequestClosure}
+                    disabled={closureLoading}
+                    className="w-full px-6 py-3 bg-red-600 text-white rounded-lg font-bold transition-all hover:bg-red-700 disabled:opacity-50"
+                  >
+                    {closureLoading ? 'Đang xử lý...' : 'Gửi yêu cầu đóng cửa hàng'}
+                  </button>
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  <div className="p-6 bg-blue-50 border-2 border-blue-200 rounded-xl flex items-center gap-4">
+                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-2xl">⏳</div>
+                    <div>
+                      <h3 className="text-lg font-bold text-blue-900">Yêu cầu đang được xử lý</h3>
+                      <p className="text-sm text-blue-800">Cửa hàng của bạn đang trong tiến trình thanh lý và đóng cửa.</p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                      <p className="text-xs font-bold text-gray-500 uppercase">Đơn hàng còn lại</p>
+                      <p className="text-2xl font-black text-slate-800">{closureStatus?.remainingOrders || 0}</p>
+                    </div>
+                    <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                      <p className="text-xs font-bold text-gray-500 uppercase">Hoàn tiền (Refund)</p>
+                      <p className="text-2xl font-black text-slate-800">{closureStatus?.refundAmount?.toLocaleString() || 0} ₫</p>
+                    </div>
+                    <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                      <p className="text-xs font-bold text-gray-500 uppercase">Số nợ (Debt)</p>
+                      <p className="text-2xl font-black text-red-600">{closureStatus?.debtAmount?.toLocaleString() || 0} ₫</p>
+                    </div>
+                    <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                      <p className="text-xs font-bold text-gray-500 uppercase">Số dư bị giữ (Held Balance)</p>
+                      <p className="text-2xl font-black text-primary">{closureStatus?.heldBalance?.toLocaleString() || 0} ₫</p>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-gray-100">
+                    <p className="text-sm text-gray-500 mb-4 italic">
+                      Lưu ý: Bạn chỉ có thể hủy yêu cầu đóng cửa hàng nếu Số dư bị giữ (Held Balance) chưa được giải phóng.
+                    </p>
+                    <button
+                      onClick={handleCancelClosure}
+                      disabled={closureLoading}
+                      className="w-full px-6 py-3 border-2 border-gray-300 text-gray-600 rounded-lg font-bold hover:bg-gray-50 transition-all disabled:opacity-50"
+                    >
+                      {closureLoading ? 'Đang xử lý...' : 'Hủy yêu cầu đóng cửa hàng'}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </>)}
