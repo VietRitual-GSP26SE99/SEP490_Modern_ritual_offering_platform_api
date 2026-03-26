@@ -48,6 +48,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
   const [withdrawalHistoryLoading, setWithdrawalHistoryLoading] = useState<boolean>(false);
   const [userName, setUserName] = useState<string>('');
   const [categories, setCategories] = useState<CeremonyCategory[]>([]);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -80,6 +81,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
   const hasAdminRole =
     currentUser?.role === 'admin' ||
     currentUser?.roles?.some((role) => typeof role === 'string' && role.toLowerCase() === 'admin');
+  const isDashboardRoute = activeRoute.startsWith('/vendor') || activeRoute.startsWith('/staff') || activeRoute.startsWith('/admin/') || activeRoute === '/staff-dashboard' || activeRoute.startsWith('/staff-') || activeRoute.startsWith('/admin-');
 
   const markAllNotificationsAsRead = () => {
     setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
@@ -1017,7 +1019,14 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
       {!hideHeader && (
         <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
           <div className="max-w-[92rem] mx-auto px-6 md:px-10 py-4 flex items-center justify-between">
-            <div className="flex items-center gap-12">
+            <div className="flex items-center gap-4 lg:gap-12">
+              <button
+                onClick={() => setIsMobileMenuOpen(true)}
+                className="lg:hidden p-2 -ml-2 text-slate-600 hover:text-primary transition-colors focus:outline-none"
+                aria-label="Toggle menu"
+              >
+                <span className="material-symbols-outlined text-3xl">menu</span>
+              </button>
               <div
                 className="cursor-pointer"
                 onClick={() => {
@@ -1561,8 +1570,148 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
         </header>
       )}
 
+      {/* Mobile Menu Drawer */}
+      <div 
+        className={`fixed inset-0 z-[100] transition-visibility duration-300 ${isMobileMenuOpen ? 'visible' : 'invisible'}`}
+      >
+        {/* Backdrop */}
+        <div 
+          className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${isMobileMenuOpen ? 'opacity-100' : 'opacity-0'}`}
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+        
+        {/* Drawer Content */}
+        <div 
+          className={`absolute inset-y-0 left-0 w-[85%] max-w-sm bg-white shadow-2xl transition-transform duration-300 ease-out flex flex-col ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        >
+          <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-ritual-bg/30">
+            <h2 className="text-xl font-display font-black text-primary italic">VIET RITUAL</h2>
+            <button 
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="p-2 text-slate-400 hover:text-primary"
+            >
+              <span className="material-symbols-outlined">close</span>
+            </button>
+          </div>
+
+          <div className="flex-1 overflow-y-auto py-6">
+            <div className="px-6 space-y-6">
+              {/* User Section in Mobile Menu */}
+              {userName ? (
+                <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10">
+                  <div className="flex items-center gap-4 mb-4">
+                    <div className="size-12 rounded-full bg-primary flex items-center justify-center text-white">
+                      <span className="material-symbols-outlined text-2xl">person</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-black text-primary truncate max-w-[160px]">{userName}</p>
+                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mt-0.5">Thành viên</p>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button 
+                      onClick={() => { onNavigate('/profile'); setIsMobileMenuOpen(false); }}
+                      className="text-[10px] font-black uppercase tracking-wider text-primary bg-white border border-primary/20 py-2 rounded-lg text-center"
+                    >
+                      Hồ sơ
+                    </button>
+                    <button 
+                      onClick={handleLogoutClick}
+                      className="text-[10px] font-black uppercase tracking-wider text-red-600 bg-white border border-red-100 py-2 rounded-lg text-center"
+                    >
+                      Đăng xuất
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button 
+                  onClick={() => { onNavigate('/auth'); setIsMobileMenuOpen(false); }}
+                  className="w-full bg-primary text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-primary/20"
+                >
+                  Đăng Nhập Ngay
+                </button>
+              )}
+
+              {/* Navigation Links */}
+              <div className="space-y-1">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 pl-2">Khám phá</p>
+                {getNavItems().map((item) => (
+                  <div key={item.label} className="space-y-1">
+                    <button
+                      onClick={() => {
+                        if (!item.submenu) {
+                          item.path && onNavigate(item.path);
+                          setIsMobileMenuOpen(false);
+                        } else {
+                          setOpenDropdown(openDropdown === item.label ? null : item.label);
+                        }
+                      }}
+                      className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold text-sm transition-colors ${activeRoute === item.path ? 'bg-primary text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+                    >
+                      <span>{item.label}</span>
+                      {item.submenu && (
+                        <span className={`material-symbols-outlined text-lg transition-transform ${openDropdown === item.label ? 'rotate-180' : ''}`}>
+                          expand_more
+                        </span>
+                      )}
+                    </button>
+                    {item.submenu && openDropdown === item.label && (
+                      <div className="pl-4 space-y-1 mt-1 font-medium bg-slate-50/50 rounded-2xl py-2">
+                        {item.submenu.map((sub, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => { onNavigate(sub.path); setIsMobileMenuOpen(false); }}
+                            className="w-full text-left px-4 py-2.5 text-xs text-slate-500 hover:text-primary transition-colors"
+                          >
+                            - {sub.label}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              {/* Utility Links */}
+              <div className="space-y-1 pt-4 border-t border-gray-100">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 pl-2">Cá nhân</p>
+                <button 
+                  onClick={() => { onNavigate('/cart'); setIsMobileMenuOpen(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 font-bold text-sm hover:bg-slate-50"
+                >
+                  <span className="material-symbols-outlined text-xl">shopping_cart</span>
+                  <span>Giỏ hàng ({cartCount})</span>
+                </button>
+                <button 
+                  onClick={() => { setIsWalletDropdownOpen(true); setIsMobileMenuOpen(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 font-bold text-sm hover:bg-slate-50"
+                >
+                  <span className="material-symbols-outlined text-xl">account_balance_wallet</span>
+                  <span>Ví của tôi</span>
+                </button>
+                <button 
+                  onClick={() => { onNavigate('/profile/orders'); setIsMobileMenuOpen(false); }}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 font-bold text-sm hover:bg-slate-50"
+                >
+                  <span className="material-symbols-outlined text-xl">list_alt</span>
+                  <span>Đơn hàng của tôi</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <div className="p-8 border-t border-gray-100">
+            <div className="flex items-center gap-3 text-primary font-black mb-1">
+              <span className="material-symbols-outlined text-xl">call</span>
+              <span className="text-lg">1900 8888</span>
+            </div>
+            <p className="text-[10px] font-bold text-slate-400 italic">Hỗ trợ khách hàng 24/7</p>
+          </div>
+        </div>
+      </div>
+
       <main className="flex-grow">
-        {(isStaff || isVendor) ? (
+        {(isStaff || isVendor) && isDashboardRoute ? (
           <div className="bg-white py-12">
             <div className="w-full mx-auto px-6 md:px-10 lg:px-12 xl:px-16">
               <div className="flex flex-col lg:flex-row gap-10 items-start">

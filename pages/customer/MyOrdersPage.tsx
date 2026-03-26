@@ -138,21 +138,21 @@ const MyOrdersPage: React.FC = () => {
     return (
         <div className="bg-gray-50 min-h-screen py-12">
             <div className="max-w-5xl mx-auto px-4 md:px-8">
-                <div className="mb-10">
-                    <h1 className="text-3xl font-black text-primary font-display italic">Đơn hàng của tôi</h1>
-                    <p className="text-slate-500 mt-2">Quản lý và theo dõi trạng thái các mâm cúng bạn đã đặt.</p>
+                <div className="mb-6 md:mb-10 text-center sm:text-left">
+                    <h1 className="text-3xl md:text-5xl font-black text-slate-900 font-display italic tracking-tight leading-tight">Đơn hàng của tôi</h1>
+                    <p className="text-sm md:text-lg text-slate-500 mt-2 font-medium">Theo dõi và quản lý lịch sử đặt mâm cúng của bạn.</p>
                 </div>
 
                 {/* Tabs */}
-                <div className="flex overflow-x-auto pb-4 mb-8 hide-scrollbar border-b border-gray-200">
-                    <div className="flex space-x-2">
+                <div className="sticky top-16 z-20 bg-gray-50/95 backdrop-blur-md -mx-4 px-4 mb-10 border-b border-slate-200 hide-scrollbar overflow-x-auto shadow-sm">
+                    <div className="flex space-x-2 py-3">
                         {tabs.map((tab) => (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
-                                className={`whitespace-nowrap px-6 py-3 rounded-t-xl font-bold text-sm transition-all border-b-2 ${activeTab === tab.id
-                                    ? 'border-primary text-primary bg-primary/5'
-                                    : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-gray-100'
+                                className={`whitespace-nowrap px-6 py-2.5 rounded-full font-black text-[10px] uppercase tracking-widest transition-all ${activeTab === tab.id
+                                    ? 'text-white bg-slate-900 shadow-xl shadow-slate-900/20'
+                                    : 'text-slate-500 hover:text-slate-800 hover:bg-white hover:shadow-sm'
                                     }`}
                             >
                                 {tab.label}
@@ -181,31 +181,27 @@ const MyOrdersPage: React.FC = () => {
                         </div>
                     ) : (
                         filteredOrders.map((order) => (
-                            <div key={order.orderId} className="bg-white rounded-[2rem] border border-gray-200 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300">
-                                <div className="p-6 md:p-8 flex flex-col md:flex-row gap-6 justify-between border-b border-gray-100 bg-gray-50/50">
-                                    <div className="flex flex-col md:flex-row gap-4 md:items-center">
-                                        {/* <div>
-                                            <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-1">Mã đơn hàng</span>
-                                            <span className="font-mono text-gray-900 font-bold">#{order.orderId.substring(0, 8).toUpperCase()}</span>
-                                        </div> */}
-                                        <div className="hidden md:block w-px h-8 bg-gray-300"></div>
+                            <div key={order.orderId} className="bg-white rounded-[2.5rem] border border-slate-100 overflow-hidden shadow-2xl shadow-slate-200/40 hover:shadow-primary/5 hover:border-primary/10 transition-all duration-500 group">
+                                <div className="p-5 md:p-8 flex flex-col md:flex-row gap-4 md:gap-6 justify-between border-b border-gray-100 bg-gray-50/20">
+                                    <div className="flex flex-row md:flex-row gap-4 items-center justify-between md:justify-start w-full md:w-auto">
                                         <div>
-                                            <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-1">Ngày đặt</span>
-                                            <span className="text-gray-900 font-medium">{order.createdAt ? new Date(order.createdAt).toLocaleString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : new Date((order as any).deliveryDate || Date.now()).toLocaleDateString('vi-VN')}</span>
+                                            <span className="text-[10px] font-bold uppercase text-slate-400 tracking-widest block mb-1">Ngày đặt</span>
+                                            <span className="text-gray-900 font-bold text-sm">{order.createdAt ? new Date(order.createdAt).toLocaleDateString('vi-VN') : 'N/A'}</span>
                                         </div>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest ${getStatusStyle(order.orderStatus)}`}>
-                                            {getStatusText(order.orderStatus)}
-                                        </span>
+                                        <div className="hidden md:block w-px h-8 bg-gray-200"></div>
+                                        <div className="flex items-center gap-2">
+                                            <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${getStatusStyle(order.orderStatus)}`}>
+                                                {getStatusText(order.orderStatus)}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
 
-                                <div className="p-6 md:p-8">
-                                    <div className="flex items-center gap-3 mb-6 pb-6 border-b border-dashed border-gray-200">
-                                        <div className="size-10 rounded-full bg-orange-100 flex items-center justify-center text-primary">
-                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                <div className="p-5 md:p-8">
+                                    <div className="flex items-center gap-3 mb-5 pb-5 border-b border-dashed border-gray-100">
+                                        <div className="size-8 rounded-full bg-orange-100 flex items-center justify-center text-primary shrink-0">
+                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                                             </svg>
                                         </div>
                                         <div>
@@ -229,69 +225,64 @@ const MyOrdersPage: React.FC = () => {
                                         </div>
                                     </div>
 
-                                    <div className="space-y-4">
+                                    <div className="space-y-5">
                                         {order.items?.map((item, idx) => (
-                                            <div key={idx} className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-                                                <div className="flex gap-4 items-center w-full">
-                                                    <div 
-                                                        className="size-16 rounded-xl bg-gray-100 border border-gray-200 flex-shrink-0 bg-cover bg-center cursor-pointer hover:shadow-md transition-all active:scale-95" 
-                                                        style={{ backgroundImage: `url("${item.imageUrl || 'https://picsum.photos/100?random=1'}")` }}
+                                            <div key={idx} className="flex gap-4 items-center group/item">
+                                                <div 
+                                                    className="size-14 md:size-20 rounded-2xl bg-gray-100 border border-gray-100 shrink-0 bg-cover bg-center shadow-sm group-hover/item:scale-105 transition-all cursor-pointer" 
+                                                    style={{ backgroundImage: `url("${item.imageUrl || 'https://picsum.photos/200?random=1'}")` }}
+                                                    onClick={() => (item as any).packageId && navigate(`/product/${(item as any).packageId}`)}
+                                                />
+                                                <div className="flex-1 min-w-0">
+                                                    <h5 
+                                                        className="font-bold text-gray-900 text-sm md:text-base cursor-pointer hover:text-primary transition-colors truncate"
                                                         onClick={() => (item as any).packageId && navigate(`/product/${(item as any).packageId}`)}
-                                                    />
-                                                    <div className="flex-1 text-left">
-                                                        <h5 
-                                                            className="font-bold text-gray-800 text-sm md:text-base cursor-pointer hover:text-primary transition-colors"
-                                                            onClick={() => (item as any).packageId && navigate(`/product/${(item as any).packageId}`)}
-                                                        >
-                                                            {item.packageName}
-                                                        </h5>
-                                                        <p className="text-xs text-slate-500 mt-1">Gói: {item.variantName}</p>
-                                                        <p className="text-sm font-medium mt-1">x{item.quantity}</p>
+                                                    >
+                                                        {item.packageName}
+                                                    </h5>
+                                                    <div className="flex items-center gap-2 mt-1">
+                                                        <p className="text-[10px] md:text-xs text-slate-400 font-medium">Gói {item.variantName}</p>
+                                                        <span className="size-1 bg-gray-300 rounded-full"></span>
+                                                        <p className="text-xs font-bold text-gray-700">x{item.quantity}</p>
                                                     </div>
-                                                    <div className="text-right">
-                                                        <p className="font-bold text-primary">{(item.lineTotal || (item.price || (item as any).unitPrice || 0) * item.quantity).toLocaleString('vi-VN')}đ</p>
-                                                    </div>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="font-black text-primary text-sm md:text-lg">
+                                                        {(item.lineTotal || (item.price || (item as any).unitPrice || 0) * item.quantity).toLocaleString('vi-VN')}₫
+                                                    </p>
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
 
-                                <div className="p-6 md:p-8 pt-0 flex flex-col sm:flex-row items-center justify-between gap-4">
-                                    <div>
-                                        <span className="text-sm text-gray-500 mr-2">Tổng tiền:</span>
-                                        <span className="text-2xl font-black text-primary">
+                                <div className="p-5 md:p-8 pt-0 flex flex-col md:flex-row items-center justify-between gap-6 border-t border-gray-50 mt-2">
+                                    <div className="flex flex-col items-center md:items-start w-full md:w-auto">
+                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tổng thanh toán</span>
+                                        <span className="text-2xl md:text-3xl font-black text-primary font-display flex items-baseline">
                                             {(() => {
-                                                // List API returns flat structure, detail API returns nested
                                                 const total = (order as any).finalAmount
                                                     || (order as any).totalAmount
                                                     || order.pricing?.totalAmount
                                                     || 0;
                                                 return total.toLocaleString('vi-VN');
-                                            })()}đ
+                                            })()}
+                                            <span className="text-sm ml-1 underline underline-offset-4">đ</span>
                                         </span>
                                     </div>
-                                    <div className="flex gap-3 w-full sm:w-auto">
+                                    <div className="flex gap-3 w-full md:w-auto">
                                         {['PENDING', 'PAID'].includes(order.orderStatus.toUpperCase()) && (
                                             <button
                                                 onClick={() => handleCancelOrder(order.orderId)}
                                                 disabled={cancellingId === order.orderId}
-                                                className={`flex-1 sm:flex-none border border-red-200 text-red-600 font-bold py-3 px-6 rounded-xl hover:bg-red-50 transition ${cancellingId === order.orderId ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                                className="flex-1 md:flex-none px-6 py-3.5 rounded-2xl font-black text-[10px] uppercase tracking-widest border-2 border-red-50 text-red-500 hover:bg-red-50 transition-all active:scale-95 disabled:opacity-50"
                                             >
-                                                {cancellingId === order.orderId ? 'Đang hủy...' : 'Hủy đơn'}
+                                                {cancellingId === order.orderId ? 'Đang xử lý...' : 'Hủy đơn'}
                                             </button>
                                         )}
-                                        {/* {['PAID', 'PROCESSING', 'DELIVERING'].includes(order.orderStatus.toUpperCase()) && (
-                                            <button
-                                                onClick={() => navigate(`/tracking?orderId=${order.orderId}`)}
-                                                className="flex-1 sm:flex-none border border-primary text-primary font-bold py-3 px-6 rounded-xl hover:bg-primary/5 transition"
-                                            >
-                                                Theo dõi
-                                            </button>
-                                        )} */}
                                         <button
                                             onClick={() => navigate(`/profile/orders/${order.orderId}`)}
-                                            className="flex-1 sm:flex-none bg-primary text-white font-bold py-3 px-6 rounded-xl hover:bg-primary/90 transition shadow-lg shadow-primary/20"
+                                            className="flex-1 md:flex-none px-8 py-3.5 rounded-2xl bg-slate-900 text-white font-black text-[10px] uppercase tracking-widest hover:bg-primary hover:shadow-xl hover:shadow-primary/20 transition-all active:scale-95"
                                         >
                                             Xem chi tiết
                                         </button>

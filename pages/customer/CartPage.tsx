@@ -234,9 +234,9 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
   const total = checkoutSummary?.totalAmount || (subtotal + shipping - discount);
 
   return (
-    <div className="max-w-7xl mx-auto px-6 md:px-10 py-16">
-      <div className="flex items-center justify-between mb-12">
-        <h1 className="text-4xl font-display font-black text-primary">Giỏ Hàng</h1>
+    <div className="max-w-7xl mx-auto px-4 md:px-10 py-8 md:py-16">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8 md:mb-12 text-center sm:text-left">
+        <h1 className="text-3xl md:text-4xl font-black text-slate-900 italic font-display tracking-tight">Giỏ Hàng</h1>
         {cartItems.length > 0 && (
           <button
             onClick={clearAllCart}
@@ -265,9 +265,9 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
             cartItems.map(item => {
               const isUpdating = updating === item.cartItemId;
               return (
-                <div key={item.cartItemId} className="bg-white p-6 rounded-2xl border border-gold/10 shadow-sm hover:shadow-lg transition-all">
-                  <div className="flex gap-6">
-                    <div className="w-24 h-24 rounded-xl overflow-hidden flex-shrink-0 bg-slate-100 flex items-center justify-center">
+                <div key={item.cartItemId} className="bg-white p-4 md:p-6 rounded-[2rem] border border-slate-100 shadow-xl shadow-slate-200/40 hover:shadow-2xl hover:border-primary/20 transition-all duration-300">
+                  <div className="flex flex-col sm:flex-row gap-4 md:gap-6">
+                    <div className="w-20 h-20 md:w-24 md:h-24 rounded-xl overflow-hidden flex-shrink-0 bg-slate-100 flex items-center justify-center">
                       {item.imageUrl ? (
                         <img 
                           src={item.imageUrl} 
@@ -288,8 +288,8 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
                         <p className="text-sm text-slate-500 mb-2">{item.variantName}</p>
                         <p className="text-2xl font-black text-gold">{item.price.toLocaleString()}đ</p>
                       </div>
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3 bg-slate-100 rounded-lg p-2">
+                      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3 bg-slate-100 rounded-lg p-1.5">
                           <button 
                             onClick={() => updateQuantity(item.cartItemId, item.quantity - 1)}
                             disabled={isUpdating}
@@ -322,7 +322,7 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
                             +
                           </button>
                         </div>
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-3">
                           <button 
                             onClick={() => onNavigate(`/checkout?cartItemId=${item.cartItemId}`)}
                             disabled={isUpdating}
@@ -350,7 +350,7 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
 
         {/* Order Summary */}
         {cartItems.length > 0 && (
-          <div className="bg-white p-8 rounded-3xl border border-gold/10 shadow-sm h-fit sticky top-32">
+          <div className="bg-white p-6 md:p-10 rounded-[2.5rem] border border-slate-100 shadow-2xl shadow-slate-200/50 h-fit sticky top-32">
             <h2 className="text-xl font-bold text-primary mb-6">Tóm tắt đơn hàng</h2>
             
             <div className="space-y-3 pb-6 border-b border-gold/10">
