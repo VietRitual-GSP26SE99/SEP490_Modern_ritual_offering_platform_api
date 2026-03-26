@@ -2149,7 +2149,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
             </div>
           </div>
         ) : (
-          <form onSubmit={isResubmitting ? handleResubmitSubmit : handleRegisterSubmit} className="p-8 md:p-12 space-y-12">
+          <form onSubmit={isResubmitting ? handleResubmitSubmit : handleRegisterSubmit} className="p-6 md:p-12 space-y-10 md:space-y-12">
             {isResubmitting && (
               <div className="bg-blue-50 border border-blue-100 p-4 rounded-xl flex items-center justify-between">
                 <p className="text-blue-700 text-sm">
@@ -2166,10 +2166,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
             )}
 
             {/* Section 1: Shop Information */}
-            <div>
-              <div className="flex items-center gap-3 mb-8 border-b border-gray-100 pb-4">
-                <span className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">1</span>
-                <h4 className="text-xl font-bold text-slate-800 uppercase tracking-wide">Thông tin cửa hàng</h4>
+            <div className="space-y-6 md:space-y-8">
+              <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
+                <span className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-black text-xs md:text-sm shadow-sm ring-4 ring-primary/5">1</span>
+                <h4 className="text-base md:text-xl font-black text-slate-800 uppercase tracking-widest italic font-display">Thông tin cửa hàng</h4>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -2385,10 +2385,10 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
             </div>
 
             {/* Section 2: Verification Documents */}
-            <div>
-              <div className="flex items-center gap-3 mb-8 border-b border-gray-100 pb-4">
-                <span className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">2</span>
-                <h4 className="text-xl font-bold text-slate-800 uppercase tracking-wide">Giấy tờ xác thực</h4>
+            <div className="space-y-6 md:space-y-8">
+              <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
+                <span className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-black text-xs md:text-sm shadow-sm ring-4 ring-primary/5">2</span>
+                <h4 className="text-base md:text-xl font-black text-slate-800 uppercase tracking-widest italic font-display">Giấy tờ xác thực</h4>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -2422,7 +2422,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
               <button
                 type="submit"
                 disabled={registering}
-                className="w-full md:w-auto min-w-[300px] bg-primary text-white py-5 px-12 rounded-[2rem] font-bold text-lg uppercase shadow-xl hover:scale-105 transition-all disabled:opacity-50"
+                className="w-full md:w-auto min-w-[280px] bg-primary text-white py-4 md:py-5 px-12 rounded-[2rem] font-bold text-base md:text-lg uppercase shadow-xl hover:scale-105 transition-all disabled:opacity-50"
               >
                 {registering ? 'Đang xử lý...' : isResubmitting ? 'Cập nhật & Gửi lại hồ sơ' : 'Hoàn tất đăng ký & Gửi duyệt'}
               </button>
@@ -2447,19 +2447,26 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
     <div className="min-h-screen bg-white py-12">
       <div className="max-w-7xl mx-auto px-6 md:px-10">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-12">
-          <div className="flex gap-6">
-            <div className="w-24 h-24 rounded-full bg-cover border-4 border-gold shadow-lg"
-              style={{ backgroundImage: profile?.avatarUrl ? `url("${profile.avatarUrl}")` : 'url("https://picsum.photos/200/200?random=profile")' }} />
-            <div className="flex flex-col justify-center">
-              <h1 className="text-3xl font-black text-primary font-display mb-2">
-                {loading ? 'Đang tải...' : profile?.fullName || 'Chưa có tên'}
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8 md:mb-12">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 md:gap-8">
+            <div className="relative group">
+              <div className="w-24 h-24 md:w-32 md:h-32 rounded-[2rem] bg-cover bg-center border-4 border-white shadow-2xl transition-transform group-hover:scale-105"
+                style={{ backgroundImage: profile?.avatarUrl ? `url("${profile.avatarUrl}")` : 'url("https://picsum.photos/200/200?random=profile")' }} />
+              <div className="absolute -bottom-2 -right-2 bg-primary text-white p-2 rounded-xl shadow-lg">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                </svg>
+              </div>
+            </div>
+            <div className="flex flex-col justify-center text-center sm:text-left space-y-1 md:space-y-2">
+              <h1 className="text-2xl md:text-4xl font-black text-slate-900 font-display italic tracking-tight">
+                {loading ? 'Đang tải...' : profile?.fullName || 'Người dùng mới'}
               </h1>
-              <p className="text-slate-500">{loading ? '...' : getCurrentUser()?.email || profile?.userId}</p>
-              <div className="flex gap-2 mt-4">
+              <p className="text-sm md:text-base text-slate-500 font-medium">{loading ? '...' : getCurrentUser()?.email || profile?.userId}</p>
+              <div className="flex flex-wrap justify-center sm:justify-start gap-2 mt-2">
                 {profile?.isVendor && (
-                  <span className="px-3 py-1 bg-gray-100 text-primary text-xs font-bold uppercase rounded-lg">
-                    Vendor
+                  <span className="px-4 py-1.5 bg-slate-900 text-white text-[10px] font-black uppercase tracking-widest rounded-full shadow-sm">
+                    Vendor Partner
                   </span>
                 )}
                 {profile?.isVendor && profile?.ratingAvg > 0 && (
@@ -2586,8 +2593,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
         )} */}
 
             {/* Tabs */}
-            <div className="-mx-6 md:-mx-10 px-6 md:px-10 mb-8 bg-white/98 backdrop-blur-sm py-4 border-y border-gray-200 shadow-md sticky top-[88px] z-[100]">
-              <div className="flex gap-2 max-w-7xl mx-auto">
+            <div className="-mx-4 sm:-mx-6 md:-mx-10 px-4 sm:px-6 md:px-10 mb-8 bg-white/98 backdrop-blur-sm py-4 border-y border-gray-200 shadow-md sticky top-[72px] md:top-[88px] z-[100] overflow-x-auto hide-scrollbar">
+              <div className="flex gap-2 max-w-7xl mx-auto min-w-max sm:min-w-0">
                 {(() => {
                   const tabs = ['info', 'reviews'];
                   if (!profile?.isVendor) {
@@ -2598,14 +2605,13 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                   <button
                     key={tab}
                     onClick={() => {
-                      // Disable switching tabs during first-time setup
                       if (isProfileSetupRequired) {
                         return;
                       }
                       setActiveTab(tab as any);
                     }}
                     disabled={isProfileSetupRequired && tab !== 'info'}
-                    className={`flex-1 py-3 rounded-xl font-bold text-sm uppercase transition-all tracking-wider ${activeTab === tab
+                    className={`px-4 md:px-8 py-2.5 md:py-3 rounded-xl font-bold text-xs md:text-sm uppercase transition-all tracking-wider whitespace-nowrap ${activeTab === tab
                       ? 'bg-primary text-white shadow-md'
                       : isProfileSetupRequired && tab !== 'info'
                         ? 'text-slate-300 cursor-not-allowed opacity-50'
@@ -2616,7 +2622,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                     {tab === 'reviews' && `Đánh giá (${mockReviews.length})`}
                     {tab === 'vendor-register' && (
                       profile?.verificationStatus === 'Pending' ? 'Đang xác minh ' :
-                        profile?.verificationStatus === 'Rejected' ? 'Đăng ký lại (Bị từ chối)' : 'Đăng ký Vendor '
+                        profile?.verificationStatus === 'Rejected' ? 'Bị từ chối' : 'Đăng ký Vendor '
                     )}
                     {isProfileSetupRequired && tab !== 'info' && ' 🔒'}
                   </button>
@@ -2627,7 +2633,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
             {/* Tab Content */}
             <div className="relative">
               {activeTab === 'info' && (
-                <div className="bg-white rounded-[2.5rem] border border-gray-200 shadow-lg p-8 md:p-12 relative z-10">
+                <div className="bg-white rounded-[2rem] md:rounded-[2.5rem] border border-gray-200 shadow-lg p-6 md:p-12 relative z-10">
                   {isEditing ? (
                     <form onSubmit={handleSubmit} className="space-y-6">
                       <h3 className="text-2xl font-bold text-primary mb-6">Chỉnh Sửa Thông Tin</h3>
@@ -3181,13 +3187,15 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                       </div>
                     </form>
                   ) : (
-                    <div className="space-y-8">
+                    <div className="space-y-10">
                       {/* Basic Information */}
-                      <div>
-                        <h3 className="text-lg font-bold text-primary mb-4 pb-2 border-b-2 border-gray-200">
-                          Thông Tin Cơ Bản
-                        </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-6">
+                        <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                          <h3 className="text-base font-black text-slate-800 uppercase tracking-widest italic font-display">
+                            Thông Tin Cá Nhân
+                          </h3>
+                        </div>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                           {/* <div className="p-4 rounded-xl bg-gray-50 border border-gray-200">
                       <span className="text-xs font-bold uppercase text-slate-400">Profile ID</span>
                       <p className="text-sm font-mono text-primary mt-1">{profile?.profileId}</p>
@@ -3230,10 +3238,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                       </div>
 
                       {/* Address Information */}
-                      <div>
-                        <h3 className="text-lg font-bold text-primary mb-4 pb-2 border-b-2 border-gray-200">
-                          Địa Chỉ
-                        </h3>
+                      <div className="space-y-6">
+                        <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                          <h3 className="text-base font-black text-slate-800 uppercase tracking-widest italic font-display">
+                            Thông Tin Địa Chỉ
+                          </h3>
+                        </div>
                         {customerAddresses.length > 0 && (
                           <p className="text-sm text-slate-500 mb-3">Đã tải {customerAddresses.length} địa chỉ từ tài khoản hiện tại.</p>
                         )}
@@ -3247,10 +3257,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
 
                       {/* Vendor Information - Only show if user is a vendor */}
                       {profile?.isVendor && (
-                        <div>
-                          <h3 className="text-lg font-bold text-primary mb-4 pb-2 border-b-2 border-gray-200">
-                            Thông Tin Vendor
-                          </h3>
+                        <div className="space-y-6">
+                          <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                            <h3 className="text-base font-black text-slate-800 uppercase tracking-widest italic font-display">
+                              Thông Tin Đối Tác
+                            </h3>
+                          </div>
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                             <div className="p-4 rounded-xl bg-gray-50 border border-gray-200">
                               <span className="text-xs font-bold uppercase text-slate-400">Tên Shop</span>
@@ -3273,10 +3285,12 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                       )}
 
                       {/* System Information */}
-                      <div>
-                        <h3 className="text-lg font-bold text-primary mb-4 pb-2 border-b-2 border-gray-200">
-                          Thông Tin Hệ Thống
-                        </h3>
+                      <div className="space-y-6">
+                        <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
+                          <h3 className="text-base font-black text-slate-800 uppercase tracking-widest italic font-display">
+                            Hệ Thống
+                          </h3>
+                        </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div className="p-4 rounded-xl bg-gray-50 border border-gray-200">
                             <span className="text-xs font-bold uppercase text-slate-400">Ngày tạo</span>
@@ -3300,9 +3314,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                       </div>
 
                       {/* Security - Change Password */}
-                      <div>
-                        <div className="flex items-center justify-between mb-4 pb-2 border-b-2 border-gray-200">
-                          <h3 className="text-lg font-bold text-primary">
+                      <div className="space-y-6">
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+                          <h3 className="text-base font-black text-slate-800 uppercase tracking-widest italic font-display">
                             Bảo Mật
                           </h3>
                           {!showChangePassword && (

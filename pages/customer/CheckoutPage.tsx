@@ -315,11 +315,11 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-6 md:px-10 py-16 flex flex-col lg:flex-row gap-12">
+    <div className="max-w-7xl mx-auto px-4 md:px-10 py-10 md:py-16 flex flex-col lg:flex-row gap-8 lg:gap-12">
       <div className="flex-1 space-y-8">
-        <section className="bg-white p-8 md:p-12 rounded-[2.5rem] border border-gray-200 shadow-sm">
-          <h2 className="text-2xl font-bold text-primary mb-8">
-            Thông tin giao hàng
+        <section className="bg-white p-6 md:p-12 rounded-[2rem] md:rounded-[3rem] border border-slate-100 shadow-2xl shadow-slate-200/40">
+          <h2 className="text-xl md:text-2xl font-black text-slate-800 uppercase tracking-widest italic font-display mb-6 md:mb-8 border-b border-slate-50 pb-4">
+            Giao hàng
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="space-y-2">
@@ -405,10 +405,10 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
           </div>
         </section>
 
-        <section className="bg-white p-8 md:p-12 rounded-[2.5rem] border border-gold/10 shadow-sm">
-          <h2 className="text-2xl font-bold text-primary mb-8 flex items-center gap-3">
-            <span className="material-symbols-outlined p-2 bg-primary/10 rounded-xl">schedule</span>
-            Chọn thời gian giao hàng
+        <section className="bg-white p-6 md:p-12 rounded-[2rem] md:rounded-[3rem] border border-slate-100 shadow-2xl shadow-slate-200/40">
+          <h2 className="text-xl md:text-2xl font-black text-slate-800 uppercase tracking-widest italic font-display mb-6 md:mb-8 border-b border-slate-50 pb-4 flex items-center gap-3">
+            <span className="material-symbols-outlined p-2 bg-primary/10 text-primary rounded-xl">schedule</span>
+            Thời gian
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div className="space-y-2">
@@ -440,10 +440,10 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
           </div> */}
         </section>
 
-        <section className="bg-white p-8 md:p-12 rounded-[2.5rem] border border-gray-200 shadow-sm">
-          <h2 className="text-2xl font-bold text-primary mb-8 flex items-center gap-3">
-            <span className="material-symbols-outlined p-2 bg-primary/10 rounded-xl">edit_note</span>
-            Ghi chú trang trí
+        <section className="bg-white p-6 md:p-12 rounded-[2rem] md:rounded-[3rem] border border-slate-100 shadow-2xl shadow-slate-200/40">
+          <h2 className="text-xl md:text-2xl font-black text-slate-800 uppercase tracking-widest italic font-display mb-6 md:mb-8 border-b border-slate-50 pb-4 flex items-center gap-3">
+            <span className="material-symbols-outlined p-2 bg-primary/10 text-primary rounded-xl">edit_note</span>
+            Ghi chú
           </h2>
           <div className="space-y-6">
             {summary.items.map((item) => (
@@ -470,16 +470,16 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
           </div>
         </section>
 
-        <section className="bg-white p-8 md:p-12 rounded-[2.5rem] border border-gray-200 shadow-sm">
-          <h2 className="text-2xl font-bold text-primary mb-8">
-            Phương thức thanh toán
+        <section className="bg-white p-6 md:p-12 rounded-[2rem] md:rounded-[3rem] border border-slate-100 shadow-2xl shadow-slate-200/40">
+          <h2 className="text-xl md:text-2xl font-black text-slate-800 uppercase tracking-widest italic font-display mb-6 md:mb-8 border-b border-slate-50 pb-4">
+            Thanh toán
           </h2>
           <div className="space-y-4">
             {[
               { id: 'PayOS', label: 'Ví của bạn', desc: 'Nếu số dư không đủ thì sẽ nạp tiền bằng cách chuyển khoản, QR - An toàn & Nhanh chóng' },
               
             ].map((m, i) => (
-              <label key={m.id} className={`flex items-center p-6 border-2 rounded-3xl cursor-pointer transition-all ${paymentMethod === m.id ? 'border-primary bg-gray-50' : 'border-gray-200 hover:border-primary'}`}>
+              <label key={m.id} className={`flex items-center p-4 md:p-6 border-2 rounded-2xl md:rounded-3xl cursor-pointer transition-all ${paymentMethod === m.id ? 'border-primary bg-gray-50' : 'border-gray-200 hover:border-primary'}`}>
                 <input
                   type="radio"
                   name="pay"
@@ -498,8 +498,8 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
       </div>
 
       <aside className="w-full lg:w-[400px] shrink-0">
-        <div className="sticky top-28 bg-white p-8 rounded-[2.5rem] border border-gray-200 shadow-2xl">
-          <h3 className="text-xl font-bold mb-8 border-b border-gray-200 pb-4">Đơn hàng của bạn</h3>
+        <div className="sticky top-28 bg-white p-6 md:p-10 rounded-[2.5rem] md:rounded-[3rem] border border-slate-100 shadow-2xl shadow-slate-200/50">
+          <h3 className="text-xl font-black text-slate-800 uppercase tracking-widest italic font-display mb-6 md:mb-8 border-b border-slate-50 pb-4">Đơn hàng</h3>
           <div className="space-y-6 mb-8">
             {summary.items.map((item) => (
               <div key={item.cartItemId} className="flex gap-4">

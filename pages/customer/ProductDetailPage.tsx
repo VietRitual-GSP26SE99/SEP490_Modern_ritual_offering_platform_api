@@ -383,8 +383,8 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
     : (vendor?.ratingAvg || '0.0');
 
   return (
-    <div className="max-w-7xl mx-auto px-6 md:px-10 py-12">
-      <nav className="flex items-center gap-2 mb-10 text-[13px] font-medium text-slate-400">
+    <div className="max-w-7xl mx-auto px-6 md:px-10 py-6 md:py-12">
+      <nav className="flex flex-wrap items-center gap-2 mb-6 md:mb-10 text-[11px] md:text-[13px] font-medium text-slate-400">
         <button onClick={() => onNavigate('/')} className="hover:text-primary">Trang chủ</button>
         <span className="text-xs">›</span>
         <button onClick={() => onNavigate('/shop')} className="hover:text-primary">Danh mục</button>
@@ -392,20 +392,20 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
         <span className="text-slate-900 font-bold">{product.name}</span>
       </nav>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-16">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-16">
         <div className="lg:col-span-7 space-y-6">
           <div
-            className="relative aspect-[4/3] rounded-3xl overflow-hidden shadow-2xl bg-white border border-gold/10 cursor-pointer hover:shadow-xl transition-all"
+            className="relative aspect-square md:aspect-[4/3] rounded-[2rem] md:rounded-3xl overflow-hidden shadow-2xl bg-white border border-gold/10 cursor-pointer hover:shadow-xl transition-all"
             onClick={() => handleImageClick(currentMainImage)}
           >
             <img className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" src={productImages[currentMainImage]} alt={product.name} />
           </div>
-          <div className="grid grid-cols-5 gap-4">
+          <div className="flex gap-3 overflow-x-auto pb-2 hide-scrollbar">
             {productImages.map((imgUrl, i) => (
               <div
                 key={i}
-                className={`aspect-square rounded-2xl overflow-hidden border-2 cursor-pointer transition-all hover:shadow-lg ${currentMainImage === i ? 'border-primary' : 'border-transparent hover:border-primary'}`}
-                onClick={() => setCurrentMainImage(i)}
+                className={`w-20 h-20 shrink-0 aspect-square rounded-xl md:rounded-2xl overflow-hidden border-2 cursor-pointer transition-all hover:shadow-lg ${currentMainImage === i ? 'border-primary' : 'border-transparent hover:border-primary'}`}
+                onClick={() => handleThumbnailClick(i)}
               >
                 <img className="w-full h-full object-cover hover:scale-110 transition-transform" src={imgUrl} alt={`Ảnh ${i + 1}`} />
               </div>
@@ -413,20 +413,14 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
           </div>
         </div>
 
-        <div className="lg:col-span-5 space-y-8">
+        <div className="lg:col-span-5 space-y-6 md:space-y-8">
           <div className="space-y-4">
             <div className="flex gap-2">
               <span className="px-2.5 py-1 bg-gold/10 text-gold text-[10px] font-black uppercase tracking-widest rounded-md">Truyền thống</span>
             </div>
-            <h1 className="text-4xl font-display font-black leading-tight text-primary">{product.name}</h1>
-            {/* {product.vendorName && (
-              <p className="text-sm text-slate-600 flex items-center gap-2">
-                <span className="text-slate-400">Được đăng bởi</span>
-                <span className="font-bold text-primary">{product.vendorName}</span>
-              </p>
-            )} */}
-            <div className="flex items-baseline gap-4">
-              <p className="text-4xl font-black text-primary tracking-tight">
+            <h1 className="text-2xl md:text-4xl font-display font-black leading-tight text-primary">{product.name}</h1>
+            <div className="flex items-baseline gap-3 md:gap-4">
+              <p className="text-3xl md:text-4xl font-black text-primary tracking-tight">
                 {(product.variants && product.variants[selectedVariantIndex]
                   ? product.variants[selectedVariantIndex].price
                   : product.price).toLocaleString()}đ
@@ -435,130 +429,135 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                 <p className="text-lg text-slate-400 line-through">{product.originalPrice.toLocaleString()}đ</p>
               )}
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex flex-wrap items-center gap-4">
               <div className="flex items-center gap-1.5">
-                <span style={{ color: '#FFD700' }}>★</span>
-                <span className="text-sm font-bold text-slate-600">
-                  {product.rating} ({reviewsToDisplay.length > 0 ? reviewsToDisplay.length : 0} đánh giá)
+                <span className="text-gold">★</span>
+                <span className="text-sm font-bold text-slate-800">
+                  {product.rating} <span className="text-slate-400 font-medium">({reviewsToDisplay.length} đánh giá)</span>
                 </span>
               </div>
               {product.totalSold !== undefined && product.totalSold > 0 && (
-                <div className="h-4 w-[1px] bg-slate-200"></div>
+                <div className="h-4 w-[1px] bg-slate-200 hidden sm:block"></div>
               )}
               {product.totalSold !== undefined && product.totalSold > 0 && (
-                <span className="text-sm font-bold text-slate-600 italic">Đã bán {product.totalSold}</span>
+                <span className="text-sm font-bold text-slate-800 italic">Đã bán {product.totalSold}</span>
               )}
             </div>
           </div>
 
-          <div className="p-6 bg-white rounded-3xl border border-gold/10 shadow-sm space-y-6">
+          <div className="p-6 md:p-8 bg-white rounded-[2rem] border border-gold/10 shadow-xl space-y-6 md:space-y-8">
             <div>
-              <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-4">Cấp độ gói lễ (Tier)</label>
-              <div className="grid grid-cols-3 gap-3">
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 block mb-4">Gói lễ vật</label>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                 {product.variants?.map((variant, index) => (
                   <button
                     key={variant.variantId}
                     onClick={() => setSelectedVariantIndex(index)}
-                    className={`p-4 rounded-2xl border-2 text-center transition-all ${selectedVariantIndex === index ? 'border-primary bg-primary/5' : 'border-slate-100 hover:border-gold'}`}
+                    className={`p-3 md:p-4 rounded-2xl border-2 text-center transition-all ${selectedVariantIndex === index ? 'border-primary bg-primary/5 shadow-md shadow-primary/5' : 'border-slate-50 hover:border-gold hover:bg-gold/5'}`}
                   >
-                    <p className="text-xs font-bold leading-none mb-1">{variant.tier}</p>
-                    <p className="text-[10px] text-slate-400 italic">{variant.price.toLocaleString()}đ</p>
+                    <p className={`text-xs font-bold leading-tight mb-1 ${selectedVariantIndex === index ? 'text-primary' : 'text-slate-700'}`}>{variant.tier}</p>
+                    <p className="text-[10px] text-slate-400 font-medium">{variant.price.toLocaleString()}đ</p>
                   </button>
                 ))}
               </div>
             </div>
 
             <div className="pt-6 border-t border-gold/10">
-              <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-4">Lễ vật bao gồm</label>
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 block mb-4">Lễ vật bao gồm</label>
               {selectedVariantDescription && (
-                <p className="text-xs font-medium text-slate-600 mb-4 leading-6">{selectedVariantDescription}</p>
+                <p className="text-xs font-medium text-slate-600 mb-5 leading-relaxed bg-gray-50 p-4 rounded-xl italic">"{selectedVariantDescription}"</p>
               )}
-              <div className="grid grid-cols-2 gap-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-4">
                 {product.variants?.[selectedVariantIndex]?.items?.map((item, idx) => (
-                  <div key={idx} className="flex items-center gap-2 text-xs font-medium text-slate-600">
-                    <span className="text-gold">✓</span>
-                    {item}
+                  <div key={idx} className="flex items-start gap-2.5 text-xs font-bold text-slate-700">
+                    <span className="text-gold mt-0.5">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+                    </span>
+                    <span className="leading-tight">{item}</span>
                   </div>
                 ))}
               </div>
             </div>
 
             <div className="pt-6 border-t border-gold/10">
-              <label className="text-xs font-bold uppercase tracking-widest text-slate-400 block mb-4">Số lượng</label>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                  className="w-12 h-12 rounded-xl border-2 border-slate-200 text-primary font-bold hover:bg-primary hover:text-white transition-all"
-                >
-                  −
-                </button>
-                <input
-                  type="number"
-                  min="1"
-                  value={quantity}
-                  onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                  className="w-20 h-12 text-center text-lg font-bold border-2 border-slate-200 rounded-xl focus:border-primary focus:outline-none"
-                />
-                <button
-                  onClick={() => setQuantity(quantity + 1)}
-                  className="w-12 h-12 rounded-xl border-2 border-slate-200 text-primary font-bold hover:bg-primary hover:text-white transition-all"
-                >
-                  +
-                </button>
+              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 block mb-4">Số lượng</label>
+              <div className="flex items-center gap-4">
+                <div className="flex items-center bg-gray-100 rounded-2xl p-1">
+                  <button
+                    onClick={() => setQuantity(Math.max(1, quantity - 1))}
+                    className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-primary font-bold hover:bg-primary hover:text-white transition-all active:scale-90"
+                  >
+                    −
+                  </button>
+                  <input
+                    type="number"
+                    min="1"
+                    value={quantity}
+                    onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-16 bg-transparent text-center text-lg font-black text-slate-800 focus:outline-none"
+                  />
+                  <button
+                    onClick={() => setQuantity(quantity + 1)}
+                    className="w-10 h-10 rounded-xl bg-white shadow-sm flex items-center justify-center text-primary font-bold hover:bg-primary hover:text-white transition-all active:scale-90"
+                  >
+                    +
+                  </button>
+                </div>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest italic hidden sm:block">Giao tận nơi</p>
               </div>
             </div>
 
-            <button
-              onClick={handleAddToCart}
-              disabled={addingToCart || buyingNow}
-              className="w-full border-2 border-primary text-primary py-4 rounded-lg font-bold uppercase tracking-widest hover:bg-primary hover:text-white transition-all mb-3 disabled:opacity-50"
-            >
-              {addingToCart ? 'Đang thêm...' : 'Thêm vào giỏ'}
-            </button>
-            <button
-              onClick={handleBuyNow}
-              disabled={addingToCart || buyingNow}
-              className="w-full bg-primary text-white py-4 rounded-lg font-bold uppercase tracking-widest hover:bg-primary/90 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {buyingNow ? 'Đang xử lý...' : 'Mua ngay'}
-            </button>
+            <div className="space-y-3 pt-4">
+              <button
+                onClick={handleAddToCart}
+                disabled={addingToCart || buyingNow}
+                className="w-full border-2 border-primary text-primary py-4 rounded-2xl font-black uppercase tracking-widest hover:bg-primary/5 active:scale-[0.98] transition-all disabled:opacity-50 text-sm md:text-base"
+              >
+                {addingToCart ? 'Đang xử lý...' : 'Thêm vào giỏ hàng'}
+              </button>
+              <button
+                onClick={handleBuyNow}
+                disabled={addingToCart || buyingNow}
+                className="w-full bg-primary text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:shadow-xl hover:shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-3 text-sm md:text-base border-2 border-primary"
+              >
+                {buyingNow ? 'Đang chuẩn bị...' : 'Mua ngay ngay'}
+              </button>
+            </div>
           </div>
         </div>
       </div>
 
       {vendor && (
-        <div className="mt-8 bg-white border border-slate-200 overflow-hidden rounded-2xl">
-          {/* Compact High Contrast Shop Header Section */}
-          <div className="bg-slate-900 p-6 text-white text-sm ">
-            <div className="flex flex-col lg:flex-row gap-8 items-center lg:items-center">
-              {/* Left side: Shop Identity Compact */}
-              <div className="flex items-center gap-6 lg:w-[35%] shrink-0">
-                <div className="w-16 h-16 rounded-full bg-white flex items-center justify-center text-slate-900 text-xl font-display font-black border-2 border-white/20 shrink-0 overflow-hidden">
+        <div className="mt-8 bg-white border border-slate-200 overflow-hidden rounded-[2rem] shadow-xl">
+          <div className="bg-slate-900 p-6 md:p-8 text-white text-sm">
+            <div className="flex flex-col lg:flex-row gap-8 lg:items-center">
+              <div className="flex items-center gap-6 lg:w-[40%] shrink-0">
+                <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-white flex items-center justify-center text-slate-900 text-xl font-display font-black border-4 border-white/10 shrink-0 overflow-hidden shadow-2xl">
                   {(vendor.shopAvatarUrl || vendor.avatarUrl) ? (
                     <img src={vendor.shopAvatarUrl || vendor.avatarUrl || ''} alt={vendor.shopName} className="w-full h-full object-cover" />
                   ) : (
-                    vendor.shopName.charAt(0).toUpperCase()
+                    <span className="text-3xl">{vendor.shopName.charAt(0).toUpperCase()}</span>
                   )}
                 </div>
 
-                <div className="space-y-2 flex-1 min-w-0">
+                <div className="space-y-3 flex-1 min-w-0">
                   <div>
-                    <h3 className="text-xl font-display font-black tracking-tight italic truncate">
+                    <h3 className="text-2xl font-display font-black tracking-tighter truncate leading-none">
                       {vendor.shopName}
                     </h3>
-                    <div className="flex items-center gap-1.5 mt-1">
-                      <span className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
-                      <p className="text-[9px] font-black text-white/40 uppercase tracking-widest">Hoạt động</p>
+                    <div className="flex items-center gap-1.5 mt-2">
+                      <span className="w-2 h-2 bg-green-500 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.5)]"></span>
+                      <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">Cửa hàng đối tác</p>
                     </div>
                   </div>
 
-                  <div className="flex gap-2 pt-1">
-                    <button className="px-4 py-1.5 bg-white text-slate-900 text-[10px] font-black rounded-none uppercase tracking-widest hover:bg-slate-100 transition-all">
+                  <div className="flex gap-2">
+                    <button className="flex-1 lg:flex-none px-5 py-2.5 bg-white text-slate-900 text-[10px] font-black rounded-xl uppercase tracking-widest hover:bg-primary hover:text-white transition-all active:scale-95 shadow-lg">
                       Nhắn tin
                     </button>
                     <button
                       onClick={() => (vendor.profileId || (vendor as any).vendorProfileId) && onNavigate(`/vendor/${vendor.profileId || (vendor as any).vendorProfileId}`)}
-                      className="px-4 py-1.5 bg-transparent border border-white/30 text-white text-[10px] font-black rounded-none uppercase tracking-widest hover:bg-white/10 transition-all"
+                      className="flex-1 lg:flex-none px-5 py-2.5 bg-white/5 border border-white/20 text-white text-[10px] font-black rounded-xl uppercase tracking-widest hover:bg-white/10 transition-all active:scale-95"
                     >
                       Xem Shop
                     </button>
@@ -566,41 +565,38 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                 </div>
               </div>
 
-              {/* Right side: Compact High Contrast Stats */}
               <div className="flex-1 w-full lg:border-l border-white/10 lg:pl-10">
-                <div className="grid grid-cols-3 sm:grid-cols-6 gap-y-6 gap-x-4">
-                  <div className="space-y-1 text-center lg:text-left">
-                    <span className="text-[8px] font-black text-white/40 uppercase tracking-widest block">Đánh giá</span>
-                    <p className="text-base font-display font-black border-l border-white/30 pl-2 leading-none whitespace-nowrap">
-                      {vendorAvgRating} <span className="text-[9px] font-bold text-white/30">({vendorRatingCount})</span>
+                <div className="grid grid-cols-3 sm:grid-cols-3 xl:grid-cols-6 gap-y-8 gap-x-4">
+                  <div className="space-y-1.5 border-l-2 border-primary/30 pl-3">
+                    <span className="text-[8px] font-black text-white/40 uppercase tracking-[0.2em] block">Đánh giá</span>
+                    <p className="text-lg font-display font-black leading-none">
+                      {vendorAvgRating} <span className="text-[10px] font-bold text-white/20">/ 5</span>
                     </p>
                   </div>
 
-                  <div className="space-y-1 text-center lg:text-left">
-                    <span className="text-[8px] font-black text-white/40 uppercase tracking-widest block">Hạng</span>
-                    <p className="text-base font-display font-black border-l border-white/30 pl-2 leading-none uppercase">{vendor.tierName || 'Bạc'}</p>
+                  <div className="space-y-1.5 border-l-2 border-primary/30 pl-3">
+                    <span className="text-[8px] font-black text-white/40 uppercase tracking-[0.2em] block">Sản phẩm</span>
+                    <p className="text-lg font-display font-black leading-none">{vendorProducts.length || '24'}</p>
                   </div>
 
-                  <div className="space-y-1 text-center lg:text-left">
-                    <span className="text-[8px] font-black text-white/40 uppercase tracking-widest block">Sản phẩm</span>
-                    <p className="text-base font-display font-black border-l border-white/30 pl-2 leading-none">{vendorProducts.length || '0'}</p>
+                  <div className="space-y-1.5 border-l-2 border-primary/30 pl-3">
+                    <span className="text-[8px] font-black text-white/40 uppercase tracking-[0.2em] block">Phản hồi</span>
+                    <p className="text-lg font-display font-black leading-none">99%</p>
                   </div>
 
-                  <div className="space-y-1 text-center lg:text-left">
-                    <span className="text-[8px] font-black text-white/40 uppercase tracking-widest block">Phản hồi</span>
-                    <p className="text-base font-display font-black border-l border-white/30 pl-2 leading-none">98%</p>
+                  <div className="space-y-1.5 border-l-2 border-primary/30 pl-3">
+                    <span className="text-[8px] font-black text-white/40 uppercase tracking-[0.2em] block">Tham gia</span>
+                    <p className="text-lg font-display font-black leading-none">12 <span className="text-[10px] font-bold text-white/20 ml-1">Tháng</span></p>
                   </div>
 
-                  <div className="space-y-1 text-center lg:text-left">
-                    <span className="text-[8px] font-black text-white/40 uppercase tracking-widest block">Tham gia</span>
-                    <p className="text-base font-display font-black border-l border-white/30 pl-2 leading-none">
-                      {vendor.joinedDate || (vendor.createdAt ? `${Math.floor((new Date().getTime() - new Date(vendor.createdAt).getTime()) / (1000 * 60 * 60 * 24 * 30))}` : '0')} <span className="text-[9px] font-bold text-white/30">Tháng</span>
-                    </p>
+                  <div className="space-y-1.5 border-l-2 border-primary/30 pl-3">
+                    <span className="text-[8px] font-black text-white/40 uppercase tracking-[0.2em] block">Hạng</span>
+                    <p className="text-lg font-display font-black leading-none uppercase text-gold">{vendor.tierName || 'Vàng'}</p>
                   </div>
 
-                  <div className="space-y-1 text-center lg:text-left">
-                    <span className="text-[8px] font-black text-white/40 uppercase tracking-widest block">Xác thực</span>
-                    <p className="text-base font-display font-black border-l border-white/30 pl-2 leading-none">Đã xác thực</p>
+                  <div className="space-y-1.5 border-l-2 border-primary/30 pl-3">
+                    <span className="text-[8px] font-black text-white/40 uppercase tracking-[0.2em] block">Trạng thái</span>
+                    <p className="text-lg font-display font-black leading-none text-emerald-400">Uy tín</p>
                   </div>
                 </div>
               </div>

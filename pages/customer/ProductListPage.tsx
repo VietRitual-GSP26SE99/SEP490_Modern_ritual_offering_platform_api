@@ -26,6 +26,7 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
   const [sortBy, setSortBy] = useState('popular');
   const [searchQuery, setSearchQuery] = useState('');
   const [categories, setCategories] = useState<CeremonyCategory[]>([]);
+  const [isFilterOpen, setIsFilterOpen] = useState(false);
 
   const getProductDetailPath = (rawId: string): string => {
     const numericId = Number(String(rawId).trim());
@@ -194,8 +195,19 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-6 md:px-10 py-16 flex flex-col lg:flex-row gap-12">
-      <aside className="w-full lg:w-72 shrink-0 space-y-10">
+    <div className="max-w-7xl mx-auto px-6 md:px-10 py-16 flex flex-col lg:flex-row gap-12 relative">
+      {/* Mobile Filter Toggle */}
+      <div className="lg:hidden flex items-center justify-between mb-2">
+        <button 
+          onClick={() => setIsFilterOpen(!isFilterOpen)}
+          className="flex items-center gap-2 px-5 py-3 bg-white border border-primary/20 text-primary rounded-2xl text-sm font-bold shadow-sm hover:bg-primary/5 active:scale-95 transition-all"
+        >
+          <span className="material-symbols-outlined text-lg">filter_alt</span>
+          Bộ lọc & Sắp xếp
+        </button>
+      </div>
+
+      <aside className={`w-full lg:w-72 shrink-0 space-y-10 ${isFilterOpen ? 'block' : 'hidden lg:block'} lg:sticky lg:top-24 h-fit`}>
         <div className="bg-white p-8 rounded-3xl border border-gold/10 shadow-sm space-y-8">
           <div>
             <h3 className="text-lg font-bold text-primary mb-6">
@@ -356,30 +368,35 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
         ) : (
           <>
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8 bg-white p-6 rounded-2xl border border-gold/10">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:gap-4">
-                <h2 className="text-xl font-bold text-slate-900">Danh sách ({filteredProducts.length})</h2>
-                <div className="relative w-full sm:w-80">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-4 w-full">
+                <h2 className="text-xl font-bold text-slate-900 hidden sm:block">Danh sách ({filteredProducts.length})</h2>
+                <div className="relative flex-1">
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Tìm theo tên, mô tả, tên shop..."
-                    className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-10 pr-3 text-sm text-slate-700 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
+                    placeholder="Tìm theo tên sản phẩm, cửa hàng..."
+                    className="w-full rounded-2xl border border-slate-200 bg-gray-50/50 py-3 pl-11 pr-4 text-sm text-slate-700 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
                   />
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></span>
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                  </span>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
-                <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Sắp xếp:</span>
-                <select
-                  className="bg-ritual-bg border-none rounded-xl text-sm font-bold focus:ring-primary pr-10"
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value)}
-                >
-                  <option value="popular">Phổ biến nhất</option>
-                  <option value="price-asc">Giá tăng dần</option>
-                  <option value="price-desc">Giá giảm dần</option>
-                </select>
+              <div className="flex items-center justify-between sm:justify-end gap-4 w-full lg:w-auto">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sắp xếp:</span>
+                  <select
+                    className="bg-gray-50 border-none rounded-xl text-xs font-bold focus:ring-primary py-2 px-3 pr-8"
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                  >
+                    <option value="popular">Phổ biến</option>
+                    <option value="price-asc">Giá: Thấp-Cao</option>
+                    <option value="price-desc">Giá: Cao-Thấp</option>
+                  </select>
+                </div>
+                <span className="sm:hidden text-xs font-bold text-slate-400 tracking-tight">({filteredProducts.length}) sp</span>
               </div>
             </div>
 
@@ -389,49 +406,49 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+            <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-8">
               {filteredProducts.map((p) => (
                 <div
                   key={p.id}
                   className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-2xl transition-all border border-gold/10 group flex flex-col h-full"
                 >
                   <div
-                    className="relative w-full pt-[100%] overflow-hidden cursor-pointer shrink-0"
+                    className="relative w-full pt-[85%] md:pt-[100%] overflow-hidden cursor-pointer shrink-0"
                     onClick={() => handleNavigateToProductDetail(p.id)}
                   >
                     <img className="absolute top-0 left-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" src={p.image} alt={p.name} />
                   </div>
                   <div
-                    className="p-6 cursor-pointer flex-1 flex flex-col"
+                    className="p-3 md:p-6 cursor-pointer flex-1 flex flex-col"
                     onClick={() => handleNavigateToProductDetail(p.id)}
                   >
-                    <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center justify-between mb-1 md:mb-2">
                       <div className="flex items-center gap-1 text-gold">
-                        <span className="text-sm" style={{ color: '#FFD700' }}>★</span>
-                        <span className="text-xs font-bold">{p.rating}</span>
-                        <span className="text-[10px] text-slate-400 ml-1">({p.reviews})</span>
+                        <span className="text-xs" style={{ color: '#FFD700' }}>★</span>
+                        <span className="text-[10px] md:text-xs font-bold">{p.rating}</span>
+                        <span className="text-[8px] md:text-[10px] text-slate-400 ml-0.5">({p.reviews})</span>
                       </div>
                       {p.totalSold !== undefined && p.totalSold > 0 && (
-                        <span className="text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
+                        <span className="hidden md:inline-block text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
                           Đã bán {p.totalSold}
                         </span>
                       )}
                     </div>
-                    <h3 className="text-lg font-bold mb-2 group-hover:text-primary transition-colors leading-tight">{p.name}</h3>
+                    <h3 className="text-sm md:text-lg font-bold mb-1 md:mb-2 group-hover:text-primary transition-colors leading-tight line-clamp-2">{p.name}</h3>
                     {p.vendorName && (
-                      <p className="text-xs text-slate-600 mb-2 flex items-center gap-1">
-                        <span className="text-slate-400">bởi</span>
-                        <span className="font-semibold text-primary">{p.vendorName}</span>
+                      <p className="text-[10px] md:text-xs text-slate-600 mb-2 flex items-center gap-1">
+                        <span className="text-slate-400 hidden md:inline">bởi</span>
+                        <span className="font-semibold text-primary truncate max-w-[80px] md:max-w-none">{p.vendorName}</span>
                       </p>
                     )}
                     {/* <p className="text-slate-500 text-xs line-clamp-2 mb-6">{p.description}</p> */}
-                    <div className="pt-4 mt-auto border-t border-gold/10 flex items-center justify-between">
-                      <p className="text-xl font-black text-primary tracking-tight">{p.price.toLocaleString()}đ</p>
+                    <div className="pt-2 md:pt-4 mt-auto border-t border-gold/10 flex items-center justify-between">
+                      <p className="text-sm md:text-xl font-black text-primary tracking-tight">{p.price.toLocaleString()}đ</p>
                       <button
-                        className="bg-primary text-white p-2.5 rounded-xl hover:scale-105 transition-transform z-10"
+                        className="bg-primary text-white p-1.5 md:p-2.5 rounded-lg md:rounded-xl hover:scale-105 transition-transform z-10"
                         onClick={(e) => handleQuickAddToCart(p, e)}
                       >
-                        +
+                        <span className="material-symbols-outlined text-xs md:text-base">add_shopping_cart</span>
                       </button>
                     </div>
                   </div>

@@ -150,14 +150,14 @@ const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
       ];
   
   return (
-    <div className="space-y-24 pb-24">
+    <div className="space-y-12 md:space-y-24 pb-24">
       {/* Hero Carousel Section */}
       <Carousel slides={currentSlides} onCtaClick={handleBannerClick} />
 
       {/* Services Showcase */}
       <section className="max-w-7xl mx-auto px-6 md:px-10">
-        <div className="text-center mb-16">
-            <h2 className="text-primary font-display text-4xl md:text-5xl font-black mb-4 italic">Dịch Vụ Cúng Lễ</h2>
+        <div className="text-center mb-8 md:mb-16">
+            <h2 className="text-primary font-display text-3xl md:text-5xl font-black mb-4 italic">Dịch Vụ Cúng Lễ</h2>
             <div className="w-24 h-1 bg-gold mx-auto mb-6"></div>
             <p className="text-gray-500 max-w-2xl mx-auto text-lg italic">Gìn giữ truyền thống - Kết nối tương lai</p>
         </div>
@@ -187,11 +187,11 @@ const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
       </section>
 
       {/* Trust Stats */}
-      <section className="bg-primary py-24 relative overflow-hidden">
+      <section className="bg-primary py-12 md:py-24 relative overflow-hidden">
         <div className="max-w-7xl mx-auto px-10 relative z-10">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-12">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-12">
                 {trustStats.map((item, i) => (
-                    <div key={i} className="bg-white/5 backdrop-blur-md p-10 rounded-[2rem] border border-white/10 text-center hover:bg-white/10 transition-colors">
+                    <div key={i} className="bg-white/5 backdrop-blur-md p-6 md:p-10 rounded-[1.5rem] md:rounded-[2rem] border border-white/10 text-center hover:bg-white/10 transition-colors">
                         <h3 className="text-white text-2xl font-bold mb-4">{item.title}</h3>
                         <p className="text-white/80 leading-relaxed text-sm">{item.desc}</p>
                     </div>
@@ -202,10 +202,10 @@ const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
 
       {/* Premium Products Highlights */}
       <section className="max-w-7xl mx-auto px-6 md:px-10">
-        <div className="flex items-end justify-between mb-16">
+        <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-8 md:mb-16">
             <div>
-                <h2 className="text-primary font-display text-4xl font-black italic">Mâm Cúng Cao Cấp</h2>
-                <p className="text-gray-500 mt-2">Sản phẩm được hàng ngàn gia chủ tin dùng</p>
+                <h2 className="text-primary font-display text-3xl md:text-4xl font-black italic">Mâm Cúng Cao Cấp</h2>
+                <p className="text-gray-500 mt-2 text-sm md:text-base">Sản phẩm được hàng ngàn gia chủ tin dùng</p>
             </div>
             <button onClick={() => onNavigate('/shop')} className="text-primary font-bold flex items-center gap-2 hover:gap-4 transition-all uppercase text-xs tracking-widest">
                 -- Tất cả sản phẩm --
