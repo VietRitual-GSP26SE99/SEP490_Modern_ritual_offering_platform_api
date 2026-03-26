@@ -5,6 +5,7 @@ import toast from '../../services/toast';
 import Swal from 'sweetalert2';
 import { userService, UserListItem, CreateUserRequest } from '../../services/userService';
 import { vendorService, VendorTier } from '../../services/vendorService';
+import { systemConfigService, SystemConfig, CreateSystemConfigRequest, UpdateSystemConfigRequest } from '../../services/systemConfigService';
 import TransactionManagement from '../staff/TransactionManagement';
 import AuditLogPage from '../staff/AuditLogPage';
 
@@ -13,7 +14,7 @@ interface AdminDashboardProps {
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'vendors' | 'users' | 'orders' | 'disputes' | 'content' | 'withdrawals' | 'transactions' | 'audit'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'vendors' | 'users' | 'orders' | 'disputes' | 'content' | 'withdrawals' | 'transactions' | 'audit' | 'systemConfigs'>('overview');
   const [withdrawalRequests, setWithdrawalRequests] = useState<WithdrawalListItem[]>([]);
   const [isLoadingWithdrawals, setIsLoadingWithdrawals] = useState(false);
   const [withdrawalsError, setWithdrawalsError] = useState<string | null>(null);
@@ -31,12 +32,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
   const [vendorTiers, setVendorTiers] = useState<VendorTier[]>([]);
   const [isLoadingTiers, setIsLoadingTiers] = useState(false);
   const [tiersError, setTiersError] = useState<string | null>(null);
+  const [systemConfigs, setSystemConfigs] = useState<SystemConfig[]>([]);
+  const [isLoadingConfigs, setIsLoadingConfigs] = useState(false);
+  const [configsError, setConfigsError] = useState<string | null>(null);
+  const [configGroupFilter, setConfigGroupFilter] = useState<string>('');
 
   // Pagination States
   const [vendorsPage, setVendorsPage] = useState(1);
   const [usersPage, setUsersPage] = useState(1);
   const [refundsPage, setRefundsPage] = useState(1);
   const [withdrawalsPage, setWithdrawalsPage] = useState(1);
+  const [configsPage, setConfigsPage] = useState(1);
   const ITEMS_PER_PAGE = 5;
 
   const adminStats = [
@@ -483,33 +489,272 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
     }
   }, [activeTab, roleFilter, statusFilter]);
 
+  const loadSystemConfigs = async () => {
+    setIsLoadingConfigs(true);
+    setConfigsError(null);
+    try {
+      const response = await systemConfigService.getAllConfigs(configGroupFilter || undefined);
+      if (response.isSuccess) {
+        setSystemConfigs(response.result);
+      } else {
+        setConfigsError(response.errorMessages?.[0] || 'Lỗi tải cấu hình');
+      }
+    } catch (error) {
+      setConfigsError('Lỗi hệ thống');
+    } finally {
+      setIsLoadingConfigs(false);
+      setConfigsPage(1);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'systemConfigs') {
+      loadSystemConfigs();
+    }
+  }, [activeTab, configGroupFilter]);
+
+  const handleCreateConfig = async () => {
+    const { value: formValues } = await Swal.fire({
+      title: 'Thêm cấu hình mới',
+      width: 600,
+      customClass: {
+        confirmButton: 'rounded-2xl font-black px-8 py-4 text-white bg-gradient-to-r from-primary to-primary/80 shadow-lg transition-all active:scale-95 hover:shadow-primary/30',
+        cancelButton: 'rounded-2xl font-black px-8 py-4 text-slate-500 bg-slate-50 hover:bg-slate-100 transition-all ml-3 active:scale-95',
+        popup: 'rounded-[3rem] border-none shadow-2xl',
+        container: 'backdrop-blur-sm bg-white/30',
+      },
+      html: `
+        <div class="text-left space-y-6 p-4">
+          <div class="flex items-center gap-4 mb-2">
+            <div class="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+              <span class="material-symbols-outlined text-3xl">settings_input_component</span>
+            </div>
+            <div>
+              <h3 class="text-xl font-black text-slate-800 leading-tight">Cấu hình hệ thống mới</h3>
+              <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Thiết lập các tham số vận hành</p>
+            </div>
+          </div>
+
+          <div class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="space-y-1.5">
+                <label class="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-wider">Khóa cấu hình</label>
+                <input id="swal-key" class="w-full px-5 py-4 rounded-2xl bg-slate-50 border-2 border-transparent focus:border-primary/30 focus:bg-white outline-none transition-all text-sm font-bold text-slate-700 placeholder:text-slate-300 shadow-sm" placeholder="Ví dụ: MaxWithdrawalAmount">
+              </div>
+              <div class="space-y-1.5">
+                <label class="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-wider">Kiểu dữ liệu</label>
+                <select id="swal-type" class="w-full px-5 py-4 rounded-2xl bg-slate-50 border-2 border-transparent focus:border-primary/30 focus:bg-white outline-none transition-all text-sm font-bold text-slate-700 shadow-sm">
+                  <option value="string">Chuỗi (String)</option>
+                  <option value="int">Số nguyên (Integer)</option>
+                  <option value="decimal">Số thập phân (Decimal)</option>
+                  <option value="bool">Đúng/Sai (Boolean)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="space-y-1.5">
+                <label class="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-wider">Giá trị</label>
+                <input id="swal-value" class="w-full px-5 py-4 rounded-2xl bg-slate-50 border-2 border-transparent focus:border-primary/30 focus:bg-white outline-none transition-all text-sm font-bold text-primary shadow-sm" placeholder="Nhập giá trị">
+              </div>
+              <div class="space-y-1.5">
+                <label class="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-wider">Nhóm</label>
+                <input id="swal-group" class="w-full px-5 py-4 rounded-2xl bg-slate-50 border-2 border-transparent focus:border-primary/30 focus:bg-white outline-none transition-all text-sm font-bold text-slate-700 shadow-sm" placeholder="Ví dụ: Financial, Policy">
+              </div>
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-wider">Mô tả chi tiết</label>
+              <textarea id="swal-desc" class="w-full px-5 py-4 rounded-2xl bg-slate-50 border-2 border-transparent focus:border-primary/30 focus:bg-white outline-none transition-all text-sm font-medium text-slate-600 h-24 resize-none shadow-sm" placeholder="Mô tả ý nghĩa của cấu hình này..."></textarea>
+            </div>
+          </div>
+        </div>
+      `,
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: 'Tạo cấu hình',
+      cancelButtonText: 'Hủy',
+      preConfirm: () => {
+        const configKey = (document.getElementById('swal-key') as HTMLInputElement).value;
+        const configValue = (document.getElementById('swal-value') as HTMLInputElement).value;
+        const dataType = (document.getElementById('swal-type') as HTMLSelectElement).value;
+        const group = (document.getElementById('swal-group') as HTMLInputElement).value;
+        const description = (document.getElementById('swal-desc') as HTMLTextAreaElement).value;
+
+        if (!configKey || !configValue || !group) {
+          Swal.showValidationMessage('Vui lòng nhập Key, Value và Group');
+          return false;
+        }
+
+        return { configKey, configValue, dataType, group, description };
+      }
+    });
+
+    if (formValues) {
+      try {
+        const response = await systemConfigService.createConfig(formValues as CreateSystemConfigRequest);
+        if (response.isSuccess) {
+          toast.success('Thêm cấu hình thành công!');
+          loadSystemConfigs();
+        } else {
+          toast.error(response.errorMessages?.[0] || 'Thêm thất bại');
+        }
+      } catch (error) {
+        toast.error('Lỗi hệ thống');
+      }
+    }
+  };
+
+  const handleEditConfig = async (config: SystemConfig) => {
+    const { value: formValues } = await Swal.fire({
+      title: `Cập nhật: ${config.configKey}`,
+      width: 600,
+      customClass: {
+        confirmButton: 'rounded-2xl font-black px-8 py-4 text-white bg-gradient-to-r from-primary to-primary/80 shadow-lg transition-all active:scale-95 hover:shadow-primary/30',
+        cancelButton: 'rounded-2xl font-black px-8 py-4 text-slate-500 bg-slate-50 hover:bg-slate-100 transition-all ml-3 active:scale-95',
+        popup: 'rounded-[3rem] border-none shadow-2xl',
+        container: 'backdrop-blur-sm bg-white/30',
+      },
+      html: `
+        <div class="text-left space-y-6 p-4">
+          <div class="flex items-center gap-4 mb-2">
+            <div class="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+              <span class="material-symbols-outlined text-3xl">edit_note</span>
+            </div>
+            <div>
+              <h3 class="text-xl font-black text-slate-800 leading-tight">Cập nhật cấu hình</h3>
+              <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">${config.configKey}</p>
+            </div>
+          </div>
+
+          <div class="space-y-4">
+            <div class="space-y-1.5">
+              <label class="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-wider">Giá trị mới</label>
+              <input id="swal-value" class="w-full px-5 py-4 rounded-2xl bg-slate-50 border-2 border-transparent focus:border-primary/30 focus:bg-white outline-none transition-all text-sm font-bold text-primary shadow-sm" value="${config.configValue}">
+            </div>
+            
+            <div class="space-y-1.5">
+              <label class="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-wider">Mô tả chi tiết</label>
+              <textarea id="swal-desc" class="w-full px-5 py-4 rounded-2xl bg-slate-50 border-2 border-transparent focus:border-primary/30 focus:bg-white outline-none transition-all text-sm font-medium text-slate-600 h-24 resize-none shadow-sm">${config.description || ''}</textarea>
+            </div>
+          </div>
+        </div>
+      `,
+      focusConfirm: false,
+      showCancelButton: true,
+      confirmButtonText: 'Cập nhật',
+      cancelButtonText: 'Hủy',
+      preConfirm: () => {
+        const configValue = (document.getElementById('swal-value') as HTMLInputElement).value;
+        const description = (document.getElementById('swal-desc') as HTMLTextAreaElement).value;
+
+        if (!configValue) {
+          Swal.showValidationMessage('Giá trị không được để trống');
+          return false;
+        }
+
+        return { configValue, description };
+      }
+    });
+
+    if (formValues) {
+      try {
+        const response = await systemConfigService.updateConfig(config.configKey, formValues as UpdateSystemConfigRequest);
+        if (response.isSuccess) {
+          toast.success('Cập nhật cấu hình thành công!');
+          loadSystemConfigs();
+        } else {
+          toast.error(response.errorMessages?.[0] || 'Cập nhật thất bại');
+        }
+      } catch (error) {
+        toast.error('Lỗi hệ thống');
+      }
+    }
+  };
+
+  const handleDeleteConfig = async (key: string) => {
+    const result = await Swal.fire({
+      title: 'Xác nhận xóa?',
+      text: `Bạn có chắc chắn muốn xóa cấu hình "${key}"?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Xóa ngay',
+      cancelButtonText: 'Hủy',
+      customClass: {
+        confirmButton: 'rounded-2xl font-black px-8 py-4 text-white bg-red-600 shadow-lg transition-all active:scale-95 hover:shadow-red-200',
+        cancelButton: 'rounded-2xl font-black px-8 py-4 text-slate-500 bg-slate-50 hover:bg-slate-100 transition-all ml-3 active:scale-95',
+        popup: 'rounded-[3rem] border-none shadow-2xl',
+        container: 'backdrop-blur-sm bg-white/30',
+      }
+    });
+
+    if (result.isConfirmed) {
+      try {
+        const response = await systemConfigService.deleteConfig(key);
+        if (response.isSuccess) {
+          toast.success('Xóa cấu hình thành công!');
+          loadSystemConfigs();
+        } else {
+          toast.error(response.errorMessages?.[0] || 'Xóa thất bại');
+        }
+      } catch (error) {
+        toast.error('Lỗi hệ thống');
+      }
+    }
+  };
+
   const handleCreateUser = async () => {
     const { value: formValues } = await Swal.fire({
       title: 'Thêm Admin/Staff mới',
+      width: 600,
+      customClass: {
+        confirmButton: 'rounded-2xl font-black px-8 py-4 text-white bg-gradient-to-r from-primary to-primary/80 shadow-lg transition-all active:scale-95 hover:shadow-primary/30',
+        cancelButton: 'rounded-2xl font-black px-8 py-4 text-slate-500 bg-slate-50 hover:bg-slate-100 transition-all ml-3 active:scale-95',
+        popup: 'rounded-[3rem] border-none shadow-2xl',
+        container: 'backdrop-blur-sm bg-white/30',
+      },
       html: `
-        <div class="text-left space-y-4">
-          <div>
-            <label class="block text-sm font-bold text-slate-700 mb-1">Họ và tên</label>
-            <input id="swal-fullname" class="swal2-input !m-0 !w-full" placeholder="Nguyễn Văn A">
+        <div class="text-left space-y-6 p-4">
+          <div class="flex items-center gap-4 mb-2">
+            <div class="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary">
+              <span class="material-symbols-outlined text-3xl">person_add</span>
+            </div>
+            <div>
+              <h3 class="text-xl font-black text-slate-800 leading-tight">Thêm tài khoản mới</h3>
+              <p class="text-xs font-bold text-slate-400 uppercase tracking-widest">Tạo tài khoản Admin hoặc Staff</p>
+            </div>
           </div>
-          <div>
-            <label class="block text-sm font-bold text-slate-700 mb-1">Email</label>
-            <input id="swal-email" type="email" class="swal2-input !m-0 !w-full" placeholder="admin@example.com">
-          </div>
-          <div>
-            <label class="block text-sm font-bold text-slate-700 mb-1">Số điện thoại</label>
-            <input id="swal-phone" class="swal2-input !m-0 !w-full" placeholder="0901234567">
-          </div>
-          <div>
-            <label class="block text-sm font-bold text-slate-700 mb-1">Mật khẩu</label>
-            <input id="swal-password" type="password" class="swal2-input !m-0 !w-full" placeholder="••••••••">
-          </div>
-          <div>
-            <label class="block text-sm font-bold text-slate-700 mb-1">Vai trò</label>
-            <select id="swal-role" class="swal2-input !m-0 !w-full">
-              <option value="Staff">Nhân viên (Staff)</option>
-              <option value="Admin">Quản trị viên (Admin)</option>
-            </select>
+
+          <div class="space-y-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="space-y-1.5">
+                <label class="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-wider">Họ và tên</label>
+                <input id="swal-fullname" class="w-full px-5 py-4 rounded-2xl bg-slate-50 border-2 border-transparent focus:border-primary/30 focus:bg-white outline-none transition-all text-sm font-bold text-slate-700 placeholder:text-slate-300 shadow-sm" placeholder="Nguyễn Văn A">
+              </div>
+              <div class="space-y-1.5">
+                <label class="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-wider">Vai trò</label>
+                <select id="swal-role" class="w-full px-5 py-4 rounded-2xl bg-slate-50 border-2 border-transparent focus:border-primary/30 focus:bg-white outline-none transition-all text-sm font-bold text-slate-700 shadow-sm">
+                  <option value="Staff">Nhân viên (Staff)</option>
+                  <option value="Admin">Quản trị viên (Admin)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div class="space-y-1.5">
+                <label class="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-wider">Email</label>
+                <input id="swal-email" type="email" class="w-full px-5 py-4 rounded-2xl bg-slate-50 border-2 border-transparent focus:border-primary/30 focus:bg-white outline-none transition-all text-sm font-bold text-slate-700 shadow-sm" placeholder="admin@example.com">
+              </div>
+              <div class="space-y-1.5">
+                <label class="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-wider">Số điện thoại</label>
+                <input id="swal-phone" class="w-full px-5 py-4 rounded-2xl bg-slate-50 border-2 border-transparent focus:border-primary/30 focus:bg-white outline-none transition-all text-sm font-bold text-slate-700 shadow-sm" placeholder="0901234567">
+              </div>
+            </div>
+
+            <div class="space-y-1.5">
+              <label class="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-wider">Mật khẩu</label>
+              <input id="swal-password" type="password" class="w-full px-5 py-4 rounded-2xl bg-slate-50 border-2 border-transparent focus:border-primary/30 focus:bg-white outline-none transition-all text-sm font-black text-primary shadow-sm" placeholder="••••••••">
+            </div>
           </div>
         </div>
       `,
@@ -517,7 +762,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
       showCancelButton: true,
       confirmButtonText: 'Tạo tài khoản',
       cancelButtonText: 'Hủy',
-      confirmButtonColor: '#B4935A',
       preConfirm: () => {
         const fullName = (document.getElementById('swal-fullname') as HTMLInputElement).value;
         const email = (document.getElementById('swal-email') as HTMLInputElement).value;
@@ -1010,8 +1254,8 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-ritual-bg via-white to-gold/5 py-12">
-      <div className="max-w-7xl mx-auto px-6 md:px-10">
+    <div className="min-h-screen bg-gradient-to-br from-ritual-bg via-white to-gold/5 py-12 px-4 md:px-8">
+      <div className="w-full">
 
 
         <div className="flex flex-col lg:flex-row gap-10 items-start">
@@ -1029,6 +1273,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
                   { id: 'users', label: 'Người dùng', icon: 'group' },
                   { id: 'disputes', label: 'Khiếu nại', icon: 'warning' },
                   { id: 'withdrawals', label: 'Quản lý rút tiền', icon: 'payments' },
+                  { id: 'systemConfigs', label: 'Cấu hình hệ thống', icon: 'settings' },
                   { id: 'content', label: 'Cài đặt tài chính', icon: 'article' },
                   { id: 'transactions', label: 'Giao dịch', icon: 'account_balance_wallet' },
                   { id: 'audit', label: 'Nhật ký', icon: 'history_edu' },
@@ -1670,6 +1915,134 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
             {activeTab === 'audit' && (
               <div className="bg-white rounded-[2rem] border border-gold/10 shadow-sm p-8">
                 <AuditLogPage onNavigate={onNavigate} userRole="admin" />
+              </div>
+            )}
+
+            {activeTab === 'systemConfigs' && (
+              <div className="bg-white rounded-[2rem] border border-gold/10 shadow-sm overflow-hidden">
+                <div className="p-8 border-b border-gold/10 flex items-center justify-between">
+                  <div>
+                    <h2 className="text-2xl font-bold text-primary">Cấu Hình Hệ Thống</h2>
+                    <p className="text-sm text-slate-500 mt-1">Quản lý các thông số vận hành toàn sàn</p>
+                  </div>
+                  <button
+                    onClick={handleCreateConfig}
+                    className="px-6 py-2.5 bg-primary text-white rounded-lg font-bold text-sm uppercase hover:opacity-90 transition-all flex items-center gap-2"
+                  >
+                    <span className="material-symbols-outlined text-sm">add_circle</span>
+                    Thêm cấu hình
+                  </button>
+                </div>
+
+                <div className="p-8 bg-ritual-bg/50 border-b border-gold/10 flex flex-wrap gap-4">
+                  <div className="flex-1 min-w-[200px]">
+                    <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Lọc theo nhóm (Group)</label>
+                    <select
+                      value={configGroupFilter}
+                      onChange={(e) => setConfigGroupFilter(e.target.value)}
+                      className="w-full px-4 py-2 rounded-lg border border-gold/10 bg-white"
+                    >
+                      <option value="">Tất cả các nhóm</option>
+                      <option value="Financial">Tài chính (Financial)</option>
+                      <option value="Operational">Vận hành (Operational)</option>
+                      <option value="Policy">Chính sách (Policy)</option>
+                      <option value="Contact">Liên hệ (Contact)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  {isLoadingConfigs ? (
+                    <div className="p-12 text-center text-slate-500">Đang tải danh sách cấu hình...</div>
+                  ) : configsError ? (
+                    <div className="p-12 text-center text-red-500">{configsError}</div>
+                  ) : systemConfigs.length === 0 ? (
+                    <div className="p-12 text-center text-slate-500">Chưa có cấu hình nào.</div>
+                  ) : (
+                    <table className="w-full">
+                      <thead>
+                        <tr className="bg-ritual-bg border-b border-gold/10">
+                          <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-600">Khóa cấu hình</th>
+                          <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-600">Giá trị</th>
+                          <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-600">Kiểu dữ liệu</th>
+                          <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-600">Nhóm</th>
+                          <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-600">Mô tả</th>
+                          <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-600">Hành động</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {systemConfigs.slice((configsPage - 1) * ITEMS_PER_PAGE, configsPage * ITEMS_PER_PAGE).map((config) => (
+                          <tr key={config.configKey} className="border-b border-gold/10 hover:bg-ritual-bg transition-all">
+                            <td className="px-6 py-4 font-bold text-primary">{config.configKey}</td>
+                            <td className="px-6 py-4 text-slate-700 font-medium">{config.configValue}</td>
+                            <td className="px-6 py-4">
+                              <span className="px-2 py-0.5 rounded-lg bg-slate-100 text-slate-600 text-[10px] font-bold uppercase">
+                                {config.dataType === 'string' ? 'Chuỗi' : 
+                                 config.dataType === 'int' ? 'Số nguyên' : 
+                                 config.dataType === 'decimal' ? 'Số thập phân' : 
+                                 config.dataType === 'bool' ? 'Đúng/Sai' : config.dataType}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4">
+                              <span className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-600 text-[10px] font-bold uppercase">
+                                {config.group === 'Financial' ? 'Tài chính' : 
+                                 config.group === 'Operational' ? 'Vận hành' : 
+                                 config.group === 'Policy' ? 'Chính sách' : 
+                                 config.group === 'Contact' ? 'Liên hệ' : config.group}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-slate-500 text-sm max-w-xs truncate" title={config.description}>
+                              {config.description}
+                            </td>
+                            <td className="px-6 py-4 whitespace-nowrap">
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => handleEditConfig(config)}
+                                  className="p-2 text-primary hover:bg-primary/5 rounded-lg transition-all"
+                                  title="Chỉnh sửa"
+                                >
+                                  <span className="material-symbols-outlined text-sm">edit</span>
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteConfig(config.configKey)}
+                                  className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                                  title="Xóa"
+                                >
+                                  <span className="material-symbols-outlined text-sm">delete</span>
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  )}
+                </div>
+
+                {/* Pagination for Configs */}
+                {!isLoadingConfigs && systemConfigs.length > ITEMS_PER_PAGE && (
+                  <div className="px-8 py-4 bg-ritual-bg/30 border-t border-gold/10 flex items-center justify-between">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      Trang {configsPage} / {Math.ceil(systemConfigs.length / ITEMS_PER_PAGE)}
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => setConfigsPage(p => Math.max(1, p - 1))}
+                        disabled={configsPage === 1}
+                        className="p-2 rounded-lg border border-gold/10 bg-white text-primary disabled:opacity-30 disabled:cursor-not-allowed hover:bg-primary hover:text-white transition-all flex items-center justify-center shadow-sm"
+                      >
+                        <span className="material-symbols-outlined text-sm">chevron_left</span>
+                      </button>
+                      <button
+                        onClick={() => setConfigsPage(p => Math.min(Math.ceil(systemConfigs.length / ITEMS_PER_PAGE), p + 1))}
+                        disabled={configsPage >= Math.ceil(systemConfigs.length / ITEMS_PER_PAGE)}
+                        className="p-2 rounded-lg border border-gold/10 bg-white text-primary disabled:opacity-30 disabled:cursor-not-allowed hover:bg-primary hover:text-white transition-all flex items-center justify-center shadow-sm"
+                      >
+                        <span className="material-symbols-outlined text-sm">chevron_right</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
