@@ -1,7 +1,7 @@
 // Mock Data for All Pages and Components
 // This file centralizes all mock data for easier API integration later
 
-import heroSlide1 from './assets/Gemini_Generated_Image_90aev690aev690ae.png';
+import heroSlide1 from './assets/Gemini_Generated_Image_ygg4taygg4taygg4.png';
 
 export const MOCK_DATA = {
   // // Product Data

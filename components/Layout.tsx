@@ -413,6 +413,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
               ])
           ]
         },
+        { path: '/about', label: 'Về chúng tôi' },
 
         // { path: '/tracking', label: 'Theo dõi' },
       ];

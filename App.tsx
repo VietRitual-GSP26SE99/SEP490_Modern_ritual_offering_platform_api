@@ -17,6 +17,7 @@ import MyOrdersPage from './pages/customer/MyOrdersPage';
 import OrderDetailsPage from './pages/customer/OrderDetailsPage';
 import VendorProfilePage from './pages/vendor/VendorProfilePage';
 import TransactionHistoryPage from './pages/customer/TransactionHistoryPage';
+import AboutUsPage from './pages/customer/AboutUsPage';
 
 // Vendor Pages
 import VendorDashboard from './pages/vendor/VendorDashboard';
@@ -148,6 +149,7 @@ const AppContent: React.FC<{
       <Route path="/profile/orders" element={isAuthenticated && hasCustomerRole ? (isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/profile/orders" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><MyOrdersPage /></Layout>) : <Navigate to="/auth" />} />
       <Route path="/profile/orders/:id" element={isAuthenticated && hasCustomerRole ? (isProfileSetupRequired ? <Navigate to="/profile?firstTime=true" replace /> : <Layout activeRoute="/profile/orders/:id" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><OrderDetailsPage /></Layout>) : <Navigate to="/auth" />} />
       <Route path="/wallet/transactions" element={isAuthenticated ? <Layout activeRoute="/wallet/transactions" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><TransactionHistoryPage onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
+      <Route path="/about" element={<Layout activeRoute="/about" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><AboutUsPage onNavigate={handleNavigate} /></Layout>} />
 
       {/* Vendor Routes */}
       <Route path="/vendor/dashboard" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/dashboard" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorDashboard onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />

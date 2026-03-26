@@ -494,7 +494,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                     min="1"
                     value={quantity}
                     onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))}
-                    className="w-16 bg-transparent text-center text-lg font-black text-slate-800 focus:outline-none"
+                    className="w-16 bg-transparent text-center text-lg font-black text-slate-800 focus:outline-none border-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                   <button
                     onClick={() => setQuantity(quantity + 1)}
