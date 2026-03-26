@@ -450,6 +450,22 @@ class PackageService {
     });
     if (!response.ok) {
       const errText = await response.text();
+      try {
+        const errObj = JSON.parse(errText);
+        // Handle common backend error formats
+        if (errObj.errorMessages && Array.isArray(errObj.errorMessages) && errObj.errorMessages.length > 0) {
+          throw new Error(errObj.errorMessages[0]);
+        }
+        if (errObj.errors && typeof errObj.errors === 'object') {
+          const firstError = Object.values(errObj.errors)[0];
+          if (Array.isArray(firstError) && firstError.length > 0) throw new Error(firstError[0] as string);
+        }
+        if (errObj.message) throw new Error(errObj.message);
+        // Handle the specific format in screenshot: {"statusCode":"BadRequest", "errors": ["..."]}
+        if (Array.isArray(errObj.errors) && errObj.errors.length > 0) throw new Error(errObj.errors[0]);
+      } catch (e) {
+        if (e instanceof Error && e.name === 'Error' && e.message !== 'Unexpected token') throw e;
+      }
       throw new Error(errText || `HTTP error! status: ${response.status}`);
     }
     const data: any = await response.json().catch(() => ({}));
@@ -480,6 +496,22 @@ class PackageService {
     });
     if (!response.ok) {
       const errText = await response.text();
+      try {
+        const errObj = JSON.parse(errText);
+        // Handle common backend error formats
+        if (errObj.errorMessages && Array.isArray(errObj.errorMessages) && errObj.errorMessages.length > 0) {
+          throw new Error(errObj.errorMessages[0]);
+        }
+        if (errObj.errors && typeof errObj.errors === 'object') {
+          const firstError = Object.values(errObj.errors)[0];
+          if (Array.isArray(firstError) && firstError.length > 0) throw new Error(firstError[0] as string);
+        }
+        if (errObj.message) throw new Error(errObj.message);
+        // Handle the specific format in screenshot: {"statusCode":"BadRequest", "errors": ["..."]}
+        if (Array.isArray(errObj.errors) && errObj.errors.length > 0) throw new Error(errObj.errors[0]);
+      } catch (e) {
+        if (e instanceof Error && e.name === 'Error' && e.message !== 'Unexpected token') throw e;
+      }
       throw new Error(errText || `HTTP error! status: ${response.status}`);
     }
     const data: any = await response.json().catch(() => ({}));

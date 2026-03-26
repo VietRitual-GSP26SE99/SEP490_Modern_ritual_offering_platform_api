@@ -478,14 +478,25 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
 
                 {/* Description */}
                 <div>
-                  <label className="text-xs font-black text-gray-400 uppercase tracking-widest block mb-1.5">Mô tả sản phẩm</label>
+                  <div className="flex justify-between items-center mb-1.5">
+                    <label className="text-xs font-black text-gray-400 uppercase tracking-widest block">Mô tả sản phẩm</label>
+                    <span className={`text-[10px] font-bold ${createForm.description.length >= 255 ? 'text-red-500' : 'text-gray-400'}`}>
+                      {createForm.description.length}/255
+                    </span>
+                  </div>
                   <textarea
                     value={createForm.description}
-                    onChange={e => setCreateForm({ ...createForm, description: e.target.value })}
+                    onChange={e => setCreateForm({ ...createForm, description: e.target.value.slice(0, 255) })}
+                    maxLength={255}
                     rows={3}
-                    className="w-full px-4 py-3 border-2 border-gray-200 rounded-2xl text-sm text-gray-700 focus:border-primary focus:outline-none transition resize-none"
+                    className={`w-full px-4 py-3 border-2 rounded-2xl text-sm text-gray-700 focus:outline-none transition resize-none ${
+                      createForm.description.length >= 255 ? 'border-amber-400 focus:border-amber-500' : 'border-gray-200 focus:border-primary'
+                    }`}
                     placeholder="Mô tả chi tiết sản phẩm..."
                   />
+                  {createForm.description.length >= 255 && (
+                    <p className="text-[10px] text-amber-600 font-bold mt-1">Đã đạt giới hạn tối đa 255 ký tự.</p>
+                  )}
                 </div>
 
                 {/* Variants */}
@@ -911,13 +922,24 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
                           </select>
                         </div>
                         <div>
-                          <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">Mô tả sản phẩm</label>
+                          <div className="flex justify-between items-center mb-1">
+                            <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block font-bold">Mô tả sản phẩm</label>
+                            <span className={`text-[9px] font-bold ${editForm.description.length >= 255 ? 'text-red-500' : 'text-gray-400'}`}>
+                              {editForm.description.length}/255
+                            </span>
+                          </div>
                           <textarea
                             value={editForm.description}
-                            onChange={e => setEditForm({ ...editForm, description: e.target.value })}
+                            onChange={e => setEditForm({ ...editForm, description: e.target.value.slice(0, 255) })}
+                            maxLength={255}
                             rows={5}
-                            className="w-full px-4 py-2.5 border-2 border-primary/30 rounded-xl text-sm text-gray-700 focus:border-primary focus:outline-none transition resize-none bg-primary/5"
+                            className={`w-full px-4 py-2.5 border-2 rounded-xl text-sm text-gray-700 focus:outline-none transition resize-none ${
+                              editForm.description.length >= 255 ? 'border-amber-400 bg-amber-50/10 focus:border-amber-500' : 'border-primary/30 bg-primary/5 focus:border-primary'
+                            }`}
                           />
+                          {editForm.description.length >= 255 && (
+                            <p className="text-[9px] text-amber-600 font-bold mt-1">Đã đạt giới hạn tối đa 255 ký tự.</p>
+                          )}
                         </div>
                       </div>
                     ) : (
