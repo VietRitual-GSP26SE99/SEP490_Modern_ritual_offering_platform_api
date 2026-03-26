@@ -921,9 +921,9 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
           <div className="flex gap-2 mb-8 border-b-2 border-gold/20 flex-wrap">
             {[
               { id: 'shop', label: ' Thông Tin Cửa Hàng' },
-              { id: 'bank', label: ' Thông Tin Ngân Hàng' },
-              { id: 'commission', label: ' Hoa Hồng & Phí' },
-              { id: 'notifications', label: ' Thông Báo' },
+              // { id: 'bank', label: ' Thông Tin Ngân Hàng' },
+              // { id: 'commission', label: ' Hoa Hồng & Phí' },
+              // { id: 'notifications', label: ' Thông Báo' },
               { id: 'closure', label: ' Đóng Cửa Hàng' },
             ].map((tab) => (
               <button

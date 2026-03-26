@@ -164,10 +164,10 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onNavigate, onLogout })
   ]);
 
   const categories = [
-    { id: 'general', label: 'Chung', icon: '' },
-    { id: 'payment', label: 'Thanh toán', icon: '' },
-    { id: 'delivery', label: 'Vận chuyển', icon: '' },
-    { id: 'notification', label: 'Thông báo', icon: '' },
+    // { id: 'general', label: 'Chung', icon: '' },
+    // { id: 'payment', label: 'Thanh toán', icon: '' },
+    // { id: 'delivery', label: 'Vận chuyển', icon: '' },
+    // { id: 'notification', label: 'Thông báo', icon: '' },
     { id: 'ceremony', label: 'Thể loại nghi lễ', icon: '' },
   ];
 
@@ -515,12 +515,12 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onNavigate, onLogout })
                 ))}
               </div>
 
-              <div className="mt-6 p-4 bg-slate-900 rounded-lg text-white">
+              {/* <div className="mt-6 p-4 bg-slate-900 rounded-lg text-white">
                 <h4 className="font-bold mb-2"> Cảnh báo</h4>
                 <p className="text-xs text-slate-200">
                   Thay đổi cài đặt hệ thống có thể ảnh hưởng đến hoạt động. Hãy thận trọng!
                 </p>
-              </div>
+              </div> */}
             </div>
           </div>
 
