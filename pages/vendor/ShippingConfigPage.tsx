@@ -110,7 +110,7 @@ const ShippingConfigPage: React.FC<ShippingConfigPageProps> = ({ onNavigate }) =
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] py-16">
-      <div className="max-w-7xl mx-auto px-8">
+      <div className="max-w-[1650px] mx-auto px-8">
         {/* Header Section */}
         <div className="mb-12 flex flex-col md:flex-row md:items-center justify-between gap-8">
           <div className="flex items-start gap-5">

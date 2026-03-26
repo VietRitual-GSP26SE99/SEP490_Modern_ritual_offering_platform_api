@@ -152,7 +152,7 @@ const RefundManagement: React.FC<Props> = ({ onNavigate }) => {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+    <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-gray-900">Quản lý hoàn tiền</h1>
         <p className="text-gray-600 mt-1">Ghi chú và chuyển tiếp yêu cầu cho admin</p>

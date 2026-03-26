@@ -166,7 +166,7 @@ const getInitials = (name: string) => {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNavigate }) => {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const itemsPerPage = 5;
   const fromDateInputRef = useRef<HTMLInputElement | null>(null);
   const toDateInputRef = useRef<HTMLInputElement | null>(null);
@@ -195,7 +195,13 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
   const [deliveryProofImages, setDeliveryProofImages] = useState<File[]>([]);
 
   // ── tab state ───────────────────────────────────────────────────────────────
-  const [mainTab, setMainTab] = useState<'orders' | 'refunds' | 'reviews'>('orders');
+  const [mainTab, setMainTab] = useState<'orders' | 'refunds' | 'reviews'>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get('tab');
+    if (tab === 'refund' || tab === 'refunds') return 'refunds';
+    if (tab === 'review' || tab === 'reviews') return 'reviews';
+    return 'orders';
+  });
   const [pendingRefunds, setPendingRefunds] = useState(0);
 
   const getTodayYmd = (): string => toYmd(new Date());
@@ -452,6 +458,15 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
   }, [toDate]);
 
   useEffect(() => {
+    const currentTab = searchParams.get('tab');
+    if (currentTab !== mainTab) {
+      const newParams = new URLSearchParams(searchParams);
+      newParams.set('tab', mainTab);
+      setSearchParams(newParams, { replace: true });
+    }
+  }, [mainTab, searchParams, setSearchParams]);
+
+  useEffect(() => {
     const tab = searchParams.get('tab');
     const orderId = searchParams.get('orderId');
 
@@ -491,7 +506,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
   }
   return (
     <div className="bg-gray-50 min-h-screen py-12">
-      <div className="max-w-7xl mx-auto px-4 md:px-8">
+      <div className="max-w-[1650px] mx-auto px-4 md:px-8">
 
         {/* Header Section */}
         <div className="mb-12 flex flex-col md:flex-row md:items-center justify-between gap-8">

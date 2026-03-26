@@ -13,7 +13,12 @@ interface AdminDashboardProps {
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'vendors' | 'users' | 'orders' | 'disputes' | 'content' | 'withdrawals' | 'transactions' | 'audit'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'vendors' | 'users' | 'orders' | 'disputes' | 'content' | 'withdrawals' | 'transactions' | 'audit'>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tabParam = params.get('tab');
+    const validTabs = ['overview', 'vendors', 'users', 'orders', 'disputes', 'content', 'withdrawals', 'transactions', 'audit'];
+    return (tabParam && validTabs.includes(tabParam) ? tabParam : 'overview') as any;
+  });
   const [withdrawalRequests, setWithdrawalRequests] = useState<WithdrawalListItem[]>([]);
   const [isLoadingWithdrawals, setIsLoadingWithdrawals] = useState(false);
   const [withdrawalsError, setWithdrawalsError] = useState<string | null>(null);
@@ -79,6 +84,15 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
       setWithdrawalsPage(1);
     }
   };
+
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    const currentTab = url.searchParams.get('tab');
+    if (currentTab !== activeTab) {
+      url.searchParams.set('tab', activeTab);
+      window.history.pushState({}, '', url.toString());
+    }
+  }, [activeTab]);
 
   useEffect(() => {
     if (activeTab === 'withdrawals' && withdrawalRequests.length === 0 && !isLoadingWithdrawals) {
@@ -1011,7 +1025,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-ritual-bg via-white to-gold/5 py-12">
-      <div className="max-w-7xl mx-auto px-6 md:px-10">
+      <div className="max-w-[1850px] mx-auto px-6 md:px-10">
 
 
         <div className="flex flex-col lg:flex-row gap-10 items-start">
@@ -1278,10 +1292,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
                       className="w-full px-4 py-2 rounded-lg border border-gold/10 bg-white"
                     >
                       <option value="">Tất cả vai trò</option>
-                      <option value="Admin">Admin</option>
-                      <option value="Staff">Staff</option>
-                      <option value="Customer">Customer</option>
-                      <option value="Vendor">Vendor</option>
+                      <option value="Admin">Quản trị viên (Admin)</option>
+                      <option value="Staff">Nhân viên (Staff)</option>
+                      <option value="Customer">Khách hàng (Customer)</option>
+                      <option value="Vendor">Nhà cung cấp (Vendor)</option>
                     </select>
                   </div>
                   <div className="flex-1 min-w-[200px]">

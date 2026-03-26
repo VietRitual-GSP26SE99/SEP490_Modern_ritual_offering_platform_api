@@ -47,7 +47,7 @@ const VendorAnalytics: React.FC<VendorAnalyticsProps> = ({ onNavigate }) => {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-yellow-50 p-6">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-[1650px] mx-auto">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-playfair font-bold text-primary mb-2">Thống Kê & Báo Cáo</h1>

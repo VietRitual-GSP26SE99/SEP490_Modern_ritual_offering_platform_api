@@ -320,7 +320,7 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
 
   return (
     <div className="min-h-screen bg-white p-6 font-sans text-slate-800">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-[1650px] mx-auto">
         {/* Header Section */}
         <div className="mb-12 flex flex-col md:flex-row md:items-center justify-between gap-8">
           <div className="flex items-start gap-5">

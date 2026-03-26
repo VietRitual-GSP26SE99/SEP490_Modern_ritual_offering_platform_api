@@ -106,7 +106,7 @@ const VendorVerificationPage: React.FC<Props> = ({ onNavigate }) => {
   ];
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
+    <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">Xác minh Vendor</h1>
@@ -142,7 +142,7 @@ const VendorVerificationPage: React.FC<Props> = ({ onNavigate }) => {
         </div>
       ) : (
         <div className="bg-white rounded-[2rem] border border-slate-200 shadow-sm overflow-hidden">
-          <div className="overflow-x-auto">
+          <div className="max-w-[1800px] mx-auto">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200">

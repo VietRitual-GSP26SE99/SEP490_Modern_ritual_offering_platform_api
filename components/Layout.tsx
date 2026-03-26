@@ -74,6 +74,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
   const hasVendorRole =
     currentUser?.role === 'vendor' ||
     currentUser?.roles?.some((role) => typeof role === 'string' && role.toLowerCase() === 'vendor');
+  const hasStaffRole =
+    currentUser?.role === 'staff' ||
+    currentUser?.roles?.some((role) => typeof role === 'string' && role.toLowerCase() === 'staff');
+  const hasAdminRole =
+    currentUser?.role === 'admin' ||
+    currentUser?.roles?.some((role) => typeof role === 'string' && role.toLowerCase() === 'admin');
 
   const markAllNotificationsAsRead = () => {
     setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
@@ -98,30 +104,71 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
     const title = (item.title || '').toLowerCase();
     const message = (item.message || '').toLowerCase();
 
-    // 1. Đăng ký Vendor -> chuyển hướng về tab tương ứng trong profile
+    // 1. Đăng ký Vendor -> chuyển hướng về tab tương ứng trong profile (cho User) hoặc trang Duyệt Vendor (cho Staff)
     if (title.includes('đăng ký vendor') || message.includes('đăng ký vendor') || (rawUrl && rawUrl.includes('vendor/registration'))) {
+      if (isStaff || hasStaffRole) return '/staff-vendors';
       return '/profile?tab=vendor-register';
     }
 
-    // 2. Yêu cầu hoàn tiền mới (Vendor)
-    if (isVendor && (title.includes('hoàn tiền') || message.includes('hoàn tiền'))) {
-      return '/vendor/orders?tab=refunds';
+    // 2. Logic dành riêng cho Staff
+    if (isStaff || hasStaffRole) {
+      if (title.includes('sản phẩm') && (title.includes('duyệt') || message.includes('duyệt'))) {
+        return '/staff-product';
+      }
+      if (title.includes('vendor') && (title.includes('duyệt') || message.includes('duyệt'))) {
+        return '/staff-vendors';
+      }
     }
 
-    // 3. Quyết toán đơn hàng / Giao dịch ví
+    // 3. Logic dành riêng cho Admin
+    if (isAdmin || hasAdminRole) {
+      // Rút tiền -> tab withdrawals
+      if (title.includes('rút tiền') || message.includes('rút tiền')) {
+        return '/admin/dashboard?tab=withdrawals';
+      }
+      // Hoàn tiền hoặc Hủy đơn -> tab disputes (trong AdminDashboard tab disputes xử lý refund)
+      if (title.includes('hoàn tiền') || message.includes('hoàn tiền') || title.includes('hủy đơn') || message.includes('hủy đơn')) {
+        return '/admin/dashboard?tab=disputes';
+      }
+      // Duyệt Vendor cho Admin
+      if (title.includes('vendor') && (title.includes('duyệt') || message.includes('duyệt'))) {
+        return '/admin/dashboard?tab=vendors';
+      }
+    }
+
+    // 2. Logic dành riêng cho Vendor
+    if (hasVendorRole) {
+      // Hoàn tiền hoặc Hủy đơn -> tab refunds
+      if (title.includes('hoàn tiền') || message.includes('hoàn tiền') || title.includes('hủy đơn') || message.includes('hủy đơn')) {
+        return '/vendor/orders?tab=refunds';
+      }
+
+      // Nạp rút / Giao dịch ví -> trang giao dịch
+      if (title.includes('quyết toán') || title.includes('ví') || title.includes('rút tiền') || title.includes('nạp tiền') || message.includes('rút tiền') || message.includes('nạp tiền')) {
+        return '/vendor/transactions';
+      }
+
+      // 4. Sản phẩm -> trang sản phẩm
+      if (title.includes('sản phẩm')) {
+        return '/vendor/products';
+      }
+
+      // 5. Đơn hàng mới (Vendor) - Cố gắng trích xuất OrderID từ nội dung (ví dụ: #abc123)
+      if (title.includes('đơn hàng')) {
+        const orderIdMatch = message.match(/#([a-zA-Z0-9]+)/);
+        if (orderIdMatch) {
+          return `/vendor/orders?orderId=${encodeURIComponent(orderIdMatch[1])}`;
+        }
+        return '/vendor/orders';
+      }
+    }
+
+    // 3. Fallback cho các trường hợp khác (Customer/Admin/Staff)
     if (title.includes('quyết toán') || title.includes('ví') || message.includes('quyết toán')) {
       return '/wallet/transactions';
     }
 
-    // 4. Đơn hàng mới (Vendor) - Cố gắng trích xuất OrderID từ nội dung (ví dụ: #abc123)
-    if (isVendor && title.includes('đơn hàng mới')) {
-      const orderIdMatch = message.match(/#([a-zA-Z0-9]+)/);
-      if (orderIdMatch) {
-        return `/vendor/orders?orderId=${encodeURIComponent(orderIdMatch[1])}`;
-      }
-      return '/vendor/orders';
-    }
-
+    // 4. Các trường hợp khác nếu có redirectUrl (như backend gửi)
     if (!rawUrl) return '';
 
     const trimmed = rawUrl.trim();

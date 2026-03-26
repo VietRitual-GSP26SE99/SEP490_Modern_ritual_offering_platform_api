@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { auditService, AuditLog, AuditLogFilter } from '../../services/auditService';
+import { userService } from '../../services/userService';
 import toast from '../../services/toast';
 
 interface AuditLogPageProps {
@@ -18,6 +19,9 @@ const ACTION_LABELS: Record<string, string> = {
   'BanUser': 'Khóa người dùng',
   'ReactivateUser': 'Mở khóa người dùng',
   'Verify': 'Xác minh',
+  'Withdraw': 'Rút tiền',
+  'Refund': 'Hoàn tiền',
+  'Transaction': 'Giao dịch',
 };
 
 const ENTITY_LABELS: Record<string, string> = {
@@ -27,6 +31,10 @@ const ENTITY_LABELS: Record<string, string> = {
   'User': 'Người dùng',
   'SystemConfig': 'Cấu hình hệ thống',
   'Order': 'Đơn hàng',
+  'Transaction': 'Giao dịch',
+  'Refund': 'Yêu cầu hoàn tiền',
+  'WithdrawalRequest': 'Yêu cầu rút tiền',
+  'BusinessProfile': 'Hồ sơ kinh doanh',
 };
 
 const AuditLogPage: React.FC<AuditLogPageProps> = ({ onNavigate, userRole }) => {
@@ -34,6 +42,8 @@ const AuditLogPage: React.FC<AuditLogPageProps> = ({ onNavigate, userRole }) => 
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<AuditLogFilter>({});
   const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
+  const [selectedEntityName, setSelectedEntityName] = useState<string | null>(null);
+  const [resolvedNames, setResolvedNames] = useState<Record<string, string>>({});
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 5;
@@ -61,9 +71,31 @@ const AuditLogPage: React.FC<AuditLogPageProps> = ({ onNavigate, userRole }) => 
   const handleShowDetail = async (id: string) => {
     setLoadingDetail(true);
     setSelectedLog(null);
+    setSelectedEntityName(null);
     try {
       const data = await auditService.getAuditLogById(id);
       setSelectedLog(data);
+
+      // Resolve Entity Name
+      if (data.entityType === 'User') {
+        try {
+          const user = await userService.getUserById(data.entityId);
+          setSelectedEntityName(user.fullName || user.email);
+        } catch {
+          setSelectedEntityName(null);
+        }
+      }
+
+      // Resolve Performer Name if missing
+      if (!data.performedByName && data.performedBy && data.performedBy !== 'system') {
+        try {
+          const user = await userService.getUserById(data.performedBy);
+          data.performedByName = user.fullName || user.email;
+          setSelectedLog({ ...data }); // Trigger re-render
+        } catch {
+          // Keep as is
+        }
+      }
     } catch (err) {
       console.error('Failed to fetch log detail:', err);
       toast.error('Không thể tải chi tiết nhật ký.');
@@ -106,12 +138,60 @@ const AuditLogPage: React.FC<AuditLogPageProps> = ({ onNavigate, userRole }) => 
     };
     return mapping[s] || s;
   };
-  const totalPages = Math.ceil(logs.length / ITEMS_PER_PAGE);
-  const currentLogs = logs.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  const translateDescription = (text: string | null) => {
+    if (!text) return 'Không có mô tả';
+    let result = text;
+    // Common backend phrases
+    result = result.replace(/Staff approved package/gi, 'Nhân viên đã duyệt gói');
+    result = result.replace(/Staff rejected package/gi, 'Nhân viên đã từ chối gói');
+    result = result.replace(/Banned user/gi, 'Đã khóa người dùng');
+    result = result.replace(/Reactivated user/gi, 'Đã kích hoạt lại người dùng');
+    result = result.replace(/reason:/gi, 'lý do:');
+    result = result.replace(/Admin changed/gi, 'Quản trị viên đã thay đổi');
+    result = result.replace(/Log in success/gi, 'Đăng nhập thành công');
+    return result;
+  };
+  const [roleFilter, setRoleFilter] = useState<string>('');
+  const filteredLogs = logs.filter(l => !roleFilter || l.performedRole === roleFilter);
+  const totalPages = Math.ceil(filteredLogs.length / ITEMS_PER_PAGE);
+  const currentLogs = filteredLogs.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  useEffect(() => {
+    const resolvePageNames = async () => {
+      const idsToFetch = new Set<string>();
+      currentLogs.forEach(log => {
+        if (log.entityType === 'User' && log.entityId && !resolvedNames[log.entityId]) idsToFetch.add(log.entityId);
+        if (log.performedBy && log.performedBy !== 'system' && !resolvedNames[log.performedBy]) idsToFetch.add(log.performedBy);
+      });
+
+      if (idsToFetch.size === 0) return;
+
+      const results: Record<string, string> = {};
+      const fetchPromises = Array.from(idsToFetch).map(async (id) => {
+        try {
+          const user = await userService.getUserById(id);
+          results[id] = user.fullName || user.email;
+        } catch {
+          // If fail, we don't try again for this session to avoid spamming
+          results[id] = 'N/A';
+        }
+      });
+
+      await Promise.allSettled(fetchPromises);
+      if (Object.keys(results).length > 0) {
+        setResolvedNames(prev => ({ ...prev, ...results }));
+      }
+    };
+
+    if (currentLogs.length > 0) {
+      resolvePageNames();
+    }
+  }, [currentPage, logs]); // Removed resolvedNames and currentLogs to avoid infinite loops
 
   return (
     <div className="bg-slate-50 min-h-screen py-12 px-4 md:px-8 font-sans">
-      <div className="max-w-7xl mx-auto">
+      <div className="max-w-[1800px] mx-auto">
 
         {/* Header Section */}
         <div className="mb-12 flex flex-col md:flex-row md:items-center justify-between gap-8">
@@ -143,51 +223,78 @@ const AuditLogPage: React.FC<AuditLogPageProps> = ({ onNavigate, userRole }) => 
 
         {/* Filter Section */}
         <div className="bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-6">
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Hành động</label>
-              <input
-                type="text"
-                placeholder="Ví dụ: Approve, Create..."
-                className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-black transition-all"
+              <select
+                className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-black transition-all cursor-pointer"
                 value={filter.action || ''}
                 onChange={(e) => {
                   setFilter({ ...filter, action: e.target.value });
                   setCurrentPage(1);
                 }}
-              />
+              >
+                <option value="">Tất cả hành động</option>
+                {Array.from(new Set(logs.map(log => log.action))).map(action => (
+                  <option key={action} value={action}>{ACTION_LABELS[action] || action}</option>
+                ))}
+              </select>
             </div>
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Đối tượng (Entity)</label>
-              <input
-                type="text"
-                placeholder="Ví dụ: Vendor, User..."
-                className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-black transition-all"
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Đối tượng</label>
+              <select
+                className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-black transition-all cursor-pointer"
                 value={filter.entityType || ''}
                 onChange={(e) => {
                   setFilter({ ...filter, entityType: e.target.value });
                   setCurrentPage(1);
                 }}
-              />
+              >
+                <option value="">Tất cả đối tượng</option>
+                {Array.from(new Set(logs.map(log => log.entityType))).map(entity => (
+                  <option key={entity} value={entity}>{ENTITY_LABELS[entity] || entity}</option>
+                ))}
+              </select>
             </div>
             <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Vai trò</label>
+              <select
+                className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-black transition-all cursor-pointer"
+                value={roleFilter}
+                onChange={(e) => {
+                  setRoleFilter(e.target.value);
+                  setCurrentPage(1);
+                }}
+              >
+                <option value="">Tất cả vai trò</option>
+                {Array.from(new Set(logs.map(log => log.performedRole))).map(role => (
+                  <option key={role} value={role}>
+                    {role === 'Admin' ? 'Quản trị viên' : role === 'Staff' ? 'Nhân viên' : role === 'system' ? 'Hệ thống' : role}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {/* <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Người thực hiện</label>
-              <input
-                type="text"
-                placeholder="Mã người dùng..."
-                className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-black transition-all"
+              <select
+                className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-black transition-all cursor-pointer"
                 value={filter.performedBy || ''}
                 onChange={(e) => {
                   setFilter({ ...filter, performedBy: e.target.value });
                   setCurrentPage(1);
                 }}
-              />
-            </div>
+              >
+                <option value="">Tất cả người thực hiện</option>
+                {Array.from(new Map(logs.map(log => [log.performedBy, log.performedByName || (log.performedBy === 'system' ? 'Hệ thống' : log.performedBy.slice(0, 8))])).entries()).map(([id, name]) => (
+                  <option key={id} value={id}>{name}</option>
+                ))}
+              </select>
+            </div> */}
             <div className="space-y-2">
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Từ ngày</label>
               <input
                 type="date"
-                className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-black transition-all"
+                className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-black transition-all cursor-pointer"
                 value={filter.from || ''}
                 onChange={(e) => setFilter({ ...filter, from: e.target.value })}
               />
@@ -196,7 +303,7 @@ const AuditLogPage: React.FC<AuditLogPageProps> = ({ onNavigate, userRole }) => 
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Đến ngày</label>
               <input
                 type="date"
-                className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-black transition-all"
+                className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-black transition-all cursor-pointer"
                 value={filter.to || ''}
                 onChange={(e) => setFilter({ ...filter, to: e.target.value })}
               />
@@ -205,6 +312,7 @@ const AuditLogPage: React.FC<AuditLogPageProps> = ({ onNavigate, userRole }) => 
               <button
                 onClick={() => {
                   setFilter({});
+                  setRoleFilter('');
                   setCurrentPage(1);
                 }}
                 className="w-full h-[46px] bg-slate-100 text-slate-400 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-50 hover:text-rose-600 transition-all"
@@ -253,18 +361,24 @@ const AuditLogPage: React.FC<AuditLogPageProps> = ({ onNavigate, userRole }) => 
                         <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${getActionStyle(log.action)}`}>
                           {ACTION_LABELS[log.action] || log.action}
                         </span>
-                        <p className="text-[8px] text-slate-400 font-black mt-1 uppercase tracking-widest">{log.performedRole}</p>
+                        <p className="text-[8px] text-slate-400 font-black mt-1 uppercase tracking-widest">
+                          {log.performedRole === 'Admin' ? 'Quản trị viên' : log.performedRole === 'Staff' ? 'Nhân viên' : log.performedRole}
+                        </p>
                       </td>
                       <td className="px-8 py-6">
                         <p className="text-sm font-black text-slate-700">{ENTITY_LABELS[log.entityType] || log.entityType}</p>
-                        <p className="text-[10px] text-slate-400 font-bold truncate max-w-[100px]" title={log.entityId}>{log.entityId}</p>
+                        <p className="text-[10px] text-slate-400 font-bold truncate max-w-[150px]" title={log.entityId}>
+                          {resolvedNames[log.entityId] && resolvedNames[log.entityId] !== 'N/A' ? resolvedNames[log.entityId] : log.entityId}
+                        </p>
                       </td>
                       <td className="px-8 py-6">
                         <p className="text-sm font-bold text-slate-900">{log.performedByName || 'Hệ thống'}</p>
-                        <p className="text-[10px] text-slate-400 font-black truncate max-w-[100px]" title={log.performedBy}>{log.performedBy}</p>
+                        <p className="text-[10px] text-slate-400 font-black truncate max-w-[150px]" title={log.performedBy}>
+                          {resolvedNames[log.performedBy] && resolvedNames[log.performedBy] !== 'N/A' ? resolvedNames[log.performedBy] : log.performedBy}
+                        </p>
                       </td>
                       <td className="px-8 py-6">
-                        <p className="text-xs text-slate-600 line-clamp-1 max-w-[200px]">{log.description || 'Không có mô tả'}</p>
+                        <p className="text-xs text-slate-600 line-clamp-1 max-w-[200px]" title={log.description}>{translateDescription(log.description)}</p>
                       </td>
                       <td className="px-8 py-6 text-right">
                         <button
@@ -333,12 +447,11 @@ const AuditLogPage: React.FC<AuditLogPageProps> = ({ onNavigate, userRole }) => 
       {(selectedLog || loadingDetail) && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setSelectedLog(null)} />
-          <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-3xl relative z-10 overflow-hidden animate-in fade-in zoom-in duration-300">
+          <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-5xl relative z-10 overflow-hidden animate-in fade-in zoom-in duration-300">
             <div className="p-8 md:p-12">
               <div className="flex justify-between items-start mb-10">
                 <div>
                   <h4 className="text-3xl font-black text-slate-900 mb-2">Chi tiết nhật ký</h4>
-                  <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">ID: {selectedLog?.auditId || '...'}</p>
                 </div>
                 <button
                   onClick={() => setSelectedLog(null)}
@@ -353,7 +466,7 @@ const AuditLogPage: React.FC<AuditLogPageProps> = ({ onNavigate, userRole }) => 
                   <div className="animate-spin rounded-full h-12 w-12 border-4 border-slate-100 border-t-black mx-auto" />
                 </div>
               ) : selectedLog && (
-                <div className="space-y-8 max-h-[60vh] overflow-y-auto pr-4 custom-scrollbar">
+                <div className="space-y-8 max-h-[85vh] overflow-y-auto pr-4 custom-scrollbar">
                   <div className="grid grid-cols-2 lg:grid-cols-3 gap-8">
                     <div>
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Thời gian</p>
@@ -371,12 +484,11 @@ const AuditLogPage: React.FC<AuditLogPageProps> = ({ onNavigate, userRole }) => 
                     </div> */}
                     <div>
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Đối tượng</p>
-                      <p className="font-bold text-slate-900">{ENTITY_LABELS[selectedLog.entityType] || selectedLog.entityType}</p>
-                      <p className="text-[10px] text-slate-400 font-bold truncate">{selectedLog.entityId}</p>
+                      <p className="font-bold text-slate-900">{selectedEntityName || ENTITY_LABELS[selectedLog.entityType] || selectedLog.entityType}</p>
                     </div>
                     <div className="col-span-2">
                       <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Người thực hiện</p>
-                      <p className="font-bold text-slate-900">{selectedLog.performedByName || 'Hệ thống'} <span className="text-slate-400 font-medium text-xs ml-2">({selectedLog.performedBy})</span></p>
+                      <p className="font-bold text-slate-900">{selectedLog.performedByName || 'Hệ thống'}</p>
                     </div>
                   </div>
 
@@ -385,14 +497,14 @@ const AuditLogPage: React.FC<AuditLogPageProps> = ({ onNavigate, userRole }) => 
                     <div className="space-y-6">
                       <div>
                         <p className="text-[10px] font-black text-slate-400 uppercase mb-2 tracking-widest">Mô tả</p>
-                        <p className="text-sm font-bold text-slate-700">{selectedLog.description || 'Không có chi tiết'}</p>
+                        <p className="text-lg font-black text-slate-800 leading-relaxed">{translateDescription(selectedLog.description)}</p>
                       </div>
 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                         {selectedLog.oldValue && (
                           <div>
                             <p className="text-[10px] font-black text-rose-400 uppercase mb-2 tracking-widest">Giá trị cũ</p>
-                            <pre className="text-[10px] bg-white border border-slate-100 p-4 rounded-xl overflow-auto max-h-[200px] text-slate-500 font-mono">
+                            <pre className="text-xs bg-white border border-slate-100 p-4 rounded-xl overflow-auto max-h-[200px] text-slate-800 font-mono font-bold">
                               {selectedLog.oldValue.startsWith('{')
                                 ? JSON.stringify(parseJson(selectedLog.oldValue), null, 2)
                                 : translateStatus(selectedLog.oldValue)}
@@ -402,7 +514,7 @@ const AuditLogPage: React.FC<AuditLogPageProps> = ({ onNavigate, userRole }) => 
                         {selectedLog.newValue && (
                           <div>
                             <p className="text-[10px] font-black text-emerald-400 uppercase mb-2 tracking-widest">Giá trị mới</p>
-                            <pre className="text-[10px] bg-white border border-slate-100 p-4 rounded-xl overflow-auto max-h-[200px] text-slate-700 font-mono font-bold">
+                            <pre className="text-sm bg-white border border-slate-100 p-4 rounded-xl overflow-auto max-h-[200px] text-slate-800 font-mono font-bold shadow-sm">
                               {selectedLog.newValue.startsWith('{')
                                 ? JSON.stringify(parseJson(selectedLog.newValue), null, 2)
                                 : translateStatus(selectedLog.newValue)}
