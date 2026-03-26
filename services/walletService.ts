@@ -52,6 +52,7 @@ export interface TransactionFilter {
   status?: string;
   from?: string;
   to?: string;
+  walletType?: WalletType;
 }
 
 export interface AllTransactionFilter extends TransactionFilter {
@@ -520,6 +521,9 @@ export async function getMyTransactions(filter: TransactionFilter = {}): Promise
   }
   if (filter.to && filter.to.trim()) {
     params.append('to', filter.to.trim());
+  }
+  if (filter.walletType && (filter.walletType as string).trim()) {
+    params.append('walletType', (filter.walletType as string).trim());
   }
 
   const queryString = params.toString();

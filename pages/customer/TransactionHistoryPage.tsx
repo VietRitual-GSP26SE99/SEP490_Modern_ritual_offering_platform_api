@@ -42,25 +42,36 @@ const getTransactionStatusClass = (status: string): string => {
   return 'bg-slate-50 text-slate-700 border-slate-200';
 };
 
-const getTransactionTypeLabel = (type: string): string => {
+const getTransactionTypeLabel = (type: string, amount?: number): string => {
   const normalized = String(type || '').trim().toLowerCase();
+  
+  // If system adjustment results in a positive balance (Admin top-up), show as Nạp tiền for cleaner UI
+  if ((normalized === 'systemadjustment' || normalized === 'adjust') && (amount || 0) > 0) {
+    return 'Nạp tiền';
+  }
+
   switch (normalized) {
     case 'deposit':
+    case 'topup':
       return 'Nạp tiền';
     case 'withdrawal':
+    case 'withdraw':
       return 'Rút tiền';
     case 'paymentorder':
       return 'Thanh toán đơn hàng';
     case 'systemadjustment':
-      return 'Điều chỉnh hệ thống';
+    case 'adjust':
+      return 'Điều chỉnh số dư';
     case 'vendorincome':
       return 'Doanh thu nhà cung cấp';
     case 'refundcustomer':
-      return 'Hoàn tiền cho khách';
+    case 'refundorder':
+      return 'Hoàn tiền';
     case 'vendorcompensation':
-      return 'Bồi thường cho nhà cung cấp';
+      return 'Bồi thường nhà cung cấp';
     case 'penaltyvendor':
-      return 'Phạt nhà cung cấp';
+    case 'penalty':
+      return 'Phạt vi phạm';
     case 'debtsettlement':
       return 'Thanh toán công nợ';
     case 'withholdingdeduction':
@@ -103,11 +114,8 @@ const isIncomingTransaction = (tx: WalletTransaction): boolean => {
 
 const toDateParam = (value: string | null): string | undefined => {
   if (!value) return undefined;
-  // input type="date" trả "YYYY-MM-DD" -> API đang dùng "MM/DD/YYYY" trong Swagger
-  const parts = value.split('-');
-  if (parts.length !== 3) return value;
-  const [y, m, d] = parts;
-  return `${m}/${d}/${y}`;
+  // Use standard ISO-like format YYYY-MM-DD which is common for our APIs
+  return value;
 };
 
 const buildInitialDateRange = () => {
@@ -173,7 +181,7 @@ const TransactionHistoryPage: React.FC<TransactionHistoryPageProps> = () => {
   useEffect(() => {
     void fetchData({ showToastOnError: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [typeFilter, statusFilter, fromDate, toDate]);
 
   const handleApplyFilters = () => {
     void fetchData();
@@ -249,7 +257,7 @@ const TransactionHistoryPage: React.FC<TransactionHistoryPageProps> = () => {
         <div>
           <h1 className="text-2xl font-black text-slate-900">Lịch sử giao dịch ví</h1>
           <p className="text-sm text-slate-500 mt-1">
-            Xem lại tất cả giao dịch nạp/rút tiền, thanh toán đơn hàng và điều chỉnh ví.
+            Theo dõi chi tiết các khoản nạp, thanh toán và hoàn tiền trong tài khoản của bạn.
           </p>
         </div>
       </div>
@@ -266,19 +274,12 @@ const TransactionHistoryPage: React.FC<TransactionHistoryPageProps> = () => {
               onChange={(e) => setTypeFilter(e.target.value)}
               className="w-full rounded-xl border-slate-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 focus:border-primary/60"
             >
-              <option value="">Tất cả</option>
-              <option value="Deposit">Nạp tiền</option>
+              <option value="">Tất cả loại giao dịch</option>
+              <option value="Deposit">Nạp tiền (Top-up)</option>
               <option value="Withdrawal">Rút tiền</option>
               <option value="PaymentOrder">Thanh toán đơn hàng</option>
-              <option value="VendorIncome">Doanh thu nhà cung cấp</option>
-              <option value="RefundCustomer">Hoàn tiền cho khách</option>
-              <option value="SystemAdjustment">Điều chỉnh hệ thống</option>
-              <option value="VendorCompensation">Bồi thường cho nhà cung cấp</option>
-              <option value="PenaltyVendor">Phạt nhà cung cấp</option>
-              <option value="DebtSettlement">Thanh toán công nợ</option>
-              <option value="WithholdingDeduction">Khấu trừ tạm giữ</option>
-              <option value="WithholdingRelease">Giải phóng tạm giữ</option>
-              <option value="PlatformFee">Phí nền tảng</option>
+              <option value="RefundCustomer">Hoàn tiền</option>
+              <option value="SystemAdjustment">Điều chỉnh số dư</option>
             </select>
           </div>
 
@@ -327,19 +328,12 @@ const TransactionHistoryPage: React.FC<TransactionHistoryPageProps> = () => {
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={handleApplyFilters}
-              disabled={loading}
-              className="inline-flex items-center px-4 py-2 rounded-xl text-sm font-semibold bg-primary text-white hover:bg-primary/90 disabled:opacity-60"
-            >
-              {loading ? 'Đang tải...' : 'Áp dụng bộ lọc'}
-            </button>
-            <button
-              type="button"
               onClick={handleClearFilters}
               disabled={loading}
-              className="inline-flex items-center px-4 py-2 rounded-xl text-sm font-semibold border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-60"
+              className="inline-flex items-center px-6 py-2 rounded-xl text-sm font-bold border-2 border-slate-100 text-slate-500 hover:bg-slate-50 hover:border-slate-200 transition-all disabled:opacity-60"
             >
-              Xóa lọc
+              <span className="material-symbols-outlined text-sm mr-2">restart_alt</span>
+              Làm mới bộ lọc
             </button>
           </div>
 
@@ -380,7 +374,7 @@ const TransactionHistoryPage: React.FC<TransactionHistoryPageProps> = () => {
                   <div className="flex-1 min-w-0">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       <span className="text-xs font-semibold uppercase tracking-widest text-slate-400">
-                        {getTransactionTypeLabel(tx.type)}
+                        {getTransactionTypeLabel(tx.type, tx.amount)}
                       </span>
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold border whitespace-nowrap ${statusClass}`}>
                         {statusLabel}
@@ -428,7 +422,7 @@ const TransactionHistoryPage: React.FC<TransactionHistoryPageProps> = () => {
             <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between gap-3">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Chi tiết giao dịch</p>
-                <h2 className="text-lg font-black text-slate-900">{getTransactionTypeLabel(detailTx.type)}</h2>
+                <h2 className="text-lg font-black text-slate-900">{getTransactionTypeLabel(detailTx.type, detailTx.amount)}</h2>
                 <p className="text-xs text-slate-500 mt-1">
                   Mã giao dịch: <span className="font-mono text-slate-700">{detailTx.id}</span>
                 </p>
@@ -539,7 +533,7 @@ const TransactionHistoryPage: React.FC<TransactionHistoryPageProps> = () => {
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-center gap-2 mb-0.5">
                                   <span className="text-[11px] font-semibold uppercase tracking-widest text-slate-400">
-                                    {getTransactionTypeLabel(rt.type)}
+                                    {getTransactionTypeLabel(rt.type, rt.amount)}
                                   </span>
                                   <span
                                     className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold border whitespace-nowrap ${getTransactionStatusClass(rt.status)}`}

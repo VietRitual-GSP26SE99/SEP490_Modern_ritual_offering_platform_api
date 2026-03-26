@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   getAllTransactions,
   getTransactionById,
@@ -13,415 +13,409 @@ interface TransactionManagementProps {
   userRole: 'admin' | 'staff';
 }
 
-const TRANSACTION_STATUS_LABELS: Record<string, string> = {
-  'Success': 'Thành công',
-  'Succeeded': 'Thành công',
-  'Pending': 'Đang xử lý',
-  'Failed': 'Thất bại',
-  'Cancelled': 'Đã hủy',
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
 };
 
-const TRANSACTION_TYPE_LABELS: Record<string, string> = {
-  'Topup': 'Nạp tiền',
-  'Deposit': 'Nạp tiền',
-  'Withdrawal': 'Rút tiền',
-  'Withdraw': 'Rút tiền',
-  'PaymentOrder': 'Thanh toán đơn hàng',
-  'RefundOrder': 'Hoàn tiền',
-  'Commission': 'Phí hoa hồng',
-  'ShippingFee': 'Phí vận chuyển',
-  'Penalty': 'Phạt vi phạm',
-  'Adjust': 'Điều chỉnh số dư',
-  'PlatformFee': 'Phí nền tảng',
+const formatDateTimeVi = (dateStr: string) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  const time = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  const day = date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return `${time} ${day}`;
+};
+
+const getTransactionStatusLabel = (status: string) => {
+  const normalized = String(status || '').trim().toLowerCase();
+  if (normalized === 'success' || normalized === 'succeeded') return 'Thành công';
+  if (normalized === 'pending') return 'Đang xử lý';
+  if (normalized === 'failed') return 'Thất bại';
+  if (normalized === 'cancelled') return 'Đã hủy';
+  return status;
+};
+
+const getTransactionStatusClass = (status: string) => {
+  const normalized = String(status || '').trim().toLowerCase();
+  if (normalized === 'success' || normalized === 'succeeded') return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+  if (normalized === 'pending') return 'bg-amber-50 text-amber-700 border-amber-100';
+  if (normalized === 'failed' || normalized === 'cancelled') return 'bg-rose-50 text-rose-700 border-rose-100';
+  return 'bg-slate-50 text-slate-700 border-slate-200';
+};
+
+const getTransactionTypeLabel = (type: string, amount: number): string => {
+  const normalized = String(type || '').trim().toLowerCase();
+  
+  if ((normalized === 'systemadjustment' || normalized === 'adjust') && amount > 0) {
+    return 'Cộng số dư';
+  }
+  if ((normalized === 'systemadjustment' || normalized === 'adjust') && amount < 0) {
+    return 'Khấu trừ';
+  }
+
+  const mapping: Record<string, string> = {
+    'topup': 'Nạp tiền',
+    'deposit': 'Nạp tiền',
+    'withdrawal': 'Rút tiền',
+    'withdraw': 'Rút tiền',
+    'paymentorder': 'Thanh toán đơn',
+    'refundorder': 'Hoàn tiền',
+    'commission': 'Phí hoa hồng',
+    'shippingfee': 'Phí vận chuyển',
+    'penalty': 'Phạt vi phạm',
+    'penaltyvendor': 'Phạt vi phạm',
+    'adjust': 'Điều chỉnh',
+    'platformfee': 'Phí hệ thống',
+    'debtsettlement': 'Thanh toán nợ',
+    'withholdingdeduction': 'Khấu trừ tạm giữ',
+    'withholdingrelease': 'Giải phóng tạm giữ',
+  };
+
+  return mapping[normalized] || type;
 };
 
 const TransactionManagement: React.FC<TransactionManagementProps> = ({ onNavigate, userRole }) => {
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<AllTransactionFilter>({});
-  const [selectedTx, setSelectedTx] = useState<WalletTransaction | null>(null);
+  const [filter, setFilter] = useState<AllTransactionFilter>({
+    walletId: '',
+    type: '',
+    status: '',
+    from: '',
+    to: ''
+  });
+  
+  const [detailTx, setDetailTx] = useState<WalletTransaction | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [relatedTxs, setRelatedTxs] = useState<WalletTransaction[]>([]);
-  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  // Pagination for admin/staff view as data can be huge
   const [currentPage, setCurrentPage] = useState(1);
-  const ITEMS_PER_PAGE = 5;
+  const ITEMS_PER_PAGE = 10;
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
-      let data = await getAllTransactions(filter);
+      let data = await getAllTransactions({
+        ...filter,
+        walletId: filter.walletId || undefined,
+        type: filter.type || undefined,
+        status: filter.status || undefined,
+        from: filter.from || undefined,
+        to: filter.to || undefined,
+      });
 
-      // BR-057: Staff bị loại trừ PlatformFee và system wallet transactions
+      // BR-057: Staff filtering
       if (userRole === 'staff') {
         data = data.filter(tx =>
           tx.type !== 'PlatformFee' &&
-          tx.walletType !== 'System' // Giả sử walletType 'System' là system wallet
+          tx.walletType !== 'System'
         );
       }
 
-      setTransactions(data);
+      // Sort newest first
+      const sorted = [...data].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setTransactions(sorted);
     } catch (err) {
       console.error('Failed to fetch transactions:', err);
-      toast.error('Không thể tải danh sách giao dịch.');
+      setTransactions([]);
     } finally {
       setLoading(false);
       setCurrentPage(1);
     }
-  }, [filter]);
+  }, [filter, userRole]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  const handleShowDetail = async (tx: WalletTransaction) => {
-    setSelectedTx(tx);
-    setLoadingDetail(true);
+  const handleOpenDetail = async (tx: WalletTransaction) => {
+    setDetailTx(tx);
+    setDetailOpen(true);
+    setDetailLoading(true);
     setRelatedTxs([]);
     try {
       const [detail, related] = await Promise.all([
         getTransactionById(tx.id),
         getRelatedTransactions(tx.id)
       ]);
-      setSelectedTx(detail);
+      setDetailTx(detail);
       setRelatedTxs(related);
     } catch (err) {
       console.error('Failed to fetch transaction detail:', err);
     } finally {
-      setLoadingDetail(false);
+      setDetailLoading(false);
     }
   };
 
-  const formatVnd = (amount: number) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
-  };
-
-  const getStatusStyle = (status: string) => {
-    switch (status) {
-      case 'Success':
-      case 'Succeeded':
-        return 'bg-emerald-100 text-emerald-700';
-      case 'Pending':
-        return 'bg-amber-100 text-amber-700';
-      case 'Failed':
-      case 'Cancelled':
-        return 'bg-rose-100 text-rose-700';
-      default:
-        return 'bg-slate-100 text-slate-700';
-    }
-  };
   const totalPages = Math.ceil(transactions.length / ITEMS_PER_PAGE);
-  const currentTransactions = transactions.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+  const pagedTransactions = transactions.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  const totalIn = useMemo(() => {
+    return transactions
+      .filter(tx => tx.amount > 0)
+      .reduce((sum, tx) => sum + tx.amount, 0);
+  }, [transactions]);
+
+  const totalOut = useMemo(() => {
+    return transactions
+      .filter(tx => tx.amount < 0)
+      .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+  }, [transactions]);
 
   return (
     <div className="bg-transparent font-sans">
-      <div className="max-w-7xl mx-auto">
-
-        {/* Header Section */}
-        <div className="mb-12 flex flex-col md:flex-row md:items-center justify-between gap-8">
-          <div className="flex items-start gap-5">
-            {/* <button
-              onClick={() => onNavigate(userRole === 'admin' ? '/admin/dashboard' : '/staff/dashboard')}
-              className="w-14 h-14 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-slate-700 flex-shrink-0 hover:bg-slate-50 hover:text-black transition-all group"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-            </button> */}
-            <div>
-              <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-2">Quản lý giao dịch</h1>
-              <p className="text-slate-500 font-bold text-sm">
-                Theo dõi và kiểm soát toàn bộ dòng tiền trong hệ thống.
-                {userRole === 'staff' && <span className="ml-2 bg-blue-100 text-blue-600 px-2 py-0.5 rounded-md text-[10px] uppercase font-black tracking-widest">Quyền Staff</span>}
-              </p>
-            </div>
-          </div>
+      <div className="max-w-7xl mx-auto py-4">
+        
+        {/* Header */}
+        <div className="mb-10">
+          <h1 className="text-2xl font-black text-slate-900 flex items-center gap-3">
+             Quản trị giao dịch
+             {userRole === 'staff' && (
+               <span className="bg-slate-900 text-white px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-widest">Quyền nhân viên</span>
+             )}
+          </h1>
+          <p className="text-sm text-slate-500 mt-1">
+            Theo dõi, rà soát và đối soát toàn bộ biến động tài chính trong hệ thống.
+          </p>
         </div>
 
-        {/* Filter Section */}
-        <div className="bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm mb-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+        {/* Filters Card */}
+        <div className="bg-white border-slate-200 rounded-[2rem] p-8 shadow-sm mb-10 border">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Mã Ví</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mã Ví</label>
               <input
                 type="text"
-                placeholder="Nhập mã ví..."
-                className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-black transition-all"
+                placeholder="Tìm ví..."
+                className="w-full rounded-xl border-slate-200 text-sm font-bold text-slate-700 bg-slate-50 border-none px-4 py-3 focus:ring-2 focus:ring-primary/40 transition-all"
                 value={filter.walletId || ''}
                 onChange={(e) => setFilter({ ...filter, walletId: e.target.value })}
               />
             </div>
+
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Loại GD</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Loại GD</label>
               <select
-                className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-black transition-all"
+                className="w-full rounded-xl border-slate-200 text-sm font-bold text-slate-700 bg-slate-50 border-none px-4 py-3 focus:ring-2 focus:ring-primary/40 transition-all cursor-pointer"
                 value={filter.type || ''}
                 onChange={(e) => setFilter({ ...filter, type: e.target.value })}
               >
-                <option value="">Tất cả loại</option>
-                {Object.entries(TRANSACTION_TYPE_LABELS)
-                  .filter(([val]) => userRole === 'admin' || val !== 'PlatformFee')
-                  .map(([val, label]) => (
-                    <option key={val} value={val}>{label}</option>
-                  ))}
+                <option value="">Tất cả loại giao dịch</option>
+                <option value="Deposit">Nạp tiền</option>
+                <option value="Withdrawal">Rút tiền</option>
+                <option value="PaymentOrder">Thanh toán đơn</option>
+                <option value="RefundOrder">Hoàn tiền</option>
+                <option value="Penalty">Phạt vi phạm</option>
+                {userRole === 'admin' && <option value="PlatformFee">Phí hệ thống</option>}
               </select>
             </div>
+
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Trạng thái</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Trạng thái</label>
               <select
-                className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-black transition-all"
+                className="w-full rounded-xl border-slate-200 text-sm font-bold text-slate-700 bg-slate-50 border-none px-4 py-3 focus:ring-2 focus:ring-primary/40 transition-all cursor-pointer"
                 value={filter.status || ''}
                 onChange={(e) => setFilter({ ...filter, status: e.target.value })}
               >
                 <option value="">Tất cả trạng thái</option>
-                {Object.entries(TRANSACTION_STATUS_LABELS).map(([val, label]) => (
-                  <option key={val} value={val}>{label}</option>
-                ))}
+                <option value="Success">Thành công</option>
+                <option value="Pending">Đang xử lý</option>
+                <option value="Failed">Thất bại</option>
               </select>
             </div>
+
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Từ ngày</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Từ ngày</label>
               <input
                 type="date"
-                className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-black transition-all"
+                className="w-full rounded-xl border-slate-200 text-sm font-bold text-slate-700 bg-slate-50 border-none px-4 py-3 focus:ring-2 focus:ring-primary/40 transition-all cursor-pointer"
                 value={filter.from || ''}
                 onChange={(e) => setFilter({ ...filter, from: e.target.value })}
               />
             </div>
+
             <div className="space-y-2">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Đến ngày</label>
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Đến ngày</label>
               <input
                 type="date"
-                className="w-full bg-slate-50 border-none rounded-xl px-4 py-3 text-sm font-bold text-slate-700 focus:ring-2 focus:ring-black transition-all"
+                className="w-full rounded-xl border-slate-200 text-sm font-bold text-slate-700 bg-slate-50 border-none px-4 py-3 focus:ring-2 focus:ring-primary/40 transition-all cursor-pointer"
                 value={filter.to || ''}
                 onChange={(e) => setFilter({ ...filter, to: e.target.value })}
               />
             </div>
-            <div className="flex items-end">
-              <button
-                onClick={() => setFilter({})}
-                className="w-full h-[46px] bg-slate-100 text-slate-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-rose-50 hover:text-rose-600 transition-all"
-              >
-                Xóa bộ lọc
-              </button>
+          </div>
+
+          <div className="flex flex-col md:flex-row md:items-center justify-between mt-8 gap-6 border-t border-slate-50 pt-8">
+            <button
+               onClick={() => setFilter({ walletId: '', type: '', status: '', from: '', to: '' })}
+               className="inline-flex items-center px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest border-2 border-slate-100 text-slate-400 hover:bg-slate-50 hover:border-slate-200 transition-all"
+            >
+              Làm mới bộ lọc
+            </button>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="px-5 py-2.5 bg-emerald-50 text-emerald-700 rounded-full text-xs font-black flex items-center gap-2 border border-emerald-100/50">
+                Tổng vào: <span className="text-emerald-800 font-extrabold tabular-nums">{formatCurrency(totalIn)}</span>
+              </div>
+              <div className="px-5 py-2.5 bg-rose-50 text-rose-700 rounded-full text-xs font-black flex items-center gap-2 border border-rose-100/50">
+                Tổng ra: <span className="text-rose-800 font-extrabold tabular-nums">{formatCurrency(totalOut)}</span>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Transactions Table */}
-        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden min-h-[500px]">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50/50">
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Thời gian</th>
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Nội dung</th>
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Số tiền</th>
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Trạng thái</th>
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400"></th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {loading ? (
-                  Array(8).fill(0).map((_, i) => (
-                    <tr key={i} className="animate-pulse">
-                      <td colSpan={5} className="px-8 py-6">
-                        <div className="h-4 bg-slate-100 rounded-lg w-full" />
-                      </td>
-                    </tr>
-                  ))
-                ) : transactions.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-8 py-20 text-center">
-                      <div className="w-20 h-20 bg-slate-50 rounded-full flex items-center justify-center mx-auto mb-4">
-                        <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-slate-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                        </svg>
-                      </div>
-                      <p className="text-slate-400 font-bold">Không tìm thấy giao dịch nào.</p>
-                    </td>
-                  </tr>
-                ) : (
-                  currentTransactions.map((tx) => (
-                    <tr key={tx.id} className="hover:bg-slate-50/50 transition-colors group">
-                      <td className="px-8 py-6 whitespace-nowrap">
-                        <p className="text-sm font-bold text-slate-900">
-                          {new Date(tx.createdAt).toLocaleDateString('vi-VN')}
-                        </p>
-                        <p className="text-[10px] text-slate-400 font-black tabular-nums">
-                          {new Date(tx.createdAt).toLocaleTimeString('vi-VN')}
-                        </p>
-                      </td>
-                      <td className="px-8 py-6">
-                        <p className="text-sm font-black text-slate-800">
-                          {TRANSACTION_TYPE_LABELS[tx.type] || tx.type}
-                        </p>
-                        <p className="text-xs text-slate-500 truncate max-w-[250px]" title={tx.description}>
-                          {tx.description || 'Không có mô tả'}
-                        </p>
-                      </td>
-                      <td className="px-8 py-6">
-                        <p className={`text-base font-black tabular-nums ${tx.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'
-                          }`}>
-                          {tx.amount >= 0 ? '+' : ''}{formatVnd(tx.amount)}
-                        </p>
-                      </td>
-                      <td className="px-8 py-6">
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${getStatusStyle(tx.status)}`}>
-                          {TRANSACTION_STATUS_LABELS[tx.status] || tx.status}
-                        </span>
-                      </td>
-                      <td className="px-8 py-6 text-right">
-                        <button
-                          onClick={() => handleShowDetail(tx)}
-                          className="w-10 h-10 bg-slate-100 rounded-xl inline-flex items-center justify-center text-slate-500 hover:bg-black hover:text-white transition-all shadow-sm"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+        {/* List Content */}
+        <div className="bg-white border-slate-200 rounded-2xl shadow-sm border overflow-hidden min-h-[400px]">
+           {loading ? (
+             <div className="p-20 text-center text-slate-400 font-bold animate-pulse">Đang rà soát chuỗi giao dịch...</div>
+           ) : transactions.length === 0 ? (
+             <div className="p-20 text-center text-slate-400 font-black italic">Không tìm thấy bản ghi.</div>
+           ) : (
+             <>
+               <div className="divide-y divide-slate-100">
+                 {pagedTransactions.map((tx) => {
+                   const incoming = tx.amount >= 0;
+                   return (
+                     <div
+                       key={tx.id}
+                       onClick={() => handleOpenDetail(tx)}
+                       className="p-6 md:p-8 flex flex-col md:flex-row md:items-center gap-4 md:gap-8 cursor-pointer hover:bg-slate-50 transition-all group"
+                     >
+                        <div className="flex-1 min-w-0">
+                           <div className="flex flex-wrap items-center gap-2 mb-2">
+                             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-slate-600 transition-colors">
+                               {getTransactionTypeLabel(tx.type, tx.amount)}
+                             </span>
+                             <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${getTransactionStatusClass(tx.status)}`}>
+                               {getTransactionStatusLabel(tx.status)}
+                             </span>
+                           </div>
+                           <h4 className="text-lg font-black text-slate-900 group-hover:text-primary transition-colors leading-tight">
+                             {tx.description || 'Giao dịch không đính kèm mô tả'}
+                           </h4>
+                           <p className="text-xs text-slate-500 mt-2 flex items-center gap-4">
+                              <span>{formatDateTimeVi(tx.createdAt)}</span>
+                              <span className="opacity-40 select-none">•</span>
+                              <span className="font-mono text-slate-400">Ví: {tx.walletId ? tx.walletId.slice(0, 15) : 'Hệ thống'}...</span>
+                           </p>
+                        </div>
 
-          {/* Pagination Controls */}
-          {!loading && transactions.length > 0 && (
-            <div className="bg-slate-50/50 px-8 py-4 flex items-center justify-between border-t border-slate-100">
-              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                Hiển thị <span className="text-slate-900">{Math.min(transactions.length, (currentPage - 1) * ITEMS_PER_PAGE + 1)}</span>
-                - <span className="text-slate-900">{Math.min(transactions.length, currentPage * ITEMS_PER_PAGE)}</span>
-                trên <span className="text-slate-900">{transactions.length}</span> kết quả
-              </p>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                  className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-slate-500 hover:bg-black hover:text-white transition-all shadow-sm disabled:opacity-30 disabled:hover:bg-white disabled:hover:text-slate-500"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </button>
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    let pageNum = currentPage <= 3 ? i + 1 : (currentPage >= totalPages - 2 ? totalPages - 4 + i : currentPage - 2 + i);
-                    if (pageNum < 1 || pageNum > totalPages) return null;
-                    return (
+                        <div className="text-right min-w-[200px]">
+                          <p className={`text-base md:text-lg font-extrabold tabular-nums ${incoming ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            {incoming ? '+' : '-'}{formatCurrency(Math.abs(tx.amount))}
+                          </p>
+                          {tx.balanceAfter !== null && (
+                            <p className="mt-1 text-xs text-slate-500">
+                              Số dư sau giao dịch: {formatCurrency(Math.abs(tx.balanceAfter as number))}
+                            </p>
+                          )}
+                        </div>
+                     </div>
+                   );
+                 })}
+               </div>
+
+               {/* Pagination UI similar to Customer UI or better */}
+               {totalPages > 1 && (
+                 <div className="p-8 border-t border-slate-50 bg-slate-50/20 flex items-center justify-between">
+                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      Trang <span className="text-slate-900">{currentPage}</span> / {totalPages}
+                    </p>
+                    <div className="flex items-center gap-2">
                       <button
-                        key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={`w-10 h-10 rounded-xl font-bold text-[10px] transition-all ${currentPage === pageNum ? 'bg-black text-white' : 'bg-white text-slate-500 hover:bg-slate-50'}`}
+                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                        disabled={currentPage === 1}
+                        className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-slate-900 hover:text-white transition-all disabled:opacity-20"
                       >
-                        {pageNum}
+                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" /></svg>
                       </button>
-                    );
-                  })}
-                </div>
-                <button
-                  onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                  className="w-10 h-10 bg-white rounded-xl flex items-center justify-center text-slate-500 hover:bg-black hover:text-white transition-all shadow-sm disabled:opacity-30 disabled:hover:bg-white disabled:hover:text-slate-500"
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-          )}
+                      <button
+                        onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                        disabled={currentPage === totalPages}
+                        className="w-10 h-10 rounded-xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 hover:bg-slate-900 hover:text-white transition-all disabled:opacity-20"
+                      >
+                         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5l7 7-7 7" /></svg>
+                      </button>
+                    </div>
+                 </div>
+               )}
+             </>
+           )}
         </div>
       </div>
 
-      {/* Detail Modal */}
-      {selectedTx && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setSelectedTx(null)} />
-          <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-2xl relative z-10 overflow-hidden animate-in fade-in zoom-in duration-300">
-            <div className="p-8 md:p-12">
-              <div className="flex justify-between items-start mb-10">
-                <div>
-                  <h4 className="text-3xl font-black text-slate-900 mb-2">Chi tiết giao dịch</h4>
-                  <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">ID: {selectedTx.id}</p>
-                </div>
-                <button onClick={() => setSelectedTx(null)} className="p-3 bg-slate-50 rounded-2xl text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-all">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+      {/* Modal Detail */}
+      {detailOpen && detailTx && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[200] p-4"
+          onClick={() => setDetailOpen(false)}
+        >
+          <div
+            className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-8 py-6 border-b border-slate-50 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Chi tiết giao dịch</p>
+                <h2 className="text-xl font-black text-slate-900">
+                  {getTransactionTypeLabel(detailTx.type, detailTx.amount)}
+                </h2>
+                <p className="text-xs text-slate-400 font-mono">Mã GD: {detailTx.id}</p>
               </div>
+              <button
+                onClick={() => setDetailOpen(false)}
+                className="w-10 h-10 rounded-2xl bg-slate-50 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-all flex items-center justify-center"
+              >
+                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
 
-              {loadingDetail ? (
-                <div className="py-20 text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-slate-100 border-t-black mx-auto mb-4" />
-                  <p className="text-slate-400 font-bold">Đang tải chi tiết...</p>
-                </div>
-              ) : (
-                <div className="space-y-8">
-                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-8">
-                    <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Thời gian</p>
-                      <p className="font-bold text-slate-900">{new Date(selectedTx.createdAt).toLocaleString('vi-VN')}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ví / Wallet</p>
-                      <p className="font-bold text-slate-900 truncate" title={selectedTx.walletId}>{selectedTx.walletId}</p>
-                      <span className="text-[8px] px-1.5 py-0.5 bg-slate-100 text-slate-400 rounded uppercase font-black">{selectedTx.walletType}</span>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Trạng thái</p>
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${getStatusStyle(selectedTx.status)}`}>
-                        {TRANSACTION_STATUS_LABELS[selectedTx.status] || selectedTx.status}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Loại</p>
-                      <p className="font-bold text-slate-900">{TRANSACTION_TYPE_LABELS[selectedTx.type] || selectedTx.type}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Số tiền</p>
-                      <p className={`text-xl font-black tabular-nums ${selectedTx.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        {selectedTx.amount >= 0 ? '+' : ''}{formatVnd(selectedTx.amount)}
-                      </p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Số dư sau GD</p>
-                      <p className="font-bold text-slate-900 tabular-nums">
-                        {selectedTx.balanceAfter !== null ? formatVnd(selectedTx.balanceAfter!) : '--'}
-                      </p>
-                    </div>
+            <div className="p-8 space-y-10">
+               <div className="grid grid-cols-2 gap-8">
+                  <div className="col-span-2">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ví chủ thể</p>
+                    <p className="font-mono text-xs font-bold text-primary p-3 bg-primary/5 rounded-xl border border-primary/10 truncate">
+                       {detailTx.walletId}
+                       <span className="ml-2 px-1.5 py-0.5 bg-primary text-white text-[8px] rounded uppercase font-black">{detailTx.walletType}</span>
+                    </p>
                   </div>
-
-                  <div className="bg-slate-50 rounded-[2rem] p-6">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Mô tả giao dịch</p>
-                    <p className="text-sm text-slate-700 font-medium leading-relaxed">{selectedTx.description || 'Không có mô tả'}</p>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Số tiền</p>
+                    <p className={`text-2xl font-black tabular-nums tracking-tighter ${detailTx.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                      {detailTx.amount >= 0 ? '+' : ''}{formatCurrency(detailTx.amount)}
+                    </p>
                   </div>
+                  <div>
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Dư sau GD</p>
+                    <p className="text-2xl font-black text-slate-900 tabular-nums tracking-tighter">
+                      {detailTx.balanceAfter !== null ? formatCurrency(detailTx.balanceAfter as number) : '--'}
+                    </p>
+                  </div>
+               </div>
 
-                  {relatedTxs.length > 0 && (
-                    <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Các giao dịch liên quan trong chuỗi</p>
-                      <div className="space-y-3">
-                        {relatedTxs.map(rtx => (
-                          <div key={rtx.id} className="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl shadow-sm">
-                            <div className="flex items-center gap-4">
-                              <div className={`w-2 h-2 rounded-full ${getStatusStyle(rtx.status).split(' ')[1].replace('text-', 'bg-')}`} />
-                              <div>
-                                <p className="text-xs font-black text-slate-800">{TRANSACTION_TYPE_LABELS[rtx.type] || rtx.type}</p>
-                                <p className="text-[10px] text-slate-400 font-bold">{new Date(rtx.createdAt).toLocaleTimeString('vi-VN')}</p>
-                              </div>
-                            </div>
-                            <p className={`text-xs font-black tabular-nums ${rtx.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                              {rtx.amount >= 0 ? '+' : ''}{formatVnd(rtx.amount)}
-                            </p>
+               <div className="bg-slate-50 rounded-3xl p-8 border border-slate-100">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Mô tả và Ghi chú</p>
+                  <p className="text-sm text-slate-700 font-bold leading-relaxed italic">{detailTx.description || 'Giao dịch hệ thống không ghi chú.'}</p>
+               </div>
+
+               {relatedTxs.length > 0 && (
+                 <div className="pt-6 border-t border-slate-50">
+                    <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-4">Các giao dịch liên đới ({relatedTxs.length})</p>
+                    <div className="space-y-3">
+                      {relatedTxs.map(rtx => (
+                        <div key={rtx.id} className="flex items-center justify-between p-5 bg-white border border-slate-100 rounded-[1.5rem] shadow-sm">
+                          <div>
+                            <p className="text-xs font-black text-slate-900 uppercase tracking-tight">{getTransactionTypeLabel(rtx.type, rtx.amount)}</p>
+                            <p className="text-[9px] text-slate-400 font-bold uppercase">{formatDateTimeVi(rtx.createdAt).split(' ')[0]}</p>
                           </div>
-                        ))}
-                      </div>
+                          <p className={`text-sm font-black tabular-nums ${rtx.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            {rtx.amount >= 0 ? '+' : ''}{formatCurrency(rtx.amount)}
+                          </p>
+                        </div>
+                      ))}
                     </div>
-                  )}
-                </div>
-              )}
+                 </div>
+               )}
             </div>
           </div>
         </div>

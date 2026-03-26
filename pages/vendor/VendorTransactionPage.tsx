@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   getMyTransactions,
   getMyWallet,
@@ -15,72 +15,142 @@ interface VendorTransactionPageProps {
   onNavigate: (path: string) => void;
 }
 
-const TRANSACTION_STATUS_LABELS: Record<string, string> = {
-  'Success': 'Thành công',
-  'Succeeded': 'Thành công',
-  'Pending': 'Đang xử lý',
-  'Failed': 'Thất bại',
-  'Cancelled': 'Đã hủy',
+const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
 };
 
-const TRANSACTION_TYPE_LABELS: Record<string, string> = {
-  'Topup': 'Nạp tiền',
-  'Deposit': 'Nạp tiền',
-  'Withdrawal': 'Rút tiền',
-  'Withdraw': 'Rút tiền',
-  'PaymentOrder': 'Nhận thanh toán',
-  'RefundOrder': 'Hoàn tiền',
-  'Commission': 'Phí hoa hồng',
-  'ShippingFee': 'Phí vận chuyển',
-  'Penalty': 'Phạt vi phạm',
-  'Adjust': 'Điều chỉnh số dư',
+const formatDateTimeVi = (dateStr: string) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  const time = date.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' });
+  const day = date.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+  return `${time} ${day}`;
+};
+
+const getTransactionStatusLabel = (status: string) => {
+  const normalized = String(status || '').trim().toLowerCase();
+  if (normalized === 'success' || normalized === 'succeeded') return 'Thành công';
+  if (normalized === 'pending') return 'Đang xử lý';
+  if (normalized === 'failed') return 'Thất bại';
+  if (normalized === 'cancelled') return 'Đã hủy';
+  return status;
+};
+
+const getTransactionStatusClass = (status: string) => {
+  const normalized = String(status || '').trim().toLowerCase();
+  if (normalized === 'success' || normalized === 'succeeded') return 'bg-emerald-50 text-emerald-700 border-emerald-100';
+  if (normalized === 'pending') return 'bg-amber-50 text-amber-700 border-amber-100';
+  if (normalized === 'failed' || normalized === 'cancelled') return 'bg-rose-50 text-rose-700 border-rose-100';
+  return 'bg-slate-50 text-slate-700 border-slate-200';
+};
+
+const getTransactionTypeLabel = (type: string, amount: number): string => {
+  const normalized = String(type || '').trim().toLowerCase();
+  
+  if ((normalized === 'systemadjustment' || normalized === 'adjust') && amount > 0) {
+    return 'Nạp tiền';
+  }
+  if ((normalized === 'systemadjustment' || normalized === 'adjust') && amount < 0) {
+    return 'Điều chỉnh số dư';
+  }
+
+  switch (normalized) {
+    case 'deposit':
+    case 'topup':
+      return 'Nạp tiền';
+    case 'withdrawal':
+    case 'withdraw':
+      return 'Rút tiền';
+    case 'paymentorder':
+      return 'Thanh toán đơn hàng';
+    case 'systemadjustment':
+    case 'adjust':
+      return 'Điều chỉnh số dư';
+    case 'vendorincome':
+      return 'Doanh thu nhà cung cấp';
+    case 'refundcustomer':
+    case 'refundorder':
+      return 'Hoàn tiền';
+    case 'vendorcompensation':
+      return 'Bồi thường nhà cung cấp';
+    case 'penaltyvendor':
+    case 'penalty':
+      return 'Phạt vi phạm';
+    case 'debtsettlement':
+      return 'Thanh toán công nợ';
+    case 'withholdingdeduction':
+      return 'Khấu trừ tạm giữ';
+    case 'withholdingrelease':
+      return 'Giải phóng tạm giữ';
+    case 'platformfee':
+      return 'Phí nền tảng';
+    default:
+      return type || 'Khác';
+  }
 };
 
 const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigate }) => {
   const [wallet, setWallet] = useState<WalletInfo | null>(null);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<TransactionFilter>({});
-  const [selectedTx, setSelectedTx] = useState<WalletTransaction | null>(null);
+  const [typeFilter, setTypeFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [fromDate, setFromDate] = useState<string>('');
+  const [toDate, setToDate] = useState<string>('');
+  
+  const [detailTx, setDetailTx] = useState<WalletTransaction | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const [relatedTxs, setRelatedTxs] = useState<WalletTransaction[]>([]);
-  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
       setLoading(true);
+      const filter: TransactionFilter = {
+        type: typeFilter || undefined,
+        status: statusFilter || undefined,
+        from: fromDate || undefined,
+        to: toDate || undefined,
+        walletType: 'Vendor'
+      };
+
       const [walletData, txData] = await Promise.all([
         getMyWallet('Vendor'),
         getMyTransactions(filter)
       ]);
       setWallet(walletData);
-      setTransactions(txData);
+      
+      const sorted = [...txData].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      setTransactions(sorted);
     } catch (err) {
       console.error('Failed to fetch transaction data:', err);
-      toast.error('Không thể tải dữ liệu giao dịch.');
+      // Giảm bớt cường độ thông báo, nếu lỗi chỉ đơn giản là null/404 thì coi như rỗng
+      setTransactions([]);
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, [typeFilter, statusFilter, fromDate, toDate]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
 
-  const handleShowDetail = async (tx: WalletTransaction) => {
-    setSelectedTx(tx);
-    setLoadingDetail(true);
+  const handleOpenDetail = async (tx: WalletTransaction) => {
+    setDetailTx(tx);
+    setDetailOpen(true);
+    setDetailLoading(true);
     setRelatedTxs([]);
     try {
       const [detail, related] = await Promise.all([
         getTransactionById(tx.id),
         getRelatedTransactions(tx.id)
       ]);
-      setSelectedTx(detail);
+      setDetailTx(detail);
       setRelatedTxs(related);
     } catch (err) {
       console.error('Failed to fetch transaction detail:', err);
     } finally {
-      setLoadingDetail(false);
+      setDetailLoading(false);
     }
   };
 
@@ -108,274 +178,274 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
     }
   };
 
-  const formatVnd = (amount: number) => {
-    return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
-  };
+  const totalIn = useMemo(() => {
+    return transactions
+      .filter(tx => tx.amount > 0)
+      .reduce((sum, tx) => sum + tx.amount, 0);
+  }, [transactions]);
 
-  const getStatusStyle = (status: string) => {
-    switch (status) {
-      case 'Success':
-      case 'Succeeded':
-        return 'bg-emerald-100 text-emerald-700';
-      case 'Pending':
-        return 'bg-amber-100 text-amber-700';
-      case 'Failed':
-      case 'Cancelled':
-        return 'bg-rose-100 text-rose-700';
-      default:
-        return 'bg-slate-100 text-slate-700';
-    }
-  };
+  const totalOut = useMemo(() => {
+    return transactions
+      .filter(tx => tx.amount < 0)
+      .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
+  }, [transactions]);
 
   return (
-    <div className="bg-white min-h-screen py-12 px-4 md:px-8 font-sans">
-      <div className="max-w-7xl mx-auto">
-
-        {/* Header Section */}
-        <div className="mb-12 flex flex-col md:flex-row md:items-center justify-between gap-8">
-          <div className="flex items-start gap-5">
-            {/* <button
-              onClick={() => onNavigate('/vendor/dashboard')}
-              className="w-14 h-14 bg-white rounded-2xl shadow-sm border border-slate-100 flex items-center justify-center text-slate-700 flex-shrink-0 hover:bg-slate-50 hover:text-black transition-all group"
-              title="Quay lại Bảng điều khiền"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 group-hover:-translate-x-1 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-            </button> */}
-            <div>
-              <h1 className="text-4xl font-black text-slate-900 tracking-tight mb-2">Giao Dịch</h1>
-              <p className="text-slate-500 font-bold text-sm">Quản lý dòng tiền, doanh thu và lịch sử thanh toán.</p>
-            </div>
+    <div className="bg-slate-50 min-h-screen py-10 px-4 md:px-6 font-sans">
+      <div className="max-w-5xl mx-auto">
+        
+        {/* Header */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
+          <div>
+            <h1 className="text-2xl font-black text-slate-900">Giao dịch gian hàng</h1>
+            <p className="text-sm text-slate-500 mt-1">
+              Quản lý doanh thu, phí vận chuyển và lịch sử rút tiền của bạn.
+            </p>
           </div>
-
           <div className="flex gap-3">
             <button
-              onClick={handleTopup}
-              className="px-8 py-4 bg-emerald-600 text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-emerald-600/10 hover:shadow-emerald-600/20 hover:-translate-y-1 transition-all flex items-center gap-3 text-xs"
+               onClick={handleTopup}
+               className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] shadow-lg shadow-emerald-600/20 hover:-translate-y-0.5 transition-all"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z" clipRule="evenodd" />
-              </svg>
-              <span>Nạp tiền</span>
+              Nạp tiền
             </button>
-
             <button
               onClick={() => onNavigate('/vendor/withdraw')}
-              className="px-10 py-4 bg-black text-white rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-black/10 hover:shadow-black/20 hover:-translate-y-1 transition-all flex items-center gap-3 text-xs"
+              className="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] shadow-lg shadow-slate-900/20 hover:-translate-y-0.5 transition-all"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M4 4a2 2 0 00-2 2v4a2 2 0 002 2V6h10a2 2 0 00-2-2H4zm2 6a2 2 0 012-2h8a2 2 0 012 2v4a2 2 0 01-2 2H8a2 2 0 01-2-2v-4zm6 4a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-              </svg>
-              <span>Rút tiền</span>
+              Rút tiền
             </button>
           </div>
         </div>
 
-        {/* Balance Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-          <div className="bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-50 rounded-bl-full -mr-10 -mt-10 transition-transform group-hover:scale-110" />
-            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Số dư khả dụng</p>
-            <h2 className="text-4xl font-black text-emerald-600 tabular-nums relative z-10">
-              {wallet ? formatVnd(wallet.balance || 0) : '0 ₫'}
-            </h2>
-          </div>
-          <div className="bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-amber-50 rounded-bl-full -mr-10 -mt-10 transition-transform group-hover:scale-110" />
-            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Đang đóng băng</p>
-            <h2 className="text-4xl font-black text-amber-600 tabular-nums relative z-10">
-              {wallet ? formatVnd(wallet.heldBalance || 0) : '0 ₫'}
-            </h2>
-          </div>
-          <div className="bg-white rounded-[2.5rem] p-8 border border-slate-200 shadow-sm relative overflow-hidden group">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-slate-50 rounded-bl-full -mr-10 -mt-10 transition-transform group-hover:scale-110" />
-            <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 relative z-10">Nợ hệ thống</p>
-            <h2 className="text-4xl font-black text-slate-600 tabular-nums relative z-10">
-              {wallet ? formatVnd(wallet.debt || 0) : '0 ₫'}
-            </h2>
-          </div>
+        {/* Balance Stats */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Số dư ví</p>
+             <p className="text-2xl font-black text-emerald-600 tabular-nums">{formatCurrency(wallet?.balance || 0)}</p>
+           </div>
+           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tạm giữ</p>
+             <p className="text-2xl font-black text-amber-600 tabular-nums">{formatCurrency(wallet?.heldBalance || 0)}</p>
+           </div>
+           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Nợ hệ thống</p>
+             <p className="text-2xl font-black text-rose-600 tabular-nums">{formatCurrency(wallet?.debt || 0)}</p>
+           </div>
         </div>
 
-        {/* Transactions Section */}
-        <div className="bg-white rounded-[2.5rem] border-2 border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden min-h-[500px]">
-          <div className="p-8 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-6">
-            <h3 className="text-xl font-black text-slate-900">Lịch sử giao dịch</h3>
-            <div className="flex flex-wrap gap-3">
+        {/* Filters */}
+        <div className="bg-white border border-slate-200 rounded-[2rem] p-8 shadow-sm mb-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Loại giao dịch</label>
               <select
-                className="bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm font-bold text-slate-600 focus:ring-2 focus:ring-black transition-all"
-                value={filter.type || ''}
-                onChange={(e) => setFilter({ ...filter, type: e.target.value })}
+                value={typeFilter}
+                onChange={(e) => setTypeFilter(e.target.value)}
+                className="w-full rounded-xl border-slate-200 text-sm font-bold text-slate-700 bg-slate-50 border-none px-4 py-3 focus:ring-2 focus:ring-primary/40 transition-all cursor-pointer"
               >
-                <option value="">Tất cả loại</option>
-                {Object.entries(TRANSACTION_TYPE_LABELS).map(([val, label]) => (
-                  <option key={val} value={val}>{label}</option>
-                ))}
+                <option value="">Tất cả loại giao dịch</option>
+                <option value="Deposit">Nạp tiền</option>
+                <option value="Withdrawal">Rút tiền</option>
+                <option value="PaymentOrder">Nhận thanh toán</option>
+                <option value="RefundOrder">Hoàn tiền đơn</option>
+                <option value="Penalty">Phạt vi phạm</option>
+                <option value="Commission">Phí hoa hồng</option>
+                <option value="ShippingFee">Phí vận chuyển</option>
+                <option value="Adjust">Điều chỉnh số dư</option>
               </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Trạng thái</label>
               <select
-                className="bg-slate-50 border-none rounded-xl px-4 py-2.5 text-sm font-bold text-slate-600 focus:ring-2 focus:ring-black transition-all"
-                value={filter.status || ''}
-                onChange={(e) => setFilter({ ...filter, status: e.target.value })}
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full rounded-xl border-slate-200 text-sm font-bold text-slate-700 bg-slate-50 border-none px-4 py-3 focus:ring-2 focus:ring-primary/40 transition-all cursor-pointer"
               >
                 <option value="">Tất cả trạng thái</option>
-                {Object.entries(TRANSACTION_STATUS_LABELS).map(([val, label]) => (
-                  <option key={val} value={val}>{label}</option>
-                ))}
+                <option value="Success">Thành công</option>
+                <option value="Pending">Đang xử lý</option>
+                <option value="Failed">Thất bại</option>
               </select>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Từ ngày</label>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="w-full rounded-xl border-slate-200 text-sm font-bold text-slate-700 bg-slate-50 border-none px-4 py-3 focus:ring-2 focus:ring-primary/40 transition-all cursor-pointer"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-1">Đến ngày</label>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="w-full rounded-xl border-slate-200 text-sm font-bold text-slate-700 bg-slate-50 border-none px-4 py-3 focus:ring-2 focus:ring-primary/40 transition-all cursor-pointer"
+              />
             </div>
           </div>
 
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-slate-50/50">
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Ngày giao dịch</th>
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Loại giao dịch</th>
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Số tiền</th>
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Trạng thái</th>
-                  <th className="px-8 py-5 text-[10px] font-black uppercase tracking-widest text-slate-400">Thao tác</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50">
-                {loading ? (
-                  Array(5).fill(0).map((_, i) => (
-                    <tr key={i} className="animate-pulse">
-                      <td colSpan={5} className="px-8 py-6">
-                        <div className="h-4 bg-slate-100 rounded-lg w-full" />
-                      </td>
-                    </tr>
-                  ))
-                ) : transactions.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-8 py-20 text-center">
-                      <p className="text-slate-400 font-bold">Không tìm thấy giao dịch nào.</p>
-                    </td>
-                  </tr>
-                ) : (
-                  transactions.map((tx) => (
-                    <tr key={tx.id} className="hover:bg-slate-50/50 transition-colors group">
-                      <td className="px-8 py-6">
-                        <p className="text-sm font-bold text-slate-900">
-                          {new Date(tx.createdAt).toLocaleDateString('vi-VN')}
-                        </p>
-                        <p className="text-[10px] text-slate-400 font-black tabular-nums">
-                          {new Date(tx.createdAt).toLocaleTimeString('vi-VN')}
-                        </p>
-                      </td>
-                      <td className="px-8 py-6">
-                        <p className="text-sm font-black text-slate-800">
-                          {TRANSACTION_TYPE_LABELS[tx.type] || tx.type}
-                        </p>
-                        <p className="text-xs text-slate-500 truncate max-w-[200px]" title={tx.description}>
-                          {tx.description || 'Không có mô tả'}
-                        </p>
-                      </td>
-                      <td className="px-8 py-6">
-                        <p className={`text-base font-black tabular-nums ${tx.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'
-                          }`}>
-                          {tx.amount >= 0 ? '+' : ''}{formatVnd(tx.amount)}
-                        </p>
-                      </td>
-                      <td className="px-8 py-6">
-                        <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${getStatusStyle(tx.status)}`}>
-                          {TRANSACTION_STATUS_LABELS[tx.status] || tx.status}
-                        </span>
-                      </td>
-                      <td className="px-8 py-6">
-                        <button
-                          onClick={() => handleShowDetail(tx)}
-                          className="w-10 h-10 bg-slate-100 rounded-xl flex items-center justify-center text-slate-500 hover:bg-black hover:text-white transition-all shadow-sm"
-                        >
-                          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                          </svg>
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
+          <div className="flex flex-col md:flex-row md:items-center justify-between mt-8 gap-6">
+            <button
+              type="button"
+              onClick={() => {
+                setTypeFilter('');
+                setStatusFilter('');
+                setFromDate('');
+                setToDate('');
+              }}
+              className="inline-flex items-center px-6 py-2 rounded-xl text-xs font-black uppercase tracking-widest border-2 border-slate-100 text-slate-400 hover:bg-slate-50 hover:border-slate-200 transition-all"
+            >
+              Làm mới bộ lọc
+            </button>
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="px-4 py-2.5 bg-emerald-50 text-emerald-700 rounded-full text-xs font-black flex items-center gap-2 border border-emerald-100/50">
+                Tổng tiền vào: <span className="text-emerald-800 font-black tabular-nums">{formatCurrency(totalIn)}</span>
+              </div>
+              <div className="px-4 py-2.5 bg-rose-50 text-rose-700 rounded-full text-xs font-black flex items-center gap-2 border border-rose-100/50">
+                Tổng tiền ra: <span className="text-rose-800 font-black tabular-nums">{formatCurrency(totalOut)}</span>
+              </div>
+            </div>
           </div>
+        </div>
+
+        {/* List */}
+        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden min-h-[400px]">
+          {loading ? (
+             <div className="p-16 text-center text-slate-400 italic font-bold">Đang tải dữ liệu giao dịch...</div>
+          ) : transactions.length === 0 ? (
+            <div className="p-16 text-center text-slate-400 font-bold">Chưa có giao dịch nào phù hợp.</div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {transactions.map((tx) => {
+                const incoming = tx.amount >= 0;
+                const statusLabel = getTransactionStatusLabel(tx.status);
+                const statusClass = getTransactionStatusClass(tx.status);
+
+                return (
+                  <div
+                    key={tx.id}
+                    className="p-4 md:p-6 flex flex-col md:flex-row md:items-center gap-3 md:gap-6 cursor-pointer hover:bg-slate-50 transition-colors group"
+                    onClick={() => handleOpenDetail(tx)}
+                  >
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover:text-slate-600 transition-colors">
+                          {getTransactionTypeLabel(tx.type, tx.amount)}
+                        </span>
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${statusClass}`}>
+                          {statusLabel}
+                        </span>
+                      </div>
+                      <p className="text-base font-black text-slate-900 leading-snug">
+                        {tx.description || 'Không có mô tả'}
+                      </p>
+                      <p className="text-xs text-slate-500 mt-1 flex items-center gap-2">
+                        <span>{formatDateTimeVi(tx.createdAt)}</span>
+                        {tx.id && <span className="opacity-40">• Mã GD: {tx.id}</span>}
+                      </p>
+                    </div>
+
+                    <div className="text-right min-w-[160px]">
+                      <p className={`text-base md:text-lg font-extrabold tabular-nums ${incoming ? 'text-emerald-600' : 'text-rose-600'}`}>
+                        {incoming ? '+' : '-'}{formatCurrency(Math.abs(tx.amount))}
+                      </p>
+                      {tx.balanceAfter !== null && (
+                        <p className="mt-1 text-xs text-slate-500 font-bold">
+                          Số dư sau giao dịch: {formatCurrency(Math.abs(tx.balanceAfter as number))}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Detail Modal */}
-      {selectedTx && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm" onClick={() => setSelectedTx(null)} />
-          <div className="bg-white rounded-[3rem] shadow-2xl w-full max-w-2xl relative z-10 overflow-hidden animate-in fade-in zoom-in duration-300">
-            <div className="p-8 md:p-12">
-              <div className="flex justify-between items-start mb-10">
-                <div>
-                  <h4 className="text-3xl font-black text-slate-900 mb-2">Chi tiết giao dịch</h4>
-                  <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Mã: {selectedTx.id}</p>
-                </div>
-                <button onClick={() => setSelectedTx(null)} className="p-3 bg-slate-50 rounded-2xl text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-all">
-                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+      {/* Modal Detail */}
+      {detailOpen && detailTx && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-md flex items-center justify-center z-[200] p-4"
+          onClick={() => setDetailOpen(false)}
+        >
+          <div
+            className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-8 py-6 border-b border-slate-50 flex items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Chi tiết giao dịch</p>
+                <h2 className="text-2xl font-black text-slate-900 leading-tight">
+                  {getTransactionTypeLabel(detailTx.type, detailTx.amount)}
+                </h2>
+                <p className="text-xs text-slate-400 mt-1 font-mono uppercase tracking-widest">Mã GD: {detailTx.id}</p>
+              </div>
+              <button
+                onClick={() => setDetailOpen(false)}
+                className="w-10 h-10 rounded-2xl bg-slate-50 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-all flex items-center justify-center border border-slate-100"
+              >
+                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+              </button>
+            </div>
+
+            <div className="p-8 space-y-8">
+              {detailLoading && <p className="text-xs text-slate-400 italic">Đang tải thêm...</p>}
+
+              <div className="grid grid-cols-2 gap-8">
+                 <div>
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Số tiền</p>
+                   <p className={`text-2xl font-black tabular-nums ${detailTx.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                     {detailTx.amount >= 0 ? '+' : ''}{formatCurrency(detailTx.amount)}
+                   </p>
+                 </div>
+                 <div>
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Số dư sau GD</p>
+                   <p className="text-2xl font-black text-slate-900 tabular-nums">
+                     {detailTx.balanceAfter !== null ? formatCurrency(detailTx.balanceAfter as number) : '--'}
+                   </p>
+                 </div>
+                 <div>
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ngày tạo</p>
+                   <p className="text-sm font-bold text-slate-700">{formatDateTimeVi(detailTx.createdAt)}</p>
+                 </div>
+                 <div>
+                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Trạng thái</p>
+                   <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${getTransactionStatusClass(detailTx.status)}`}>
+                     {getTransactionStatusLabel(detailTx.status)}
+                   </span>
+                 </div>
               </div>
 
-              {loadingDetail ? (
-                <div className="py-20 text-center">
-                  <div className="animate-spin rounded-full h-12 w-12 border-4 border-slate-100 border-t-black mx-auto mb-4" />
-                  <p className="text-slate-400 font-bold">Đang tải chi tiết...</p>
-                </div>
-              ) : (
-                <div className="space-y-8">
-                  <div className="grid grid-cols-2 gap-8">
-                    <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Thời gian</p>
-                      <p className="font-bold text-slate-900">{new Date(selectedTx.createdAt).toLocaleString('vi-VN')}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Trạng thái</p>
-                      <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${getStatusStyle(selectedTx.status)}`}>
-                        {TRANSACTION_STATUS_LABELS[selectedTx.status] || selectedTx.status}
-                      </span>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Loại</p>
-                      <p className="font-bold text-slate-900">{TRANSACTION_TYPE_LABELS[selectedTx.type] || selectedTx.type}</p>
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Số tiền</p>
-                      <p className={`text-xl font-black tabular-nums ${selectedTx.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                        {selectedTx.amount >= 0 ? '+' : ''}{formatVnd(selectedTx.amount)}
-                      </p>
-                    </div>
-                  </div>
+              <div className="bg-slate-50 rounded-[1.5rem] p-6 border border-slate-100">
+                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Mô tả</p>
+                 <p className="text-sm text-slate-700 font-bold leading-relaxed">{detailTx.description || 'Không có mô tả chi tiết.'}</p>
+              </div>
 
-                  <div className="bg-slate-50 rounded-[2rem] p-6">
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Mô tả</p>
-                    <p className="text-sm text-slate-700 font-medium leading-relaxed">{selectedTx.description || 'Không có mô tả'}</p>
-                  </div>
-
-                  {relatedTxs.length > 0 && (
-                    <div>
-                      <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-4">Các giao dịch liên quan</p>
-                      <div className="space-y-3">
-                        {relatedTxs.map(rtx => (
-                          <div key={rtx.id} className="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl shadow-sm">
-                            <div className="flex items-center gap-4">
-                              <div className={`w-2 h-2 rounded-full ${getStatusStyle(rtx.status).split(' ')[1].replace('text-', 'bg-')}`} />
-                              <div>
-                                <p className="text-xs font-black text-slate-800">{TRANSACTION_TYPE_LABELS[rtx.type] || rtx.type}</p>
-                                <p className="text-[10px] text-slate-400 font-bold">{new Date(rtx.createdAt).toLocaleTimeString('vi-VN')}</p>
-                              </div>
-                            </div>
-                            <p className={`text-xs font-black tabular-nums ${rtx.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                              {rtx.amount >= 0 ? '+' : ''}{formatVnd(rtx.amount)}
-                            </p>
+              {relatedTxs.length > 0 && (
+                 <div className="pt-6 border-t border-slate-50">
+                    <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-4">Các giao dịch liên quan</p>
+                    <div className="space-y-3">
+                      {relatedTxs.map(rtx => (
+                        <div key={rtx.id} className="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl">
+                          <div>
+                            <p className="text-xs font-black text-slate-800 uppercase tracking-tight">{getTransactionTypeLabel(rtx.type, rtx.amount)}</p>
+                            <p className="text-[9px] text-slate-400 font-bold">{formatDateTimeVi(rtx.createdAt).split(' ')[0]}</p>
                           </div>
-                        ))}
-                      </div>
+                          <p className={`text-sm font-black tabular-nums ${rtx.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                            {rtx.amount >= 0 ? '+' : ''}{formatCurrency(rtx.amount)}
+                          </p>
+                        </div>
+                      ))}
                     </div>
-                  )}
-                </div>
+                 </div>
               )}
             </div>
           </div>
