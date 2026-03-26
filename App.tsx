@@ -28,6 +28,7 @@ import VendorSettings from './pages/vendor/VendorSettings';
 import ShippingConfigPage from './pages/vendor/ShippingConfigPage';
 import VendorTransactionPage from './pages/vendor/VendorTransactionPage';
 import VendorWithdrawPage from './pages/vendor/VendorWithdrawPage';
+import DiscountPolicyManagement from './pages/vendor/DiscountPolicyManagement';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -156,6 +157,7 @@ const AppContent: React.FC<{
       <Route path="/vendor/analytics" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/analytics" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorAnalytics onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
       <Route path="/vendor/settings" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/settings" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorSettings onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
       <Route path="/vendor/shipping" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/shipping" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><ShippingConfigPage onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
+      <Route path="/vendor/discounts" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/discounts" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><DiscountPolicyManagement onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
       <Route path="/vendor/transactions" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/transactions" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorTransactionPage onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
       <Route path="/vendor/withdraw" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/withdraw" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorWithdrawPage onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
 
