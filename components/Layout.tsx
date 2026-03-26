@@ -412,6 +412,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
         { id: 'products', label: 'Quản lý Sản phẩm', icon: 'inventory_2', path: '/staff-product' },
         { id: 'transactions', label: 'Giao dịch', icon: 'account_balance_wallet', path: '/staff-transactions' },
         { id: 'refunds', label: 'Hoàn tiền', icon: 'assignment_return', path: '/staff-refunds' },
+        { id: 'banners', label: 'Quản lý Banner', icon: 'view_carousel', path: '/staff-banners' },
         { id: 'audit', label: 'Nhật ký hệ thống', icon: 'history_edu', path: '/staff-audit-logs' },
         { id: 'settings', label: 'Cài đặt hệ thống', icon: 'settings_suggest', path: '/staff-settings' },
       ];
@@ -1584,9 +1585,20 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                             : 'text-slate-500 hover:bg-ritual-bg hover:text-primary'
                             }`}
                         >
+                          <span className="material-symbols-outlined mr-4 text-xl">{item.icon}</span>
                           {item.label}
                         </button>
                       ))}
+                      
+                      <div className="mt-4 pt-4 border-t border-gold/5">
+                        <button
+                          onClick={() => onNavigate('/')}
+                          className="flex items-center w-full px-6 py-4 rounded-3xl font-bold text-sm uppercase transition-all tracking-wider text-slate-500 hover:bg-primary/5 hover:text-primary"
+                        >
+                          <span className="material-symbols-outlined mr-4 text-xl">home</span>
+                          Về trang khách hàng
+                        </button>
+                      </div>
                     </div>
 
                     <div className="mt-8 p-6 bg-ritual-bg/50 rounded-[2rem] border border-gold/5">
