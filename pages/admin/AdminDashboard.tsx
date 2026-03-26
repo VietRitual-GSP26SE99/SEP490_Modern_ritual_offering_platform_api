@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { approveWithdrawal, getWithdrawalRequests, rejectWithdrawal, WithdrawalListItem } from '../../services/walletService';
 import { refundService, RefundRecord } from '../../services/refundService';
 import toast from '../../services/toast';
@@ -14,7 +15,13 @@ interface AdminDashboardProps {
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
-  const [activeTab, setActiveTab] = useState<'overview' | 'vendors' | 'users' | 'orders' | 'disputes' | 'content' | 'withdrawals' | 'transactions' | 'audit' | 'systemConfigs'>('overview');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const validTabs = ['overview', 'vendors', 'users', 'orders', 'disputes', 'content', 'withdrawals', 'transactions', 'audit', 'systemConfigs'];
+  const activeTab = (searchParams.get('tab') && validTabs.includes(searchParams.get('tab')!) ? searchParams.get('tab') : 'overview') as any;
+
+  const setActiveTab = (tab: string) => {
+    setSearchParams({ tab });
+  };
   const [withdrawalRequests, setWithdrawalRequests] = useState<WithdrawalListItem[]>([]);
   const [isLoadingWithdrawals, setIsLoadingWithdrawals] = useState(false);
   const [withdrawalsError, setWithdrawalsError] = useState<string | null>(null);
@@ -86,14 +93,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
     }
   };
 
-  useEffect(() => {
-    const url = new URL(window.location.href);
-    const currentTab = url.searchParams.get('tab');
-    if (currentTab !== activeTab) {
-      url.searchParams.set('tab', activeTab);
-      window.history.pushState({}, '', url.toString());
-    }
-  }, [activeTab]);
 
   useEffect(() => {
     if (activeTab === 'withdrawals' && withdrawalRequests.length === 0 && !isLoadingWithdrawals) {
