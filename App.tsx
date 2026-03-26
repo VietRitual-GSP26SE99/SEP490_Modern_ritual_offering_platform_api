@@ -41,6 +41,7 @@ import RefundManagement from './pages/staff/RefundManagement';
 import VendorVerificationPage from './pages/staff/VendorVerification';
 import TransactionManagement from './pages/staff/TransactionManagement';
 import AuditLogPage from './pages/staff/AuditLogPage';
+import BannerManagement from './pages/staff/BannerManagement';
 
 // Assistant
 import Assistant from './components/Assistant';
@@ -167,6 +168,7 @@ const AppContent: React.FC<{
       <Route path="/staff-vendors" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-vendors" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><VendorVerificationPage onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
       <Route path="/staff-transactions" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-transactions" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><TransactionManagement onNavigate={handleNavigate} userRole="staff" /></Layout> : <Navigate to="/auth" />} />
       <Route path="/staff-audit-logs" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-audit-logs" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><AuditLogPage onNavigate={handleNavigate} userRole="staff" /></Layout> : <Navigate to="/auth" />} />
+      <Route path="/staff-banners" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-banners" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><BannerManagement /></Layout> : <Navigate to="/auth" />} />
 
       {/* Admin Routes */}
       <Route path="/admin/dashboard" element={isAuthenticated && userRole === 'admin' ? <Layout activeRoute="/admin/dashboard" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><AdminDashboard onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />

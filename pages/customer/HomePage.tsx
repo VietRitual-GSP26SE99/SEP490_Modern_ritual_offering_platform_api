@@ -3,6 +3,7 @@ import { MOCK_PRODUCTS } from '../../constants';
 import MOCK_DATA from '../../mockData';
 import Carousel from '../../components/Carousel';
 import { packageService } from '../../services/packageService';
+import { bannerService, BannerResponse } from '../../services/bannerService';
 import { getCurrentUser } from '../../services/auth';
 import { Product, CeremonyCategory } from '../../types';
 import toast from '../../services/toast';
@@ -12,7 +13,9 @@ const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [dynamicServices, setDynamicServices] = useState<{title: string, img: string}[]>([]);
-  const { heroSlides, services, trustStats } = MOCK_DATA;
+  const [banners, setBanners] = useState<BannerResponse[]>([]);
+  const [loadingBanners, setLoadingBanners] = useState(true);
+  const { heroSlides: mockSlides, services, trustStats } = MOCK_DATA;
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
@@ -90,11 +93,66 @@ const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
 
     fetchCategories();
   }, [services]);
+
+  // Fetch banners from API
+  useEffect(() => {
+    // Preload fallback image
+    const fallbackImg = new Image();
+    fallbackImg.src = 'https://images.unsplash.com/photo-1528459801416-a7e992795770?auto=format&fit=crop&q=80&w=2000';
+
+    const fetchBanners = async () => {
+      setLoadingBanners(true);
+      try {
+        const response = await bannerService.getActiveBanners();
+        if (response.isSuccess && response.result) {
+          setBanners(response.result);
+          // Preload the first active banner image
+          if (response.result.length > 0) {
+            const firstBannerImg = new Image();
+            firstBannerImg.src = response.result[0].imageUrl;
+          }
+        }
+      } catch (error) {
+        console.error('Error fetching banners:', error);
+      } finally {
+        setLoadingBanners(false);
+      }
+    };
+
+    fetchBanners();
+  }, []);
+
+  const handleBannerClick = (slide: any) => {
+    if (slide.rawBanner) {
+      const url = bannerService.getNavigationUrl(slide.rawBanner);
+      onNavigate(url);
+    } else {
+      onNavigate('/shop');
+    }
+  };
+
+  // Map banners to slides
+  const currentSlides = banners.length > 0 
+    ? banners.map(b => ({
+        image: b.imageUrl,
+        title: b.title,
+        subtitle: b.linkType === 'Ritual' ? 'Dịch vụ nổi bật' : 'Chương trình đặc biệt',
+        description: `Khám phá ngay ${b.title} tại VietRitual với nhiều ưu đãi hấp dẫn.`,
+        rawBanner: b
+      }))
+    : [
+        {
+          image: 'https://images.unsplash.com/photo-1528459801416-a7e992795770?auto=format&fit=crop&q=80&w=2000',
+          title: 'VietRitual\nTâm Linh Việt – Chuẩn Hiện Đại',
+          subtitle: 'Kính Chào Quý Khách',
+          description: 'Hệ thống cung cấp dịch vụ mâm cúng trọn gói, chuẩn nghi lễ truyền thống. Đồng hành cùng gia chủ trong mọi khoảnh khắc tâm linh quan trọng.'
+        }
+      ];
   
   return (
     <div className="space-y-24 pb-24">
       {/* Hero Carousel Section */}
-      <Carousel slides={heroSlides} onCtaClick={() => onNavigate('/shop')} />
+      <Carousel slides={currentSlides} onCtaClick={handleBannerClick} />
 
       {/* Services Showcase */}
       <section className="max-w-7xl mx-auto px-6 md:px-10">
