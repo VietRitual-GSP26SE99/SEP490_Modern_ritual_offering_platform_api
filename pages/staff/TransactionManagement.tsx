@@ -112,7 +112,7 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ onNavigat
   const currentTransactions = transactions.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
   return (
-    <div className="bg-slate-50 min-h-screen py-12 px-4 md:px-8 font-sans">
+    <div className="bg-transparent font-sans">
       <div className="max-w-7xl mx-auto">
 
         {/* Header Section */}

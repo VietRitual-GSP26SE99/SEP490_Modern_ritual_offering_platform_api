@@ -1027,7 +1027,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
                   { id: 'overview', label: 'Tổng quan', icon: 'dashboard' },
                   { id: 'vendors', label: 'Hạng nhà cung cấp', icon: 'storefront' },
                   { id: 'users', label: 'Người dùng', icon: 'group' },
-                  { id: 'orders', label: 'Đơn hàng', icon: 'receipt_long' },
                   { id: 'disputes', label: 'Khiếu nại', icon: 'warning' },
                   { id: 'withdrawals', label: 'Quản lý rút tiền', icon: 'payments' },
                   { id: 'content', label: 'Cài đặt tài chính', icon: 'article' },
@@ -1663,16 +1662,20 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
             )}
 
             {activeTab === 'transactions' && (
-              <TransactionManagement onNavigate={onNavigate} userRole="admin" />
+              <div className="bg-white rounded-[2rem] border border-gold/10 shadow-sm p-8">
+                <TransactionManagement onNavigate={onNavigate} userRole="admin" />
+              </div>
             )}
 
             {activeTab === 'audit' && (
-              <AuditLogPage onNavigate={onNavigate} userRole="admin" />
+              <div className="bg-white rounded-[2rem] border border-gold/10 shadow-sm p-8">
+                <AuditLogPage onNavigate={onNavigate} userRole="admin" />
+              </div>
             )}
           </div>
         </div>
-      </div >
-    </div >
+      </div>
+    </div>
   );
 };
 
