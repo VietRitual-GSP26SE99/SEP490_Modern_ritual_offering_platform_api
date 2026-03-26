@@ -173,7 +173,7 @@ const VendorDashboard: React.FC<VendorDashboardProps> = ({ onNavigate }) => {
             )}
 
             {!isLoadingPaidPendingOrders && !paidPendingOrdersError && paidPendingOrders.length === 0 && (
-              <div className="p-8 text-center text-slate-500 bg-gray-50/50 rounded-2xl border border-dashed border-gray-200">
+              <div className="p-8 text-center text-slate-500 bg-white rounded-2xl border-2 border-dashed border-gray-100">
                 Chưa có đơn hàng đã thanh toán đang chờ xử lý.
               </div>
             )}
@@ -206,7 +206,7 @@ const VendorDashboard: React.FC<VendorDashboardProps> = ({ onNavigate }) => {
           </h3>
           <div className="space-y-4">
             {products.map((product) => (
-              <div key={product.id} className="p-4 bg-gray-50/50 rounded-xl border border-gray-100">
+              <div key={product.id} className="p-4 bg-white rounded-xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
                 <p className="font-bold text-sm text-primary mb-1">{product.name}</p>
                 <div className="flex justify-between text-xs font-bold">
                   <span className="text-gold">{product.price.toLocaleString()}₫</span>

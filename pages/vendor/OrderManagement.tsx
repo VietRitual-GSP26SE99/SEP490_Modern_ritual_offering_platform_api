@@ -467,7 +467,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
   // ── loading / error screens ─────────────────────────────────────────────────
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh] bg-gray-50">
+      <div className="flex items-center justify-center min-h-[60vh] bg-white">
         <div className="text-center">
           <div className="inline-block animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-primary mb-4" />
           <p className="text-slate-500 font-medium">Đang tải danh sách đơn hàng...</p>
@@ -478,7 +478,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
 
   if (error) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh] bg-gray-50">
+      <div className="flex items-center justify-center min-h-[60vh] bg-white">
         <div className="text-center bg-white rounded-3xl shadow-sm border border-gray-200 p-10 max-w-sm w-full">
           <p className="text-red-500 font-semibold text-base mb-6">⚠️ {error}</p>
           <button
@@ -490,7 +490,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
     );
   }
   return (
-    <div className="bg-gray-50 min-h-screen py-12">
+    <div className="bg-white min-h-screen py-12">
       <div className="max-w-7xl mx-auto px-4 md:px-8">
 
         {/* Header Section */}

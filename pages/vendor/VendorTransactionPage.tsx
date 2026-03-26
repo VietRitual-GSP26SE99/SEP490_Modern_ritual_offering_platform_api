@@ -128,7 +128,7 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
   };
 
   return (
-    <div className="bg-slate-50 min-h-screen py-12 px-4 md:px-8 font-sans">
+    <div className="bg-white min-h-screen py-12 px-4 md:px-8 font-sans">
       <div className="max-w-7xl mx-auto">
 
         {/* Header Section */}
@@ -198,7 +198,7 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
         </div>
 
         {/* Transactions Section */}
-        <div className="bg-white rounded-[2.5rem] border border-slate-200 shadow-sm overflow-hidden min-h-[500px]">
+        <div className="bg-white rounded-[2.5rem] border-2 border-slate-100 shadow-xl shadow-slate-200/50 overflow-hidden min-h-[500px]">
           <div className="p-8 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-6">
             <h3 className="text-xl font-black text-slate-900">Lịch sử giao dịch</h3>
             <div className="flex flex-wrap gap-3">

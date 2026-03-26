@@ -99,7 +99,7 @@ const ShippingConfigPage: React.FC<ShippingConfigPageProps> = ({ onNavigate }) =
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-slate-50/50 py-12 flex items-center justify-center">
+      <div className="min-h-screen bg-white py-12 flex items-center justify-center">
         <div className="flex flex-col items-center">
           <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
           <p className="mt-4 text-slate-400 font-bold uppercase tracking-[0.2em] text-[10px] animate-pulse">Đang tải dữ liệu...</p>
@@ -109,7 +109,7 @@ const ShippingConfigPage: React.FC<ShippingConfigPageProps> = ({ onNavigate }) =
   }
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] py-16">
+    <div className="min-h-screen bg-white py-16">
       <div className="max-w-7xl mx-auto px-8">
         {/* Header Section */}
         <div className="mb-12 flex flex-col md:flex-row md:items-center justify-between gap-8">

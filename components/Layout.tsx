@@ -1515,7 +1515,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
 
       <main className="flex-grow">
         {(isStaff || isVendor) ? (
-          <div className="bg-ritual-bg/20 py-12">
+          <div className="bg-white py-12">
             <div className="w-full mx-auto px-6 md:px-10 lg:px-12 xl:px-16">
               <div className="flex flex-col lg:flex-row gap-10 items-start">
                 <aside className="w-full lg:w-80 flex-shrink-0 lg:sticky lg:top-[120px] z-30">
