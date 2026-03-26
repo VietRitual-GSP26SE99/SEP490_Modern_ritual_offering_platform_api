@@ -1533,10 +1533,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                   </div>
                   {/* Call to Action Button */}
                   <button
-                    onClick={() => onNavigate('/shop')}
-                    className="border-2 border-primary text-primary hover:bg-primary/5 rounded-lg px-6 py-2 text-sm font-bold transition-all"
+                    onClick={() => onNavigate(userName ? '/shop' : '/auth')}
+                    className={`${!userName ? 'md:hidden' : ''} border-2 border-primary text-primary hover:bg-primary/5 rounded-lg px-6 py-2 text-sm font-bold transition-all`}
                   >
-                    Đặt mâm ngay
+                    {userName ? 'Đặt mâm ngay' : 'Đăng nhập'}
                   </button>
                 </>
               )}
@@ -1628,7 +1628,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                   onClick={() => { onNavigate('/auth'); setIsMobileMenuOpen(false); }}
                   className="w-full bg-primary text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-primary/20"
                 >
-                  Đăng Nhập Ngay
+                  Đăng nhập
                 </button>
               )}
 
