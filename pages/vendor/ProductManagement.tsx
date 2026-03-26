@@ -354,7 +354,7 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-gray-900/60 backdrop-blur-sm"
             onClick={(e) => { if (e.target === e.currentTarget) setShowAddForm(false); }}
           >
-            <div className="w-full max-w-2xl max-h-[90vh] bg-gray-50 rounded-[2rem] shadow-2xl flex flex-col overflow-hidden">
+            <div className="w-full max-w-2xl max-h-[90vh] bg-white rounded-[2rem] shadow-2xl flex flex-col overflow-hidden">
               {/* Modal Header */}
               <div className="flex items-center gap-3 px-6 py-5 border-b border-gray-200 bg-white rounded-t-[2rem] flex-shrink-0">
                 <div className="flex-1">

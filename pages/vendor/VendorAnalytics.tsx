@@ -46,8 +46,8 @@ const VendorAnalytics: React.FC<VendorAnalyticsProps> = ({ onNavigate }) => {
   ];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-white to-yellow-50 p-6">
-      <div className="max-w-[1650px] mx-auto">
+    <div className="min-h-screen bg-white p-6 md:p-12">
+      <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl font-playfair font-bold text-primary mb-2">Thống Kê & Báo Cáo</h1>
@@ -60,11 +60,10 @@ const VendorAnalytics: React.FC<VendorAnalyticsProps> = ({ onNavigate }) => {
             <button
               key={range}
               onClick={() => setTimeRange(range)}
-              className={`px-4 py-2 rounded-lg font-bold transition-all border-2 ${
-                timeRange === range
+              className={`px-4 py-2 rounded-lg font-bold transition-all border-2 ${timeRange === range
                   ? 'border-primary bg-primary/5 text-primary'
                   : 'bg-white text-gray-700 border-slate-300 hover:border-primary'
-              }`}
+                }`}
             >
               {range === 'week' ? 'Tuần' : range === 'month' ? 'Tháng' : range === 'quarter' ? 'Quý' : 'Năm'}
             </button>
