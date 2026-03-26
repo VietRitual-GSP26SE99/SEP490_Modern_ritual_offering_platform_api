@@ -65,6 +65,11 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
   const accountDropdownTimeout = useRef<NodeJS.Timeout | null>(null);
   const walletDropdownTimeout = useRef<NodeJS.Timeout | null>(null);
   const notificationDropdownTimeout = useRef<NodeJS.Timeout | null>(null);
+  
+  const notificationRef = useRef<HTMLDivElement>(null);
+  const walletRef = useRef<HTMLDivElement>(null);
+  const accountRef = useRef<HTMLDivElement>(null);
+  const cartRef = useRef<HTMLDivElement>(null);
   const isTopupReturnHandled = useRef(false);
   const isCustomer = userRole === 'customer' || userRole === 'guest';
   const isVendor = userRole === 'vendor';
@@ -212,6 +217,31 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
       loadUnreadCount();
     }
   }, [userName, hideWalletAndProfileOnAdminDashboard]);
+
+  // Click outside listener
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Node;
+      
+      if (isNotificationDropdownOpen && notificationRef.current && !notificationRef.current.contains(target)) {
+        setIsNotificationDropdownOpen(false);
+      }
+      if (isWalletDropdownOpen && walletRef.current && !walletRef.current.contains(target)) {
+        setIsWalletDropdownOpen(false);
+      }
+      if (isAccountDropdownOpen && accountRef.current && !accountRef.current.contains(target)) {
+        setIsAccountDropdownOpen(false);
+      }
+      if (isCartDropdownOpen && cartRef.current && !cartRef.current.contains(target)) {
+        setIsCartDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isNotificationDropdownOpen, isWalletDropdownOpen, isAccountDropdownOpen, isCartDropdownOpen]);
 
   // Fetch user info
   useEffect(() => {
@@ -670,6 +700,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
 
   const handleWalletClick = async () => {
     await fetchWalletBalance();
+    if (window.innerWidth < 768) {
+      setIsWalletDropdownOpen(prev => !prev);
+    }
   };
 
   const extractTopupUrl = (data: Record<string, unknown>): string | null => {
@@ -1106,6 +1139,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                       setIsNotificationDropdownOpen(false);
                     }, 200);
                   }}
+                  ref={notificationRef}
                 >
                   <button
                     onClick={() => {
@@ -1249,6 +1283,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                       }, 200);
                     }
                   }}
+                  ref={walletRef}
                 >
                   <button
                     onClick={handleWalletClick}
@@ -1387,9 +1422,16 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                       }, 200);
                     }
                   }}
+                  ref={accountRef}
                 >
                   <button
-                    onClick={() => isCustomer ? onNavigate('/profile') : setIsAccountDropdownOpen(prev => !prev)}
+                    onClick={() => {
+                      if (window.innerWidth < 768) {
+                        setIsAccountDropdownOpen(prev => !prev);
+                      } else {
+                        isCustomer ? onNavigate('/profile') : setIsAccountDropdownOpen(prev => !prev);
+                      }
+                    }}
                     className="flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 rounded-lg border border-gray-300 text-primary font-bold text-sm hover:border-primary transition-all"
                     title={isCustomer ? 'Hồ sơ cá nhân' : userName}
                   >
@@ -1512,9 +1554,16 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                         }, 200);
                       }
                     }}
+                    ref={cartRef}
                   >
                       <button
-                        onClick={handleNavigateToCart}
+                        onClick={() => {
+                          if (window.innerWidth < 768) {
+                            setIsCartDropdownOpen(prev => !prev);
+                          } else {
+                            handleNavigateToCart();
+                          }
+                        }}
                         className="relative flex items-center justify-center w-10 h-10 md:w-auto md:h-auto md:px-4 md:py-2 rounded-lg border border-gray-300 text-primary font-bold text-sm hover:border-primary transition-all"
                         title="Giỏ hàng"
                       >

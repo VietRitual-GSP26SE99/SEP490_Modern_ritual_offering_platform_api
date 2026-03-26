@@ -90,7 +90,7 @@ const CartDropdown: React.FC<CartDropdownProps> = ({ isOpen, onClose, onNavigate
 
   return (
     <div 
-      className="absolute top-full right-0 mt-0 w-[400px] bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden animate-slideDown"
+      className="absolute top-full right-0 mt-0 w-[92vw] sm:w-[400px] bg-white rounded-xl shadow-2xl border border-gray-100 z-50 overflow-hidden animate-slideDown"
     >
       {/* Header */}
       <div className="px-4 py-3 border-b border-gray-100">
