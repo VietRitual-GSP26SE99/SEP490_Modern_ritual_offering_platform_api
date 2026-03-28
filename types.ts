@@ -51,6 +51,7 @@ export interface ApiPackage {
   createdAt: string;
   packageVariants?: PackageVariant[];
   imageUrls?: string[];
+  packageAvatarUrl?: string;
   primaryImageIndex?: number;
   ratingAvg?: number;
   reviewCount?: number;
@@ -71,6 +72,16 @@ export interface ApiResponse<T> {
   isSuccess: boolean;
   errorMessages: string[];
   result: T;
+}
+
+export interface PaginatedResult<T> {
+  items: T[];
+  pageNumber: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
 }
 
 export interface CartItem extends Product {

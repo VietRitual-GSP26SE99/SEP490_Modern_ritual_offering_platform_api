@@ -1,4 +1,4 @@
-import { ApiPackage, ApiResponse, Product, PackageVariant, CeremonyCategory } from '../types';
+import { ApiPackage, ApiResponse, Product, PackageVariant, CeremonyCategory, PaginatedResult } from '../types';
 import { vendorService, VendorProfile } from './vendorService';
 import { getAuthToken } from './auth';
 
@@ -37,12 +37,19 @@ class PackageService {
       }
 
       const data: any = await response.json();
+      
       if (Array.isArray(data)) {
         return data as ApiPackage[];
       }
 
-      if (data?.isSuccess && Array.isArray(data.result)) {
-        return data.result as ApiPackage[];
+      if (data?.isSuccess && data.result) {
+        // Handle both direct array and paginated object { items: [], ... }
+        if (Array.isArray(data.result)) {
+          return data.result as ApiPackage[];
+        }
+        if (data.result.items && Array.isArray(data.result.items)) {
+          return data.result.items as ApiPackage[];
+        }
       }
 
       return [];
@@ -53,13 +60,15 @@ class PackageService {
   }
 
   /**
-   * Lấy danh sách tất cả packages
+   * Lấy danh sách tất cả packages có phân trang
+   * @param pageNumber - Số trang (bắt đầu từ 1)
+   * @param pageSize - Số lượng item trên mỗi trang
    * @returns Promise<ApiPackage[]>
    */
-  async getAllPackages(): Promise<ApiPackage[]> {
+  async getAllPackages(pageNumber: number = 1, pageSize: number = 1000): Promise<ApiPackage[]> {
     try {
-      console.log(' Fetching packages from API...');
-      const response = await fetch(`${API_BASE_URL}/packages`, {
+      console.log(` Fetching packages from API (page ${pageNumber}, size ${pageSize})...`);
+      const response = await fetch(`${API_BASE_URL}/packages?pageNumber=${pageNumber}&pageSize=${pageSize}`, {
         method: 'GET',
         headers: {
           'Accept': 'text/plain',
@@ -76,20 +85,67 @@ class PackageService {
       console.log(' API Response:', data);
       
       if (Array.isArray(data)) {
-        console.log(' Packages received:', data.length);
+        console.log('✅ Packages received (array):', data.length);
         return data as ApiPackage[];
       }
       
-      if (data.isSuccess && data.result) {
-        console.log(' Packages received:', data.result.length);
-        return data.result;
+      const isSuccess = data.isSuccess || data.isSucceeded || data.statusCode === 'OK';
+      if (isSuccess && data.result) {
+        // Handle both direct array and paginated objects with common field names
+        const payload = data.result;
+        const packages = Array.isArray(payload) 
+          ? payload 
+          : (payload.items || payload.data || payload.list || []);
+          
+        console.log('✅ Packages received (result):', packages.length);
+        return packages;
       } else {
-        console.error(' API Error:', data.errorMessages || 'Unknown error');
+        console.error('❌ API Error fetching packages:', data.errorMessages || 'Unknown error');
         return [];
       }
     } catch (error) {
       console.error(' Failed to fetch packages:', error);
       return [];
+    }
+  }
+
+  /**
+   * Lấy danh sách packages với đầy đủ thông tin phân trang
+   * @param pageNumber - Số trang
+   * @param pageSize - Số lượng item trên mỗi trang
+   * @returns Promise<PaginatedResult<ApiPackage> | null>
+   */
+  async getPackages(pageNumber: number = 1, pageSize: number = 12): Promise<PaginatedResult<ApiPackage> | null> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/packages?pageNumber=${pageNumber}&pageSize=${pageSize}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'text/plain',
+        },
+      });
+
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      
+      const data: any = await response.json();
+      if (data.isSuccess && data.result) {
+        // Nếu API trả về mảng trực tiếp thay vì bọc trong items
+        if (Array.isArray(data.result)) {
+          return {
+            items: data.result,
+            pageNumber: 1,
+            pageSize: data.result.length,
+            totalCount: data.result.length,
+            totalPages: 1,
+            hasPreviousPage: false,
+            hasNextPage: false
+          };
+        }
+        return data.result as PaginatedResult<ApiPackage>;
+      }
+      return null;
+    } catch (error) {
+      console.error(' Failed to fetch paginated packages:', error);
+      return null;
     }
   }
 
@@ -320,10 +376,10 @@ class PackageService {
       price: defaultVariant?.price || 2500000,
       image: ((apiPackage as any).imageUrls && (apiPackage as any).imageUrls.length > 0)
         ? ((apiPackage as any).imageUrls[(apiPackage as any).primaryImageIndex || 0] || (apiPackage as any).imageUrls[0])
-        : ((apiPackage as any).imageUrl || this.generatePlaceholderImage(pkgId)),
+        : (apiPackage.packageAvatarUrl || (apiPackage as any).imageUrl || this.generatePlaceholderImage(pkgId)),
       gallery: ((apiPackage as any).imageUrls && (apiPackage as any).imageUrls.length > 0)
         ? (apiPackage as any).imageUrls
-        : this.generateGalleryImages(pkgId),
+        : (apiPackage.packageAvatarUrl ? [apiPackage.packageAvatarUrl] : this.generateGalleryImages(pkgId)),
       rating: apiPackage.ratingAvg || 0,
       reviews: apiPackage.reviewCount || 0,
       totalSold: Number((apiPackage as any).totalSold || 0),

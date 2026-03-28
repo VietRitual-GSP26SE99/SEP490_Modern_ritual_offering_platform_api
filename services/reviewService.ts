@@ -112,19 +112,30 @@ class ReviewService {
 
     async getReviewsByVariant(variantId: number | string): Promise<Review[]> {
         try {
-            const response = await fetch(`${API_BASE_URL}/reviews/variant/${variantId}`, {
+            console.log(`🔍 Fetching reviews for variant: ${variantId}`);
+            let response = await fetch(`${API_BASE_URL}/reviews/variant/${variantId}`, {
                 method: 'GET',
                 headers: this.getHeaders(),
             });
 
+            // Fallback if 404
+            if (response.status === 404) {
+                console.log('⚠️ /reviews/variant/{id} not found, trying query param...');
+                response = await fetch(`${API_BASE_URL}/reviews?variantId=${variantId}`, {
+                    method: 'GET',
+                    headers: this.getHeaders(),
+                });
+            }
+
             if (!response.ok) {
+                if (response.status === 404) return [];
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
 
             const data = await response.json();
             return this.extractReviewArray(data);
         } catch (error) {
-            console.error('Failed to fetch reviews by variant:', error);
+            console.error('❌ Failed to fetch reviews by variant:', error);
             return [];
         }
     }

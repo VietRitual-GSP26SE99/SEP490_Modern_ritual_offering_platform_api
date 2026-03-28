@@ -137,7 +137,7 @@ class CheckoutService {
                   vendorProfileId: item.vendorProfileId || v.vendorId || v.id,
                   price: item.price || item.unitPrice,
                   totalPrice: item.lineTotal || (item.unitPrice * item.quantity),
-                  imageUrl: item.imageUrl || item.packageImageUrl || item.productImageUrl || null,
+                  imageUrl: item.imageUrl || item.packageAvatarUrl || item.packageImageUrl || item.productImageUrl || null,
                 }));
                 allItems = [...allItems, ...itemsWithVendor];
               }
@@ -155,16 +155,21 @@ class CheckoutService {
 
             apiPackages.forEach((pkg) => {
               const rawImages = (pkg as any).imageUrls as string[] | undefined;
-              if (!rawImages || rawImages.length === 0) return;
-
-              const primaryIndexRaw = (pkg as any).primaryImageIndex;
-              const primaryIndex = typeof primaryIndexRaw === 'number' && primaryIndexRaw >= 0 && primaryIndexRaw < rawImages.length
-                ? primaryIndexRaw
-                : 0;
-              const primaryImage = rawImages[primaryIndex] || rawImages[0];
+              const avatarUrl = (pkg as any).packageAvatarUrl as string | undefined;
+              
+              let primaryImage = avatarUrl;
+              if (!primaryImage && rawImages && rawImages.length > 0) {
+                const primaryIndexRaw = (pkg as any).primaryImageIndex;
+                const primaryIndex = typeof primaryIndexRaw === 'number' && primaryIndexRaw >= 0 && primaryIndexRaw < rawImages.length
+                  ? primaryIndexRaw
+                  : 0;
+                primaryImage = rawImages[primaryIndex] || rawImages[0];
+              }
+              
               if (!primaryImage) return;
 
               const variants = (pkg as any).packageVariants as PackageVariant[] | undefined;
+
               (variants || []).forEach((variant) => {
                 const rawVariantId = (variant as any).variantId ?? (variant as any).id ?? (variant as any).packageVariantId;
                 const vid = Number(rawVariantId);

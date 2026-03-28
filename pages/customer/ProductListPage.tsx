@@ -27,6 +27,9 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
   const [searchQuery, setSearchQuery] = useState('');
   const [categories, setCategories] = useState<CeremonyCategory[]>([]);
   const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [showAllCategories, setShowAllCategories] = useState(false);
+  const pageSize = 12;
 
   const getProductDetailPath = (rawId: string): string => {
     const numericId = Number(String(rawId).trim());
@@ -97,7 +100,12 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
-  }, [searchParams]);
+  }, [searchParams, currentPage]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeFilter, searchQuery, priceRanges, ratingFilters, sortBy]);
 
   const filterByPrice = (price: number) => {
     if (!Object.values(priceRanges).some(v => v)) return true;
@@ -148,6 +156,9 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
     if (b.rating !== a.rating) return b.rating - a.rating;
     return b.reviews - a.reviews;
   });
+
+  const totalPages = Math.ceil(filteredProducts.length / pageSize);
+  const paginatedProducts = filteredProducts.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   const handleQuickAddToCart = async (product: Product, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -223,7 +234,7 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
                 >
                   Tất cả dịp lễ
                 </button>
-                {categories.filter(c => c.isActive).map((cat) => (
+                {categories.filter(c => c.isActive).slice(0, showAllCategories ? undefined : 6).map((cat) => (
                   <button
                     key={cat.categoryId}
                     onClick={() => {
@@ -237,6 +248,17 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
                     {cat.name}
                   </button>
                 ))}
+                {categories.filter(c => c.isActive).length > 6 && (
+                  <button
+                    onClick={() => setShowAllCategories(!showAllCategories)}
+                    className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-sm font-bold text-slate-500 hover:text-primary hover:bg-gold/10 transition-all duration-300"
+                  >
+                    <span className="material-symbols-outlined text-sm">
+                      {showAllCategories ? 'remove' : 'add'}
+                    </span>
+                    {showAllCategories ? 'Thu gọn' : 'Xem thêm'}
+                  </button>
+                )}
               </div>
           </div>
 
@@ -407,7 +429,7 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
             )}
 
             <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-8">
-              {filteredProducts.map((p) => (
+              {paginatedProducts.map((p) => (
                 <div
                   key={p.id}
                   className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-2xl transition-all border border-gold/10 group flex flex-col h-full"
@@ -455,6 +477,37 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
                 </div>
               ))}
             </div>
+
+            {/* Pagination Controls */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-12 pb-10">
+                <button 
+                  disabled={currentPage === 1}
+                  onClick={() => setCurrentPage(prev => prev - 1)}
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center border border-gold/20 transition-all ${currentPage === 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-primary hover:text-white active:scale-95'}`}
+                >
+                  <span className="material-symbols-outlined">chevron_left</span>
+                </button>
+                {[...Array(totalPages)].map((_, i) => (
+                  <button 
+                    key={i}
+                    onClick={() => setCurrentPage(i + 1)}
+                    className={`w-10 h-10 rounded-xl font-bold transition-all ${currentPage === i + 1 
+                      ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-110' 
+                      : 'hover:bg-primary/5 text-slate-600 active:scale-95'}`}
+                  >
+                    {i + 1}
+                  </button>
+                ))}
+                <button 
+                  disabled={currentPage === totalPages}
+                  onClick={() => setCurrentPage(prev => prev + 1)}
+                  className={`w-10 h-10 rounded-xl flex items-center justify-center border border-gold/20 transition-all ${currentPage === totalPages ? 'opacity-30 cursor-not-allowed' : 'hover:bg-primary hover:text-white active:scale-95'}`}
+                >
+                  <span className="material-symbols-outlined">chevron_right</span>
+                </button>
+              </div>
+            )}
           </>
         )}
       </section>

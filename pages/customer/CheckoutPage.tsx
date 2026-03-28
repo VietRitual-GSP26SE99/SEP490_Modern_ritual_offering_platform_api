@@ -315,10 +315,10 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 md:px-10 py-10 md:py-16 flex flex-col lg:flex-row gap-8 lg:gap-12">
-      <div className="flex-1 space-y-8">
-        <section className="bg-white p-6 md:p-12 rounded-[2rem] md:rounded-[3rem] border border-slate-100 shadow-2xl shadow-slate-200/40">
-          <h2 className="text-xl md:text-2xl font-black text-slate-800 uppercase tracking-widest italic font-display mb-6 md:mb-8 border-b border-slate-50 pb-4">
+    <div className="max-w-7xl mx-auto px-4 md:px-10 py-6 md:py-8 flex flex-col lg:flex-row gap-6 lg:gap-8">
+      <div className="flex-1 space-y-4">
+        <section className="bg-white p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border border-slate-100 shadow-lg shadow-slate-200/40">
+          <h2 className="text-lg md:text-xl font-sans not-italic font-bold text-slate-800 mb-4 border-b border-slate-50 pb-3">
             Giao hàng
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -405,9 +405,9 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
           </div>
         </section>
 
-        <section className="bg-white p-6 md:p-12 rounded-[2rem] md:rounded-[3rem] border border-slate-100 shadow-2xl shadow-slate-200/40">
-          <h2 className="text-xl md:text-2xl font-black text-slate-800 uppercase tracking-widest italic font-display mb-6 md:mb-8 border-b border-slate-50 pb-4 flex items-center gap-3">
-            <span className="material-symbols-outlined p-2 bg-primary/10 text-primary rounded-xl">schedule</span>
+        <section className="bg-white p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border border-slate-100 shadow-lg shadow-slate-200/40">
+          <h2 className="text-lg md:text-xl font-sans not-italic font-bold text-slate-800 mb-4 border-b border-slate-50 pb-3 flex items-center gap-2">
+            <span className="material-symbols-outlined p-1.5 bg-primary/10 text-primary rounded-lg text-sm">schedule</span>
             Thời gian
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -440,9 +440,9 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
           </div> */}
         </section>
 
-        <section className="bg-white p-6 md:p-12 rounded-[2rem] md:rounded-[3rem] border border-slate-100 shadow-2xl shadow-slate-200/40">
-          <h2 className="text-xl md:text-2xl font-black text-slate-800 uppercase tracking-widest italic font-display mb-6 md:mb-8 border-b border-slate-50 pb-4 flex items-center gap-3">
-            <span className="material-symbols-outlined p-2 bg-primary/10 text-primary rounded-xl">edit_note</span>
+        <section className="bg-white p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border border-slate-100 shadow-lg shadow-slate-200/40">
+          <h2 className="text-lg md:text-xl font-sans not-italic font-bold text-slate-800 mb-4 border-b border-slate-50 pb-3 flex items-center gap-2">
+            <span className="material-symbols-outlined p-1.5 bg-primary/10 text-primary rounded-lg text-sm">edit_note</span>
             Ghi chú
           </h2>
           <div className="space-y-6">
@@ -470,8 +470,9 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
           </div>
         </section>
 
-        <section className="bg-white p-6 md:p-12 rounded-[2rem] md:rounded-[3rem] border border-slate-100 shadow-2xl shadow-slate-200/40">
-          <h2 className="text-xl md:text-2xl font-black text-slate-800 uppercase tracking-widest italic font-display mb-6 md:mb-8 border-b border-slate-50 pb-4">
+        <section className="bg-white p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border border-slate-100 shadow-lg shadow-slate-200/40">
+          <h2 className="text-lg md:text-xl font-sans not-italic font-bold text-slate-800 mb-4 border-b border-slate-50 pb-3 flex items-center gap-2">
+            <span className="material-symbols-outlined p-1.5 bg-primary/10 text-primary rounded-lg text-sm">payments</span>
             Thanh toán
           </h2>
           <div className="space-y-4">
@@ -498,8 +499,8 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
       </div>
 
       <aside className="w-full lg:w-[400px] shrink-0">
-        <div className="sticky top-28 bg-white p-6 md:p-10 rounded-[2.5rem] md:rounded-[3rem] border border-slate-100 shadow-2xl shadow-slate-200/50">
-          <h3 className="text-xl font-black text-slate-800 uppercase tracking-widest italic font-display mb-6 md:mb-8 border-b border-slate-50 pb-4">Đơn hàng</h3>
+        <div className="sticky top-24 bg-white p-5 md:p-6 rounded-[1.5rem] md:rounded-[2rem] border border-slate-100 shadow-lg shadow-slate-200/50">
+          <h3 className="text-lg md:text-xl font-sans not-italic font-bold text-slate-800 mb-5 border-b border-slate-50 pb-3">Đơn hàng</h3>
           <div className="space-y-6 mb-8">
             {summary.items.map((item) => (
               <div key={item.cartItemId} className="flex gap-4">

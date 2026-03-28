@@ -37,228 +37,286 @@ export interface UpdateCartItemRequest {
 }
 
 class CartService {
-  private getHeaders(): HeadersInit {
+  private getHeaders(method: string = 'GET'): HeadersInit {
     const token = getAuthToken();
-    return {
-      'Content-Type': 'application/json',
+    const headers: Record<string, string> = {
       'Accept': 'application/json',
       ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    };
+    
+    // Only set Content-Type for methods that actually have a body
+    if (method !== 'GET' && method !== 'DELETE') {
+      headers['Content-Type'] = 'application/json';
+    }
+    
+    return headers;
+  }
+
+  /**
+   * Helper to extract cart data from various API response formats
+   */
+  private extractCartData(data: any): CartApi | null {
+    if (!data) return null;
+
+    let payload = data;
+    
+    // If the response is wrapped in ApiResponse { isSuccess, result, ... }
+    if (data.isSuccess !== undefined || data.isSucceeded !== undefined || data.statusCode !== undefined) {
+      if (data.isSuccess === false || data.isSucceeded === false) {
+        // Some backends might return isSuccess: false for an empty cart instead of 404
+        if (data.statusCode === 'NotFound' || data.errorMessages?.some((m: string) => m.toLowerCase().includes('not found'))) {
+          return null;
+        }
+        console.error('❌ API Error in Cart Response:', data.errorMessages);
+        return null;
+      }
+      payload = data.result || data;
+    }
+
+    // If the payload is an array, it's a list of items
+    if (Array.isArray(payload)) {
+      return {
+        cartId: 0,
+        userId: '',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        cartItems: payload.map(item => this.mapCartItem(item)),
+        totalItems: payload.reduce((sum, item) => sum + (item.quantity || 1), 0),
+        subtotal: payload.reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 1)), 0)
+      };
+    }
+
+    // Handle nested cartItems or items
+    const rawItems = payload.cartItems || payload.items || [];
+    
+    // If it's the specific format with 'vendors'
+    let allItems = Array.isArray(rawItems) ? [...rawItems] : [];
+    if (payload.vendors && Array.isArray(payload.vendors)) {
+      payload.vendors.forEach((v: any) => {
+        const nestedItems = v.items || v.cartItems || v.packageItems || v.products || v.packages || [];
+        if (Array.isArray(nestedItems)) {
+          allItems = [...allItems, ...nestedItems];
+        }
+      });
+    }
+
+    return {
+      cartId: payload.cartId || payload.id || 0,
+      userId: payload.userId || payload.customerId || '',
+      createdAt: payload.createdAt || new Date().toISOString(),
+      updatedAt: payload.updatedAt || new Date().toISOString(),
+      cartItems: allItems.map(item => this.mapCartItem(item)),
+      totalItems: payload.totalItems || payload.totalItem || allItems.reduce((sum, item) => sum + (item.quantity || 1), 0),
+      subtotal: payload.subtotal || payload.subTotal || allItems.reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 1)), 0)
+    };
+  }
+
+  private mapCartItem(item: any): CartItemApi {
+    return {
+      cartItemId: item.cartItemId || item.id || 0,
+      cartId: item.cartId || 0,
+      packageId: item.packageId || 0,
+      variantId: item.variantId || 0,
+      quantity: item.quantity || 0,
+      price: item.price || 0,
+      packageName: item.packageName || item.name || 'Sản phẩm',
+      variantName: item.variantName || 'Mặc định',
+      imageUrl: item.imageUrl || item.packageAvatarUrl || item.packageImageUrl || null
     };
   }
 
   /**
-   * Lấy giỏ hàng hiện tại
+   * Lấy giỏ hàng của người dùng hiện tại
    * GET /api/cart
    */
   async getCart(): Promise<CartApi | null> {
     try {
-      console.log(' Fetching cart...');
-      const response = await fetch(`${API_BASE_URL}/cart`, {
+      console.log('🛒 Fetching cart from API...');
+      
+      // Try GET /api/cart first as it is the most standard endpoint
+      let response = await fetch(`${API_BASE_URL}/cart`, {
         method: 'GET',
-        headers: this.getHeaders(),
+        headers: this.getHeaders('GET'),
       });
 
+      // If /api/cart fails with 405 or 404, try /api/cart/items
+      if (response.status === 405 || response.status === 404) {
+        console.log(`⚠️ /api/cart returned ${response.status}, trying /api/cart/items...`);
+        response = await fetch(`${API_BASE_URL}/cart/items`, {
+          method: 'GET',
+          headers: this.getHeaders('GET'),
+        });
+      }
+
       if (!response.ok) {
-        if (response.status === 404) {
-          console.log(' Cart is empty or not found');
-          return null;
+        const errorText = await response.text().catch(() => '');
+        console.error(`❌ Fetch Cart API Error (Status: ${response.status}):`, errorText);
+        
+        if (response.status === 404) return null;
+        if (response.status === 500) {
+          console.warn('💡 Tip: A 500 error on GET /api/cart might mean a backend bug or missing user profile data.');
         }
+        
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const text = await response.text();
-      let data: any = text ? JSON.parse(text) : null;
-      console.log(' Cart data:', data);
-      
-      if (data && data.isSuccess !== undefined) {
-        if (!data.isSuccess) {
-          console.error(' API Error:', data.errorMessages);
-          return null;
-        }
-        data = data.result; // Extract the payload
-      }
-      
-      // If the API returns an array directly, wrap it in a CartApi object
-      if (Array.isArray(data)) {
-        console.log(' Cart is an array, wrapping it in CartApi structure');
-        data = {
-          cartId: 0,
-          userId: '',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          cartItems: data,
-          totalItems: data.reduce((sum, item) => sum + (item.quantity || 1), 0),
-          subtotal: data.reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 1)), 0)
-        } as CartApi;
-      }
-      
-      // If data is an object but misses cartItems
-      if (data && typeof data === 'object' && !data.cartItems) {
-        // Try to handle nested items inside 'vendors'
-        if (data.vendors && Array.isArray(data.vendors)) {
-          let allItems: any[] = [];
-          data.vendors.forEach((v: any) => {
-            const nestedItems = v.items || v.cartItems || v.packageItems || v.products || v.packages || v.listItems || v.cartItemDetails || [];
-            if (Array.isArray(nestedItems)) {
-              allItems = [...allItems, ...nestedItems];
-            }
-          });
-          data.cartItems = allItems;
-        } else if (data.items) {
-          data.cartItems = data.items;
-        } else {
-          data.cartItems = [];
-        }
-      }
-      
-      // Fix camelCase inconsistencies
-      if (data && data.totalItem !== undefined) data.totalItems = data.totalItem;
-      if (data && data.subTotal !== undefined) data.subtotal = data.subTotal;
-      if (data && data.id !== undefined) data.cartId = data.id;
-      
-      // Ensure it's not undefined
-      if (data && typeof data === 'object') {
-        data.cartItems = data.cartItems || [];
-      }
-      
-      return data as CartApi;
+      const data = await response.json();
+      return this.extractCartData(data);
     } catch (error) {
-      console.error(' Failed to fetch cart:', error);
-      return null;
+      console.error('❌ Failed to fetch cart:', error);
+      throw error;
     }
   }
 
   /**
    * Thêm sản phẩm vào giỏ hàng
-   * POST /api/cart/add
    */
   async addToCart(request: AddToCartRequest): Promise<boolean> {
     try {
-      console.log(' Adding to cart:', request);
-      const response = await fetch(`${API_BASE_URL}/cart/add`, {
+      console.log('➕ Adding to cart:', request);
+      
+      // Try POST /api/cart first
+      let response = await fetch(`${API_BASE_URL}/cart`, {
         method: 'POST',
-        headers: this.getHeaders(),
+        headers: this.getHeaders('POST'),
         body: JSON.stringify(request),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      // If 405 or 404, try /api/cart/items
+      if (response.status === 405 || response.status === 404) {
+        console.log(`⚠️ /api/cart (POST) returned ${response.status}, trying /api/cart/items...`);
+        response = await fetch(`${API_BASE_URL}/cart/items`, {
+          method: 'POST',
+          headers: this.getHeaders('POST'),
+          body: JSON.stringify(request),
+        });
       }
 
-      const text = await response.text();
-      let data: any = null;
-      try { data = text ? JSON.parse(text) : null; } catch(e) {}
-      console.log(' Add to cart response:', data);
-      
-      if (data && data.isSuccess !== undefined) {
-        return data.isSuccess;
+      // Final fallback to /api/cart/add
+      if (response.status === 405 || response.status === 404) {
+        console.log(`⚠️ /api/cart/items (POST) returned ${response.status}, trying /api/cart/add...`);
+        response = await fetch(`${API_BASE_URL}/cart/add`, {
+          method: 'POST',
+          headers: this.getHeaders('POST'),
+          body: JSON.stringify(request),
+        });
       }
-      
-      return response.ok;
+
+      if (!response.ok) {
+        let errorData: any = {};
+        const errorText = await response.text().catch(() => '');
+        try {
+          if (errorText) errorData = JSON.parse(errorText);
+        } catch {
+          // ignore parsing error
+        }
+        console.error(`❌ Add to Cart API Error (Status: ${response.status}):`, errorText);
+        throw new Error(errorData?.errorMessages?.[0] || `Thêm vào giỏ hàng thất bại (Lỗi ${response.status})`);
+      }
+
+      const data = await response.json().catch(() => ({}));
+      return !!(data.isSuccess || data.isSucceeded || data.statusCode === 'OK' || response.ok);
     } catch (error) {
-      console.error(' Failed to add to cart:', error);
-      return false;
+      console.error('❌ Failed to add to cart:', error);
+      throw error;
     }
   }
 
   /**
-   * Cập nhật số lượng item trong giỏ
-   * PUT /api/cart/items
+   * Cập nhật số lượng item
    */
   async updateCartItem(request: UpdateCartItemRequest): Promise<boolean> {
     try {
-      console.log(' Updating cart item:', request);
-      const response = await fetch(`${API_BASE_URL}/cart/items`, {
+      console.log('📝 Updating cart item:', request);
+      
+      // Try PUT /api/cart first
+      let response = await fetch(`${API_BASE_URL}/cart`, {
         method: 'PUT',
-        headers: this.getHeaders(),
-        body: JSON.stringify(request),
+        headers: this.getHeaders('PUT'),
+        body: JSON.stringify({
+          itemId: request.cartItemId,
+          quantity: request.quantity
+        }),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (response.status === 405 || response.status === 404) {
+        response = await fetch(`${API_BASE_URL}/cart/items`, {
+          method: 'PUT',
+          headers: this.getHeaders('PUT'),
+          body: JSON.stringify({
+            itemId: request.cartItemId,
+            quantity: request.quantity
+          }),
+        });
       }
 
-      const text = await response.text();
-      let data: any = null;
-      try { data = text ? JSON.parse(text) : null; } catch(e) {}
-      console.log(' Update cart response:', data);
-      
-      if (data && data.isSuccess !== undefined) {
-        return data.isSuccess;
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.errorMessages?.[0] || `HTTP error! status: ${response.status}`);
       }
-      return response.ok;
+
+      const data = await response.json();
+      return !!(data.isSuccess || data.isSucceeded || data.statusCode === 'OK' || response.ok);
     } catch (error) {
-      console.error(' Failed to update cart item:', error);
-      return false;
+      console.error('❌ Failed to update cart item:', error);
+      throw error;
     }
   }
 
   /**
    * Xóa item khỏi giỏ hàng
-   * DELETE /api/cart/items?itemId={id}
-   * Note: Response has 'cartItemId' but endpoint expects 'itemId' parameter
    */
   async removeCartItem(cartItemId: number): Promise<boolean> {
     try {
       console.log('🗑️ Removing cart item:', cartItemId);
-      const response = await fetch(`${API_BASE_URL}/cart/items?itemId=${cartItemId}`, {
+      
+      // Try DELETE /api/cart?itemId=
+      let response = await fetch(`${API_BASE_URL}/cart?itemId=${cartItemId}`, {
         method: 'DELETE',
-        headers: this.getHeaders(),
+        headers: this.getHeaders('DELETE'),
       });
 
+      if (response.status === 405 || response.status === 404) {
+        response = await fetch(`${API_BASE_URL}/cart/items?itemId=${cartItemId}`, {
+          method: 'DELETE',
+          headers: this.getHeaders('DELETE'),
+        });
+      }
+
       if (!response.ok) {
-        // Don't log 404 as error - item might already be deleted
-        if (response.status === 404) {
-          console.log('⚠️ Cart item not found (404)');
-        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const text = await response.text();
-      let data: any = null;
-      try { data = text ? JSON.parse(text) : null; } catch(e) {}
-      console.log('✅ Remove item response:', data);
-      
-      if (data && data.isSuccess !== undefined) {
-        return data.isSuccess;
-      }
-      return response.ok;
+      const data = await response.json().catch(() => ({}));
+      return !!(data.isSuccess || data.isSucceeded || data.statusCode === 'OK' || response.ok);
     } catch (error) {
-      // Only log non-404 errors
-      if (!(error instanceof Error && error.message.includes('404'))) {
-        console.error('💥 Failed to remove cart item:', error);
-      }
-      throw error; // Re-throw to let component handle it
+      console.error('❌ Failed to remove cart item:', error);
+      throw error;
     }
   }
 
   /**
    * Xóa toàn bộ giỏ hàng
-   * DELETE /api/cart/clear
    */
   async clearCart(): Promise<boolean> {
     try {
-      console.log(' Clearing cart...');
-      const response = await fetch(`${API_BASE_URL}/cart/clear`, {
+      console.log('🧹 Clearing cart...');
+      
+      let response = await fetch(`${API_BASE_URL}/cart`, {
         method: 'DELETE',
-        headers: this.getHeaders(),
+        headers: this.getHeaders('DELETE'),
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+      if (response.status === 405 || response.status === 404) {
+        response = await fetch(`${API_BASE_URL}/cart/items`, {
+          method: 'DELETE',
+          headers: this.getHeaders('DELETE'),
+        });
       }
 
-      const text = await response.text();
-      let data: any = null;
-      try { data = text ? JSON.parse(text) : null; } catch(e) {}
-      console.log(' Clear cart response:', data);
-      
-      if (data && data.isSuccess !== undefined) {
-        return data.isSuccess;
-      }
       return response.ok;
     } catch (error) {
-      console.error(' Failed to clear cart:', error);
+      console.error('❌ Failed to clear cart:', error);
       return false;
     }
   }
@@ -271,7 +329,6 @@ class CartService {
       return { subtotal: 0, shipping: 0, tax: 0, total: 0 };
     }
 
-    // Dùng subtotal từ API thay vì tính lại
     const subtotal = cart.subtotal || cart.cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
     const shipping = subtotal > 0 ? 50000 : 0;
     const tax = Math.round(subtotal * 0.1);
