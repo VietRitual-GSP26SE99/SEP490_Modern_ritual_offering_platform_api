@@ -1096,24 +1096,26 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                     </button>
 
                     {item.submenu && (
-                      <div className={`absolute left-0 top-full mt-2 bg-white border border-gray-100 shadow-xl rounded-2xl overflow-hidden transition-all duration-200 z-50 ${openDropdown === item.label ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible pointer-events-none -translate-y-2'} ${item.submenu.length > 5 ? 'w-[600px] p-6' : 'w-56 p-2'}`}>
-                        <div className={`${item.submenu.length > 5 ? 'grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2' : 'flex flex-col'}`}>
-                          {item.submenu.map((submenuItem, idx) => (
-                            <button
-                              key={`${submenuItem.path}-${idx}`}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                onNavigate(submenuItem.path);
-                                setOpenDropdown(null);
-                              }}
-                              className={`w-full text-left text-sm text-slate-600 hover:bg-primary/5 hover:text-primary transition-colors rounded-xl font-medium ${item.submenu.length > 5 ? 'py-2 px-3 flex items-center gap-2' : 'py-3 px-4 mb-1 last:mb-0'}`}
-                            >
-                              {item.submenu && item.submenu.length > 5 && idx === 0 && (
-                                <span className="material-symbols-outlined text-primary text-base">apps</span>
-                              )}
-                              {submenuItem.label}
-                            </button>
-                          ))}
+                      <div className={`absolute left-0 top-full pt-2 z-50 transition-all duration-200 ${openDropdown === item.label ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible pointer-events-none -translate-y-2'}`}>
+                        <div className={`bg-white border border-gray-100 shadow-xl rounded-2xl overflow-hidden ${item.submenu.length > 5 ? 'w-[600px] p-6' : 'w-56 p-2'}`}>
+                          <div className={`${item.submenu.length > 5 ? 'grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2' : 'flex flex-col'}`}>
+                            {item.submenu.map((submenuItem, idx) => (
+                              <button
+                                key={`${submenuItem.path}-${idx}`}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  onNavigate(submenuItem.path);
+                                  setOpenDropdown(null);
+                                }}
+                                className={`w-full text-left text-sm text-slate-600 hover:bg-primary/5 hover:text-primary transition-colors rounded-xl font-medium ${item.submenu.length > 5 ? 'py-2 px-3 flex items-center gap-2' : 'py-3 px-4 mb-1 last:mb-0'}`}
+                              >
+                                {item.submenu && item.submenu.length > 5 && idx === 0 && (
+                                  <span className="material-symbols-outlined text-primary text-base">apps</span>
+                                )}
+                                {submenuItem.label}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       </div>
                     )}
