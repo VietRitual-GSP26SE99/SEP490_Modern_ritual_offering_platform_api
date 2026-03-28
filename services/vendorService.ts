@@ -10,6 +10,8 @@ export interface VendorProfile {
   shopAvatarUrl?: string | null;
   businessType?: string;
   shopAddressText?: string;
+  shopLatitude?: number;
+  shopLongitude?: number;
   ratingAvg?: number;
   dailyCapacity?: number;
   tierName?: string;

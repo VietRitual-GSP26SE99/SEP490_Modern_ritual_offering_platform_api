@@ -1620,15 +1620,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                   Quản lý
                 </button>
               )}
-              {!onLogout && !userName && (
-                <button
-                  onClick={() => onNavigate('/auth')}
-                  className="hidden md:flex items-center gap-2 px-4 py-2 rounded-lg border-2 border-primary text-primary font-bold text-sm hover:bg-primary/5 transition-all"
-                  title="Đăng nhập"
-                >
-                  <span className="hidden lg:inline">Đăng nhập</span>
-                </button>
-              )}
             </div>
           </div>
         </header>

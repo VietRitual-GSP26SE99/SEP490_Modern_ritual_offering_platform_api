@@ -1445,7 +1445,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
                             <td className="px-6 py-4 text-primary font-bold">{tier.commissionRate}%</td>
                             <td className="px-6 py-4 text-slate-600 font-medium">{tier.minCompletedOrders}</td>
                             <td className="px-6 py-4 text-slate-600 font-medium">{tier.minRevenueAmount} triệu</td>
-                            <td className="px-6 py-4 text-slate-600 font-medium">{tier.minRatingAvg} ⭐</td>
+                            <td className="px-6 py-4 text-slate-600 font-medium">{tier.minRatingAvg}</td>
                             <td className="px-6 py-4">
                               <span className={`px-2 py-1 rounded-md text-[10px] font-bold uppercase ${tier.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                                 }`}>

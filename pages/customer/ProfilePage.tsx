@@ -2471,7 +2471,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                 )}
                 {profile?.isVendor && profile?.ratingAvg > 0 && (
                   <span className="px-3 py-1 bg-yellow-100 text-yellow-700 text-xs font-bold uppercase rounded-lg">
-                    ⭐ {profile.ratingAvg.toFixed(1)}
+                    {profile.ratingAvg.toFixed(1)}
                   </span>
                 )}
               </div>
@@ -3230,7 +3230,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                             <div className="p-4 rounded-xl bg-gray-50 border border-gray-200">
                               <span className="text-xs font-bold uppercase text-slate-400">Đánh giá trung bình</span>
                               <p className="text-lg font-bold text-primary mt-1">
-                                ⭐ {profile?.ratingAvg.toFixed(1)}
+                                {profile?.ratingAvg.toFixed(1)}
                               </p>
                             </div>
                           )}
@@ -3278,7 +3278,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                             </div>
                             <div className="p-4 rounded-xl bg-gray-50 border border-gray-200">
                               <span className="text-xs font-bold uppercase text-slate-400">Đánh giá Shop</span>
-                              <p className="text-lg font-bold text-primary mt-1">⭐ {profile?.ratingAvg.toFixed(1)}</p>
+                              <p className="text-lg font-bold text-primary mt-1"> {profile?.ratingAvg.toFixed(1)}</p>
                             </div>
                           </div>
                         </div>

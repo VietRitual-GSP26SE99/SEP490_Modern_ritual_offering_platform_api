@@ -174,6 +174,11 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
       return;
     }
 
+    if (summary?.vendorOrders?.some((order: any) => order.shippingDistanceKm && order.shippingDistanceKm > 60)) {
+      toast.error('Khoảng cách giao hàng quá 60km. Vui lòng chọn địa chỉ giao hàng gần hơn hoặc chọn cửa hàng khác.');
+      return;
+    }
+
     // Validate 60h and 1 month limit
     const now = new Date();
     const [hours, minutes] = deliveryTimeSlot.split(':').map(Number);
@@ -313,6 +318,8 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
   if (!summary) {
     return null;
   }
+
+  const hasExceededDistance = summary.vendorOrders?.some((order: any) => order.shippingDistanceKm && order.shippingDistanceKm > 60) || false;
 
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-10 py-6 md:py-8 flex flex-col lg:flex-row gap-6 lg:gap-8">
@@ -575,7 +582,17 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
                 {(summary.totalAmount || (summary.subTotal || 0) + (summary.shippingFee || 0) - (summary.totalDiscount || 0)).toLocaleString()}đ
               </p>
             </div>
-            {(summary.totalHoldFee || 0) > 0 && (
+            
+            {hasExceededDistance && (
+              <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-2xl flex items-start gap-3">
+                <span className="material-symbols-outlined text-red-500 mt-0.5">error</span>
+                <p className="text-sm font-semibold text-red-700 leading-relaxed">
+                  Khoảng cách giao hàng quá 60km. Vui lòng chọn địa chỉ giao hàng gần hơn hoặc mua ở cửa hàng khác.
+                </p>
+              </div>
+            )}
+            
+            {(summary.totalHoldFee || 0) > 0 && !hasExceededDistance && (
               <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2">
                 <div className="flex-1">
                   <p className="text-xs text-amber-800 leading-relaxed">
@@ -608,8 +625,8 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
 
           <button
             onClick={handleCheckout}
-            disabled={processing || !deliveryDate}
-            className="w-full mt-10 bg-primary text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:-translate-y-1 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+            disabled={processing || !deliveryDate || hasExceededDistance}
+            className={`w-full mt-10 text-white py-5 rounded-2xl font-black uppercase tracking-widest shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0 ${hasExceededDistance ? 'bg-slate-400 shadow-none' : 'bg-primary shadow-primary/20 hover:-translate-y-1'}`}
           >
             {processing ? (
               <span className="flex items-center justify-center gap-2">

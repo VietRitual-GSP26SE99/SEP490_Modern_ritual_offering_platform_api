@@ -241,14 +241,14 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
     return { stars, count, percentage };
   });
 
-  const thumbnailImages = product?.gallery && product.gallery.length > 0 
-    ? product.gallery 
+  const thumbnailImages = product?.gallery && product.gallery.length > 0
+    ? product.gallery
     : [
-        'https://picsum.photos/400/400?random=1',
-        'https://picsum.photos/400/400?random=2',
-        'https://picsum.photos/400/400?random=3',
-        'https://picsum.photos/400/400?random=4',
-      ];
+      'https://picsum.photos/400/400?random=1',
+      'https://picsum.photos/400/400?random=2',
+      'https://picsum.photos/400/400?random=3',
+      'https://picsum.photos/400/400?random=4',
+    ];
 
   const productImages = Array.from(new Set([
     product?.image || '',
@@ -471,7 +471,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                 {product.variants?.[selectedVariantIndex]?.items?.map((item, idx) => (
                   <div key={idx} className="flex items-start gap-2.5 text-xs font-bold text-slate-700">
                     <span className="text-gold mt-0.5">
-                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd"/></svg>
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
                     </span>
                     <span className="leading-tight">{item}</span>
                   </div>
@@ -639,7 +639,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
               </div>
             ) : reviewsToDisplay.length === 0 ? (
               <div className="text-center py-12 bg-white rounded-3xl border border-gold/10">
-                <div className="text-6xl mb-4">⭐</div>
+                <div className="text-6xl mb-4"></div>
                 <p className="text-slate-500">Chưa có đánh giá nào cho gói lễ này.</p>
               </div>
             ) : (

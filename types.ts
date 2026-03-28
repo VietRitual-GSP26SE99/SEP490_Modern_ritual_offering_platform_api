@@ -28,6 +28,7 @@ export interface Product {
   variants?: ProductVariant[]; // UI variants
   vendorId?: string;
   vendorName?: string;
+  distanceKm?: number;
 }
 
 // API Types

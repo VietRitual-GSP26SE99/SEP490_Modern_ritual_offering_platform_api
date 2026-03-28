@@ -5,6 +5,8 @@ import { useSearchParams } from 'react-router-dom';
 import { packageService } from '../../services/packageService';
 import { cartService } from '../../services/cartService';
 import { getCurrentUser } from '../../services/auth';
+import { addressService } from '../../services/addressService';
+import { vendorService } from '../../services/vendorService';
 import toast from '../../services/toast';
 
 const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void }> = ({ onNavigate }) => {
@@ -29,7 +31,15 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [showAllCategories, setShowAllCategories] = useState(false);
+  const [showAllNearProducts, setShowAllNearProducts] = useState(false);
   const pageSize = 12;
+
+  const nearProductsThreshold = 60;
+  const allNearProducts = products
+    .filter(p => p.distanceKm !== undefined && p.distanceKm <= nearProductsThreshold)
+    .sort((a, b) => (a.distanceKm || 0) - (b.distanceKm || 0));
+  
+  const nearProducts = showAllNearProducts ? allNearProducts : allNearProducts.slice(0, 3);
 
   const getProductDetailPath = (rawId: string): string => {
     const numericId = Number(String(rawId).trim());
@@ -48,32 +58,69 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
       setLoading(true);
       try {
         console.log(' Starting to fetch data...');
-        
+
         // Fetch categories first
         const apiCategories = await packageService.getCeremonyCategories();
         console.log(' Received categories:', apiCategories);
         setCategories(apiCategories);
+
+        // Fetch user default address for distance sorting
+        let userLat: number | null = null;
+        let userLng: number | null = null;
+        if (getCurrentUser()) {
+          try {
+            const addresses = await addressService.getAddresses();
+            const defaultAddr = addresses.find(a => a.isDefault);
+            if (defaultAddr && defaultAddr.latitude && defaultAddr.longitude) {
+              userLat = defaultAddr.latitude;
+              userLng = defaultAddr.longitude;
+            }
+          } catch (e) {
+            console.warn('Could not fetch user address for distance sorting', e);
+          }
+        }
 
         const apiPackages = await packageService.getAllPackages();
         console.log(' Received packages:', apiPackages);
 
         if (apiPackages.length > 0) {
           const mappedProducts = await packageService.mapToProductsWithVendors(apiPackages);
-          
+
           // Update product categories based on dynamic names if possible
           // This ensures filtering works with the names from API
-          const enhancedProducts = mappedProducts.map(p => {
+          const enhancedProducts = await Promise.all(mappedProducts.map(async p => {
+            let distanceKm: number | undefined = undefined;
+
+            if (userLat !== null && userLng !== null && p.vendorId) {
+              try {
+                const vendor = await vendorService.getVendorCached(p.vendorId);
+                if (vendor && vendor.shopLatitude && vendor.shopLongitude) {
+                  const R = 6371; // km
+                  const dLat = (vendor.shopLatitude - userLat) * (Math.PI / 180);
+                  const dLon = (vendor.shopLongitude - userLng) * (Math.PI / 180);
+                  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                    Math.cos(userLat * (Math.PI / 180)) * Math.cos(vendor.shopLatitude * (Math.PI / 180)) *
+                    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+                  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+                  distanceKm = Math.round(R * c * 10) / 10;
+                }
+              } catch (e) {
+                // ignore
+              }
+            }
+
+            let categoryName = p.category as string;
             const apiPkg = apiPackages.find(pkg => String(pkg.packageId) === String(p.id) || String((pkg as any).id) === String(p.id));
             if (apiPkg && apiPkg.categoryId) {
               const categoryObj = apiCategories.find(c => c.categoryId === apiPkg.categoryId);
               if (categoryObj) {
-                return { ...p, category: categoryObj.name };
+                categoryName = categoryObj.name;
               }
             }
-            return p;
-          });
+            return { ...p, category: categoryName as Occasion, distanceKm };
+          }));
 
-          console.log(' Mapped products with dynamic categories:', enhancedProducts);
+          console.log(' Mapped products with dynamic categories and distance:', enhancedProducts);
           setProducts(enhancedProducts);
         } else {
           setProducts([]);
@@ -151,14 +198,105 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
   }).sort((a, b) => {
     if (sortBy === 'price-asc') return a.price - b.price;
     if (sortBy === 'price-desc') return b.price - a.price;
-    // Popularity logic: totalSold > Rating > Reviews
-    if ((b.totalSold || 0) !== (a.totalSold || 0)) return (b.totalSold || 0) - (a.totalSold || 0);
-    if (b.rating !== a.rating) return b.rating - a.rating;
-    return b.reviews - a.reviews;
+
+    const distA = a.distanceKm ?? Infinity;
+    const distB = b.distanceKm ?? Infinity;
+
+    // Popular and closest vendors
+    if (sortBy === 'popular') {
+      if (distA !== Infinity || distB !== Infinity) {
+        if (distA !== distB) return distA - distB;
+      }
+
+      // Popularity logic fallback: totalSold > Rating > Reviews
+      if ((b.totalSold || 0) !== (a.totalSold || 0)) return (b.totalSold || 0) - (a.totalSold || 0);
+      if (b.rating !== a.rating) return b.rating - a.rating;
+      return b.reviews - a.reviews;
+    }
+
+    return 0;
   });
 
   const totalPages = Math.ceil(filteredProducts.length / pageSize);
-  const paginatedProducts = filteredProducts.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  // Tránh lặp lại sản phẩm đã hiện ở mục "Gần bạn" (loại bỏ tất cả sản phẩm thuộc nhóm này khỏi danh sách chung)
+  const isShowingNearSection = allNearProducts.length > 0 && activeFilter === 'All' && currentPage === 1 && !searchQuery;
+  const displayProducts = isShowingNearSection
+    ? filteredProducts.filter(p => !allNearProducts.some(near => near.id === p.id))
+    : filteredProducts;
+
+  const paginatedProducts = displayProducts.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const ProductCard: React.FC<{ product: Product }> = ({ product: p }) => (
+    <div
+      key={p.id}
+      className="bg-white rounded-[2rem] overflow-hidden shadow-sm hover:shadow-2xl transition-all duration-500 border border-gold/10 group flex flex-col h-full relative"
+    >
+      {p.distanceKm !== undefined && p.distanceKm <= nearProductsThreshold && (
+        <div className="absolute top-4 left-4 z-20 bg-green-500/90 backdrop-blur-md text-white px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 shadow-lg shadow-green-500/20">
+          <span className="material-symbols-outlined text-[14px]">near_me</span>
+          Gần bạn
+        </div>
+      )}
+      <div
+        className="relative w-full pt-[85%] md:pt-[95%] overflow-hidden cursor-pointer shrink-0"
+        onClick={() => handleNavigateToProductDetail(p.id)}
+      >
+        <img className="absolute top-0 left-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-1000 ease-out" src={p.image} alt={p.name} />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+      </div>
+      <div
+        className="p-4 md:p-6 cursor-pointer flex-1 flex flex-col"
+        onClick={() => handleNavigateToProductDetail(p.id)}
+      >
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-1.5">
+            <div className="flex text-gold">
+              {[...Array(5)].map((_, i) => (
+                <span key={i} className={`text-[10px] ${i < Math.floor(p.rating) ? 'text-gold' : 'text-slate-200'}`}>★</span>
+              ))}
+            </div>
+            <span className="text-[11px] font-black text-slate-400">({p.reviews})</span>
+          </div>
+          {p.totalSold !== undefined && p.totalSold > 0 && (
+            <span className="text-[10px] font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded-lg">
+              Đã bán {p.totalSold}
+            </span>
+          )}
+        </div>
+
+        <h3 className="text-base md:text-lg font-bold mb-2 group-hover:text-primary transition-colors leading-tight line-clamp-2 h-10 md:h-12">{p.name}</h3>
+
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <div className="w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center">
+              <span className="material-symbols-outlined text-[14px] text-primary">storefront</span>
+            </div>
+            <span className="font-bold text-slate-600 text-[11px] truncate max-w-[100px]">{p.vendorName}</span>
+          </div>
+          {p.distanceKm !== undefined && (
+            <div className="flex items-center gap-1 text-slate-400 bg-slate-50 px-2 py-1 rounded-lg">
+              <span className="material-symbols-outlined text-[12px]">distance</span>
+              <span className="text-[10px] font-bold">{p.distanceKm}km</span>
+            </div>
+          )}
+        </div>
+
+        <div className="pt-4 mt-auto border-t border-gold/5 flex items-center justify-between">
+          <div>
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Giá từ</p>
+            <p className="text-lg md:text-2xl font-black text-primary tracking-tight">{p.price.toLocaleString()}đ</p>
+          </div>
+          <button
+            className="w-10 h-10 md:w-12 md:h-12 bg-black text-white rounded-2xl hover:bg-primary transition-all duration-300 z-10 flex items-center justify-center group/btn shadow-lg shadow-black/5 hover:shadow-primary/20"
+            onClick={(e) => handleQuickAddToCart(p, e)}
+          >
+            <span className="material-symbols-outlined text-xl group-hover/btn:scale-110 transition-transform">add_shopping_cart</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   const handleQuickAddToCart = async (product: Product, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -209,7 +347,7 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
     <div className="max-w-7xl mx-auto px-6 md:px-10 py-16 flex flex-col lg:flex-row gap-12 relative">
       {/* Mobile Filter Toggle */}
       <div className="lg:hidden flex items-center justify-between mb-2">
-        <button 
+        <button
           onClick={() => setIsFilterOpen(!isFilterOpen)}
           className="flex items-center gap-2 px-5 py-3 bg-white border border-primary/20 text-primary rounded-2xl text-sm font-bold shadow-sm hover:bg-primary/5 active:scale-95 transition-all"
         >
@@ -224,42 +362,42 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
             <h3 className="text-lg font-bold text-primary mb-6">
               Bộ lọc
             </h3>
-              <div className="space-y-2">
+            <div className="space-y-2">
+              <button
+                onClick={() => setActiveFilter('All')}
+                className={`w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold transition-all duration-300 ease-out hover:scale-[1.02] active:scale-[0.98] ${activeFilter === 'All'
+                  ? 'border-2 border-primary bg-primary/5 text-primary shadow-md'
+                  : 'text-slate-600 hover:bg-gold/10 hover:pl-7'
+                  }`}
+              >
+                Tất cả dịp lễ
+              </button>
+              {categories.filter(c => c.isActive).slice(0, showAllCategories ? undefined : 6).map((cat) => (
                 <button
-                  onClick={() => setActiveFilter('All')}
-                  className={`w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold transition-all duration-300 ease-out hover:scale-[1.02] active:scale-[0.98] ${activeFilter === 'All' 
-                    ? 'border-2 border-primary bg-primary/5 text-primary shadow-md' 
+                  key={cat.categoryId}
+                  onClick={() => {
+                    setActiveFilter(cat.name);
+                  }}
+                  className={`w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold transition-all duration-300 ease-out hover:scale-[1.02] active:scale-[0.98] ${activeFilter === cat.name
+                    ? 'border-2 border-primary bg-primary/5 text-primary shadow-md'
                     : 'text-slate-600 hover:bg-gold/10 hover:pl-7'
                     }`}
                 >
-                  Tất cả dịp lễ
+                  {cat.name}
                 </button>
-                {categories.filter(c => c.isActive).slice(0, showAllCategories ? undefined : 6).map((cat) => (
-                  <button
-                    key={cat.categoryId}
-                    onClick={() => {
-                      setActiveFilter(cat.name);
-                    }}
-                    className={`w-full text-left px-5 py-3.5 rounded-2xl text-sm font-bold transition-all duration-300 ease-out hover:scale-[1.02] active:scale-[0.98] ${activeFilter === cat.name 
-                      ? 'border-2 border-primary bg-primary/5 text-primary shadow-md' 
-                      : 'text-slate-600 hover:bg-gold/10 hover:pl-7'
-                      }`}
-                  >
-                    {cat.name}
-                  </button>
-                ))}
-                {categories.filter(c => c.isActive).length > 6 && (
-                  <button
-                    onClick={() => setShowAllCategories(!showAllCategories)}
-                    className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-sm font-bold text-slate-500 hover:text-primary hover:bg-gold/10 transition-all duration-300"
-                  >
-                    <span className="material-symbols-outlined text-sm">
-                      {showAllCategories ? 'remove' : 'add'}
-                    </span>
-                    {showAllCategories ? 'Thu gọn' : 'Xem thêm'}
-                  </button>
-                )}
-              </div>
+              ))}
+              {categories.filter(c => c.isActive).length > 6 && (
+                <button
+                  onClick={() => setShowAllCategories(!showAllCategories)}
+                  className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-2xl text-sm font-bold text-slate-500 hover:text-primary hover:bg-gold/10 transition-all duration-300"
+                >
+                  <span className="material-symbols-outlined text-sm">
+                    {showAllCategories ? 'remove' : 'add'}
+                  </span>
+                  {showAllCategories ? 'Thu gọn' : 'Xem thêm'}
+                </button>
+              )}
+            </div>
           </div>
 
           <div className="pt-8 border-t border-gold/10">
@@ -379,109 +517,105 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
         </div>
       </aside>
 
-      <section className="flex-1 space-y-8">
+      <section className="flex-1 space-y-12">
         {loading ? (
           <div className="flex items-center justify-center py-24">
             <div className="text-center">
               <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-primary border-t-transparent mb-4"></div>
-              <p className="text-slate-600 font-semibold">Đang tải sản phẩm...</p>
+              <p className="text-slate-600 font-semibold text-lg">Đang tìm mâm cúng tinh hoa...</p>
             </div>
           </div>
         ) : (
           <>
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8 bg-white p-6 rounded-2xl border border-gold/10">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-4 w-full">
-                <h2 className="text-xl font-bold text-slate-900 hidden sm:block">Danh sách ({filteredProducts.length})</h2>
-                <div className="relative flex-1">
+            {/* Near Products Banner/Session */}
+            {nearProducts.length > 0 && activeFilter === 'All' && currentPage === 1 && !searchQuery && (
+              <div className="space-y-6">
+                <div className="flex items-end justify-between px-2">
+                  <div>
+                    <div className="flex items-center gap-2 text-green-600 font-black text-[10px] uppercase tracking-[0.2em] mb-2">
+                      <span className="w-8 h-[2px] bg-green-500"></span>
+                      <span>Dành riêng cho bạn</span>
+                    </div>
+                    <h2 className="text-3xl font-black text-slate-900 tracking-tight">Mâm cúng <span className="text-primary italic">gần bạn nhất</span></h2>
+                  </div>
+                  {allNearProducts.length > 3 && (
+                    <button
+                      onClick={() => setShowAllNearProducts(!showAllNearProducts)}
+                      className="group flex items-center gap-2 px-5 py-2.5 bg-white border border-gold/10 text-slate-600 rounded-2xl text-xs font-black uppercase tracking-widest shadow-sm hover:bg-primary hover:text-white hover:border-primary transition-all duration-300"
+                    >
+                      <span>{showAllNearProducts ? 'Thu gọn' : `Xem thêm (${allNearProducts.length - 3})`}</span>
+                      <span className="material-symbols-outlined text-sm group-hover:rotate-180 transition-transform duration-500">
+                        {showAllNearProducts ? 'expand_less' : 'expand_more'}
+                      </span>
+                    </button>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                  {nearProducts.map(p => (
+                    <ProductCard key={`near-${p.id}`} product={p} />
+                  ))}
+                </div>
+
+                <div className="h-[2px] w-full bg-gradient-to-r from-transparent via-gold/10 to-transparent my-12" />
+              </div>
+            )}
+
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6 mb-8 bg-white p-6 md:p-8 rounded-[2.5rem] border border-gold/10 shadow-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-6 w-full">
+                <div className="shrink-0 hidden sm:block">
+                  <h2 className="text-2xl font-black text-slate-900 tracking-tight">Tất cả</h2>
+                  <p className="text-slate-400 text-[11px] font-black uppercase tracking-widest">{filteredProducts.length} sản phẩm</p>
+                </div>
+                <div className="relative flex-1 group">
                   <input
                     type="text"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Tìm theo tên sản phẩm, cửa hàng..."
-                    className="w-full rounded-2xl border border-slate-200 bg-gray-50/50 py-3 pl-11 pr-4 text-sm text-slate-700 placeholder:text-slate-400 focus:border-primary focus:outline-none focus:ring-4 focus:ring-primary/10 transition-all"
+                    placeholder="Tìm theo mâm cúng, dịp lễ, cửa hàng..."
+                    className="w-full rounded-[2rem] border-2 border-slate-100 bg-gray-50/50 py-4 pl-14 pr-6 text-sm text-slate-700 placeholder:text-slate-400 focus:border-primary focus:bg-white focus:outline-none focus:ring-8 focus:ring-primary/5 transition-all duration-300"
                   />
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                  <span className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-primary transition-colors">
+                    <span className="material-symbols-outlined text-2xl">search</span>
                   </span>
                 </div>
               </div>
-              <div className="flex items-center justify-between sm:justify-end gap-4 w-full lg:w-auto">
-                <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sắp xếp:</span>
+              <div className="flex items-center justify-between sm:justify-end gap-6 w-full lg:w-auto pt-4 lg:pt-0 border-t lg:border-t-0 border-slate-100">
+                <div className="flex items-center gap-3">
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Sắp xếp</span>
                   <select
-                    className="bg-gray-50 border-none rounded-xl text-xs font-bold focus:ring-primary py-2 px-3 pr-8"
+                    className="bg-gray-50 hover:bg-white border-2 border-slate-100 rounded-2xl text-[12px] font-black focus:ring-8 focus:ring-primary/5 focus:border-primary py-2.5 px-4 pr-10 transition-all cursor-pointer"
                     value={sortBy}
                     onChange={(e) => setSortBy(e.target.value)}
                   >
-                    <option value="popular">Phổ biến</option>
-                    <option value="price-asc">Giá: Thấp-Cao</option>
-                    <option value="price-desc">Giá: Cao-Thấp</option>
+                    <option value="popular">Phổ biến nhất</option>
+                    <option value="price-asc">Giá: Thấp đến Cao</option>
+                    <option value="price-desc">Giá: Cao đến Thấp</option>
                   </select>
                 </div>
-                <span className="sm:hidden text-xs font-bold text-slate-400 tracking-tight">({filteredProducts.length}) sp</span>
               </div>
             </div>
 
             {filteredProducts.length === 0 && (
-              <div className="bg-white border border-gold/10 rounded-2xl p-10 text-center text-slate-500">
-                Không tìm thấy sản phẩm phù hợp với từ khóa hoặc bộ lọc hiện tại.
+              <div className="bg-white border-2 border-dashed border-gold/20 rounded-[3rem] p-20 text-center">
+                <div className="w-20 h-20 bg-gold/5 rounded-full flex items-center justify-center mx-auto mb-6">
+                  <span className="material-symbols-outlined text-4xl text-gold/40">sentiment_dissatisfied</span>
+                </div>
+                <h3 className="text-xl font-bold text-slate-800 mb-2">Không tìm thấy sản phẩm</h3>
+                <p className="text-slate-500 max-w-xs mx-auto text-sm leading-relaxed">Chúng tôi chưa có sản phẩm nào phùers hợp với tiêu chí của bạn. Hãy thử thay đổi bộ lọc.</p>
               </div>
             )}
 
-            <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-3 gap-3 md:gap-8">
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-8">
               {paginatedProducts.map((p) => (
-                <div
-                  key={p.id}
-                  className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-2xl transition-all border border-gold/10 group flex flex-col h-full"
-                >
-                  <div
-                    className="relative w-full pt-[85%] md:pt-[100%] overflow-hidden cursor-pointer shrink-0"
-                    onClick={() => handleNavigateToProductDetail(p.id)}
-                  >
-                    <img className="absolute top-0 left-0 w-full h-full object-cover group-hover:scale-110 transition-transform duration-700" src={p.image} alt={p.name} />
-                  </div>
-                  <div
-                    className="p-3 md:p-6 cursor-pointer flex-1 flex flex-col"
-                    onClick={() => handleNavigateToProductDetail(p.id)}
-                  >
-                    <div className="flex items-center justify-between mb-1 md:mb-2">
-                      <div className="flex items-center gap-1 text-gold">
-                        <span className="text-xs" style={{ color: '#FFD700' }}>★</span>
-                        <span className="text-[10px] md:text-xs font-bold">{p.rating}</span>
-                        <span className="text-[8px] md:text-[10px] text-slate-400 ml-0.5">({p.reviews})</span>
-                      </div>
-                      {p.totalSold !== undefined && p.totalSold > 0 && (
-                        <span className="hidden md:inline-block text-[10px] font-medium text-slate-500 bg-slate-100 px-2 py-0.5 rounded-full">
-                          Đã bán {p.totalSold}
-                        </span>
-                      )}
-                    </div>
-                    <h3 className="text-sm md:text-lg font-bold mb-1 md:mb-2 group-hover:text-primary transition-colors leading-tight line-clamp-2">{p.name}</h3>
-                    {p.vendorName && (
-                      <p className="text-[10px] md:text-xs text-slate-600 mb-2 flex items-center gap-1">
-                        <span className="text-slate-400 hidden md:inline">bởi</span>
-                        <span className="font-semibold text-primary truncate max-w-[80px] md:max-w-none">{p.vendorName}</span>
-                      </p>
-                    )}
-                    {/* <p className="text-slate-500 text-xs line-clamp-2 mb-6">{p.description}</p> */}
-                    <div className="pt-2 md:pt-4 mt-auto border-t border-gold/10 flex items-center justify-between">
-                      <p className="text-sm md:text-xl font-black text-primary tracking-tight">{p.price.toLocaleString()}đ</p>
-                      <button
-                        className="bg-primary text-white p-1.5 md:p-2.5 rounded-lg md:rounded-xl hover:scale-105 transition-transform z-10"
-                        onClick={(e) => handleQuickAddToCart(p, e)}
-                      >
-                        <span className="material-symbols-outlined text-xs md:text-base">add_shopping_cart</span>
-                      </button>
-                    </div>
-                  </div>
-                </div>
+                <ProductCard key={p.id} product={p} />
               ))}
             </div>
 
             {/* Pagination Controls */}
             {totalPages > 1 && (
               <div className="flex items-center justify-center gap-2 mt-12 pb-10">
-                <button 
+                <button
                   disabled={currentPage === 1}
                   onClick={() => setCurrentPage(prev => prev - 1)}
                   className={`w-10 h-10 rounded-xl flex items-center justify-center border border-gold/20 transition-all ${currentPage === 1 ? 'opacity-30 cursor-not-allowed' : 'hover:bg-primary hover:text-white active:scale-95'}`}
@@ -489,17 +623,17 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
                   <span className="material-symbols-outlined">chevron_left</span>
                 </button>
                 {[...Array(totalPages)].map((_, i) => (
-                  <button 
+                  <button
                     key={i}
                     onClick={() => setCurrentPage(i + 1)}
-                    className={`w-10 h-10 rounded-xl font-bold transition-all ${currentPage === i + 1 
-                      ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-110' 
+                    className={`w-10 h-10 rounded-xl font-bold transition-all ${currentPage === i + 1
+                      ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-110'
                       : 'hover:bg-primary/5 text-slate-600 active:scale-95'}`}
                   >
                     {i + 1}
                   </button>
                 ))}
-                <button 
+                <button
                   disabled={currentPage === totalPages}
                   onClick={() => setCurrentPage(prev => prev + 1)}
                   className={`w-10 h-10 rounded-xl flex items-center justify-center border border-gold/20 transition-all ${currentPage === totalPages ? 'opacity-30 cursor-not-allowed' : 'hover:bg-primary hover:text-white active:scale-95'}`}
