@@ -121,10 +121,24 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
           toast.error('Không thể tải thông tin thanh toán');
           navigate('/cart');
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('❌ Failed to fetch checkout summary:', error);
-        toast.error('Đã xảy ra lỗi');
-        navigate('/cart');
+        const originalMsg = error.message || '';
+        const lowerMsg = originalMsg.toLowerCase();
+        
+        if (lowerMsg.includes('vượt quá') || lowerMsg.includes('phạm vi') || lowerMsg.includes('giao hàng') || lowerMsg.includes('distance')) {
+          toast.message({
+            title: 'Không thể giao hàng',
+            text: originalMsg || 'Khoảng cách giao hàng vượt quá giới hạn cho phép của các cửa hàng.',
+            icon: 'error',
+            confirmButtonText: 'Quay lại giỏ hàng'
+          });
+        } else {
+          toast.error(originalMsg || 'Đã xảy ra lỗi');
+        }
+        
+        // Delay navigation slightly more to allow the user to read/see the modal
+        setTimeout(() => navigate('/cart'), 1500);
       } finally {
         setLoading(false);
       }
@@ -156,8 +170,16 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
       } else {
         toast.error('Không thể thay đổi địa chỉ');
       }
-    } catch (err) {
-      toast.error('Lỗi khi thay đổi địa chỉ');
+    } catch (error: any) {
+      console.error('❌ Failed to select address:', error);
+      const originalMsg = error.message || '';
+      const lowerMsg = originalMsg.toLowerCase();
+      
+      if (lowerMsg.includes('phạm vi') || lowerMsg.includes('giao hàng') || lowerMsg.includes('vượt quá') || lowerMsg.includes('distance')) {
+        toast.error('Không thể giao hàng');
+      } else {
+        toast.error('Lỗi khi thay đổi địa chỉ');
+      }
     } finally {
       setSelectingAddress(false);
     }
@@ -294,10 +316,15 @@ const CheckoutPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavi
         return;
       }
 
-      if (error.message?.includes('500')) {
+      const originalMsg = error.message || '';
+      const lowerMsg = originalMsg.toLowerCase();
+      
+      if (lowerMsg.includes('phạm vi') || lowerMsg.includes('giao hàng') || lowerMsg.includes('vượt quá') || lowerMsg.includes('distance')) {
+        toast.error('Không thể giao hàng');
+      } else if (error.message?.includes('500')) {
         toast.error('Lỗi hệ thống. Vui lòng đảm bảo đã cập nhật đầy đủ thông tin tài khoản (Địa chỉ, SĐT) và thử lại sau.');
       } else {
-        toast.error(error.message || 'Đã xảy ra lỗi khi thanh toán. Vui lòng thử lại.');
+        toast.error(originalMsg || 'Đã xảy ra lỗi khi thanh toán. Vui lòng thử lại.');
       }
     } finally {
       setProcessing(false);

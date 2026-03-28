@@ -102,13 +102,26 @@ class CheckoutService {
       });
 
       if (!response.ok) {
-        let errorText = '';
-        try {
-          errorText = await response.text();
-        } catch {
-          // ignore
-        }
+        const errorText = await response.text();
         console.error('❌ Checkout summary error:', response.status, errorText);
+        
+        try {
+          const errorJson = JSON.parse(errorText);
+          if (errorJson.errorMessages && errorJson.errorMessages.length > 0) {
+            throw new Error(errorJson.errorMessages[0]);
+          }
+          if (errorJson.message) {
+            throw new Error(errorJson.message);
+          }
+        } catch (e: any) {
+          if (e.message && (e.message.toLowerCase().includes('json') || e.message.toLowerCase().includes('token'))) {
+            // This was a JSON parse error, proceed to throw generic error
+          } else {
+            // This was our deliberate 'throw new Error(...)' or another real error
+            throw e;
+          }
+        }
+        
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
@@ -274,7 +287,7 @@ class CheckoutService {
       }
     } catch (error) {
       console.error(' Failed to fetch checkout summary:', error);
-      return null;
+      throw error;
     }
   }
 

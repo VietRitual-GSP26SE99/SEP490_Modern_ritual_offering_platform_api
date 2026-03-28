@@ -270,14 +270,31 @@ class CartService {
     try {
       console.log('🗑️ Removing cart item:', cartItemId);
       
-      // Try DELETE /api/cart?itemId=
-      let response = await fetch(`${API_BASE_URL}/cart?itemId=${cartItemId}`, {
+      // Try standard REST style first: DELETE /api/cart/items/{id}
+      let response = await fetch(`${API_BASE_URL}/cart/items/${cartItemId}`, {
         method: 'DELETE',
         headers: this.getHeaders('DELETE'),
       });
 
+      // Try DELETE /api/cart/{id}
+      if (response.status === 405 || response.status === 404) {
+        response = await fetch(`${API_BASE_URL}/cart/${cartItemId}`, {
+          method: 'DELETE',
+          headers: this.getHeaders('DELETE'),
+        });
+      }
+
+      // Try query param style: DELETE /api/cart/items?itemId=
       if (response.status === 405 || response.status === 404) {
         response = await fetch(`${API_BASE_URL}/cart/items?itemId=${cartItemId}`, {
+          method: 'DELETE',
+          headers: this.getHeaders('DELETE'),
+        });
+      }
+
+      // Try DELETE /api/cart?itemId=
+      if (response.status === 405 || response.status === 404) {
+        response = await fetch(`${API_BASE_URL}/cart?itemId=${cartItemId}`, {
           method: 'DELETE',
           headers: this.getHeaders('DELETE'),
         });
@@ -302,11 +319,29 @@ class CartService {
     try {
       console.log('🧹 Clearing cart...');
       
-      let response = await fetch(`${API_BASE_URL}/cart`, {
+      // Try DELETE /api/cart/clear (based on Swagger)
+      let response = await fetch(`${API_BASE_URL}/cart/clear`, {
         method: 'DELETE',
         headers: this.getHeaders('DELETE'),
       });
 
+      // Try DELETE /api/cart/items/clear
+      if (response.status === 405 || response.status === 404) {
+        response = await fetch(`${API_BASE_URL}/cart/items/clear`, {
+          method: 'DELETE',
+          headers: this.getHeaders('DELETE'),
+        });
+      }
+
+      // Try POST /api/cart/clear
+      if (response.status === 405 || response.status === 404) {
+        response = await fetch(`${API_BASE_URL}/cart/clear`, {
+          method: 'POST',
+          headers: this.getHeaders('POST'),
+        });
+      }
+
+      // Try DELETE /api/cart/items
       if (response.status === 405 || response.status === 404) {
         response = await fetch(`${API_BASE_URL}/cart/items`, {
           method: 'DELETE',

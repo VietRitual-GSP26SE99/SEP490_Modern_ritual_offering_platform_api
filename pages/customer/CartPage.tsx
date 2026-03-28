@@ -43,12 +43,20 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
 
         // Fetch checkout summary for accurate pricing
         if (cartData && cartData.cartItems && cartData.cartItems.length > 0) {
-          console.log('💰 Fetching checkout summary...');
-          const cartItemIds = cartData.cartItems.map(item => item.cartItemId);
-          const summary = await checkoutService.getSummary(cartItemIds);
-          if (summary) {
-            setCheckoutSummary(summary);
-            console.log('✅ Checkout summary loaded:', summary);
+          try {
+            console.log('💰 Fetching checkout summary...');
+            const cartItemIds = cartData.cartItems.map(item => item.cartItemId);
+            const summary = await checkoutService.getSummary(cartItemIds);
+            if (summary) {
+              setCheckoutSummary(summary);
+              console.log('✅ Checkout summary loaded:', summary);
+            }
+          } catch (summaryError: any) {
+            console.warn('⚠️ Failed to fetch checkout summary for cart:', summaryError);
+            const lowerMsg = (summaryError.message || '').toLowerCase();
+            if (lowerMsg.includes('vượt quá') || lowerMsg.includes('phạm vi') || lowerMsg.includes('giao hàng') || lowerMsg.includes('distance')) {
+              toast.error('Có sản phẩm vượt quá khoảng cách giao hàng');
+            }
           }
         } else {
           setCheckoutSummary(null);
@@ -74,8 +82,12 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
         if (summary) {
           setCheckoutSummary(summary);
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('❌ Failed to refresh checkout summary:', error);
+        const lowerMsg = (error.message || '').toLowerCase();
+        if (lowerMsg.includes('vượt quá') || lowerMsg.includes('phạm vi') || lowerMsg.includes('giao hàng') || lowerMsg.includes('distance')) {
+          toast.error('Có sản phẩm vượt quá khoảng cách giao hàng');
+        }
       }
     } else {
       setCheckoutSummary(null);
