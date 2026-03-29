@@ -1,4 +1,5 @@
 import { ApiResponse } from '../types';
+import { getAuthToken } from './auth';
 
 const API_BASE_URL = '/api';
 export const DEFAULT_BANNER_IMAGE = 'https://images.unsplash.com/photo-1528459801416-a7e992795770?auto=format&fit=crop&q=80&w=2000';
@@ -46,7 +47,7 @@ class BannerService {
    */
   async getActiveBanners(vendorId?: string): Promise<ApiResponse<BannerResponse[]>> {
     try {
-      const token = localStorage.getItem('smart-child-token');
+      const token = getAuthToken();
       const headers: Record<string, string> = {
         'Accept': 'application/json',
       };
@@ -87,7 +88,7 @@ class BannerService {
    */
   async getAllBanners(): Promise<ApiResponse<BannerResponse[]>> {
     try {
-      const token = localStorage.getItem('smart-child-token');
+      const token = getAuthToken();
       const headers: Record<string, string> = {
         'Accept': 'application/json',
         'Authorization': `Bearer ${token}`
@@ -123,7 +124,7 @@ class BannerService {
    */
   async getBannerById(id: number): Promise<ApiResponse<BannerResponse>> {
     try {
-      const token = localStorage.getItem('smart-child-token');
+      const token = getAuthToken();
       const response = await fetch(`${API_BASE_URL}/banners/${id}`, {
         method: 'GET',
         headers: {
@@ -147,7 +148,7 @@ class BannerService {
    */
   async createBanner(formData: FormData): Promise<ApiResponse<BannerResponse>> {
     try {
-      const token = localStorage.getItem('smart-child-token');
+      const token = getAuthToken();
       const response = await fetch(`${API_BASE_URL}/banners`, {
         method: 'POST',
         headers: {
@@ -184,7 +185,7 @@ class BannerService {
    */
   async updateBanner(id: number, formData: FormData): Promise<ApiResponse<BannerResponse>> {
     try {
-      const token = localStorage.getItem('smart-child-token');
+      const token = getAuthToken();
       const response = await fetch(`${API_BASE_URL}/banners/${id}`, {
         method: 'PUT',
         headers: {
@@ -219,7 +220,7 @@ class BannerService {
    */
   async deleteBanner(id: number): Promise<ApiResponse<boolean>> {
     try {
-      const token = localStorage.getItem('smart-child-token');
+      const token = getAuthToken();
       const response = await fetch(`${API_BASE_URL}/banners/${id}`, {
         method: 'DELETE',
         headers: {
@@ -227,9 +228,144 @@ class BannerService {
           'Authorization': `Bearer ${token}`
         },
       });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        return { 
+          isSuccess: false, 
+          statusCode: response.status.toString(), 
+          errorMessages: errData.errorMessages || ['Lỗi khi xóa banner'], 
+          result: false 
+        };
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('❌ Delete failed:', error);
+      return { isSuccess: false, statusCode: '500', errorMessages: ['Lỗi kết nối khi xóa banner'], result: false };
+    }
+  }
+
+  /**
+   * Vendor lấy danh sách banner của mình
+   */
+  async getMyBanners(): Promise<ApiResponse<BannerResponse[]>> {
+    try {
+      const token = getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/banners/vendor/my-banners`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+      });
+
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      const data: ApiResponse<BannerResponse[]> = await response.json();
+      if (data.isSuccess && data.result) {
+        data.result = data.result.map(b => ({
+          ...b,
+          imageUrl: this.fixUrl(b.imageUrl)
+        }));
+      }
+      return data;
+    } catch (error) {
+      console.error('❌ Failed to fetch vendor banners:', error);
+      return { isSuccess: false, statusCode: '500', errorMessages: ['Không thể tải danh sách banner của bạn'], result: [] };
+    }
+  }
+
+  /**
+   * Vendor tạo banner mới
+   */
+  async createVendorBanner(formData: FormData): Promise<ApiResponse<BannerResponse>> {
+    try {
+      const token = getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/banners/vendor`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return { 
+          isSuccess: false, 
+          statusCode: response.status.toString(), 
+          errorMessages: errorData.errorMessages || ['Lỗi khi tạo banner'], 
+          result: undefined as any 
+        };
+      }
+
+      const data: ApiResponse<BannerResponse> = await response.json();
+      if (data.isSuccess && data.result) {
+        data.result.imageUrl = this.fixUrl(data.result.imageUrl);
+      }
+      return data;
+    } catch (error) {
+      return { isSuccess: false, statusCode: '500', errorMessages: ['Lỗi kết nối khi tạo banner'], result: undefined as any };
+    }
+  }
+
+  /**
+   * Vendor cập nhật banner
+   */
+  async updateVendorBanner(id: number, formData: FormData): Promise<ApiResponse<BannerResponse>> {
+    try {
+      const token = getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/banners/vendor/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return { 
+          isSuccess: false, 
+          statusCode: response.status.toString(), 
+          errorMessages: errorData.errorMessages || ['Lỗi khi cập nhật banner'], 
+          result: undefined as any 
+        };
+      }
+
+      const data: ApiResponse<BannerResponse> = await response.json();
+      if (data.isSuccess && data.result) {
+        data.result.imageUrl = this.fixUrl(data.result.imageUrl);
+      }
+      return data;
+    } catch (error) {
+      return { isSuccess: false, statusCode: '500', errorMessages: ['Lỗi kết nối khi cập nhật banner'], result: undefined as any };
+    }
+  }
+
+  /**
+   * Vendor xóa banner của mình
+   */
+  async deleteVendorBanner(id: number): Promise<ApiResponse<boolean>> {
+    try {
+      const token = getAuthToken();
+      const response = await fetch(`${API_BASE_URL}/banners/vendor/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+      });
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        return { isSuccess: false, statusCode: response.status.toString(), errorMessages: errData.errorMessages || ['Lỗi khi xóa banner'], result: false };
+      }
+
       return await response.json();
     } catch (error) {
-      return { isSuccess: false, statusCode: '500', errorMessages: ['Lỗi khi xóa banner'], result: false };
+      return { isSuccess: false, statusCode: '500', errorMessages: ['Lỗi kết nối khi xóa banner'], result: false };
     }
   }
 

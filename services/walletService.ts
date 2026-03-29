@@ -87,6 +87,8 @@ export interface WalletTransaction {
   balanceAfter?: number | null;
   walletId?: string;
   walletType?: string;
+  relatedTransactionId?: string | null;
+  relatedTransactions?: WalletTransaction[];
   raw?: Record<string, unknown>;
 }
 
@@ -211,6 +213,10 @@ function normalizeTransactionItem(item: unknown, index: number): WalletTransacti
     balanceAfter,
     walletId: walletId || undefined,
     walletType: walletType || undefined,
+    relatedTransactionId: String(readField(tx, ['relatedTransactionId', 'RelatedTransactionId'], '') || ''),
+    relatedTransactions: Array.isArray(tx.relatedTransactions || tx.RelatedTransactions)
+      ? ((tx.relatedTransactions || tx.RelatedTransactions) as any[]).map((rt: any, i: number) => normalizeTransactionItem(rt, i))
+      : undefined,
     raw: source,
   };
 }
@@ -629,7 +635,7 @@ export async function getMyTransactions(filter: TransactionFilter = {}): Promise
   return items.map((item, index) => normalizeTransactionItem(item, index));
 }
 
-export async function getTransactionById(id: string): Promise<WalletTransaction> {
+export async function getTransactionById(id: string, role: string = 'Customer'): Promise<WalletTransaction> {
   const token = getAuthToken();
   if (!token) {
     throw new Error('Bạn chưa đăng nhập.');
@@ -637,7 +643,7 @@ export async function getTransactionById(id: string): Promise<WalletTransaction>
 
   const safeId = encodeURIComponent(id);
 
-  const response = await fetch(`/api/transactions/${safeId}`, {
+  const response = await fetch(`/api/transactions/${safeId}?ActiveRole=${encodeURIComponent(role)}`, {
     method: 'GET',
     headers: {
       Accept: 'application/json',

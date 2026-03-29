@@ -18,156 +18,16 @@ interface SystemConfig {
 }
 
 const SystemSettings: React.FC<SystemSettingsProps> = ({ onNavigate, onLogout }) => {
-  const [activeCategory, setActiveCategory] = useState<'general' | 'payment' | 'delivery' | 'notification' | 'ceremony'>('general');
+  const [activeCategory, setActiveCategory] = useState<'general' | 'payment' | 'delivery' | 'notification' | 'ceremony'>('ceremony');
   const [editingConfig, setEditingConfig] = useState<SystemConfig | null>(null);
   const [ceremonyCategories, setCeremonyCategories] = useState<CeremonyCategory[]>([]);
   const [isCeremonyLoading, setIsCeremonyLoading] = useState(false);
   const [isCeremonyModalOpen, setIsCeremonyModalOpen] = useState(false);
   const [editingCeremony, setEditingCeremony] = useState<CeremonyCategory | null>(null);
 
-  const [configs, setConfigs] = useState<SystemConfig[]>([
-    // General Settings
-    {
-      id: 'GEN-001',
-      category: 'general',
-      name: 'Tên hệ thống',
-      value: 'Modern Ritual',
-      description: 'Tên hiển thị của nền tảng',
-      editable: true
-    },
-    {
-      id: 'GEN-002',
-      category: 'general',
-      name: 'Email hỗ trợ',
-      value: 'support@modernritual.com',
-      description: 'Email chính để khách hàng liên hệ',
-      editable: true
-    },
-    {
-      id: 'GEN-003',
-      category: 'general',
-      name: 'Hotline',
-      value: '1900-xxxx',
-      description: 'Số điện thoại hỗ trợ khách hàng',
-      editable: true
-    },
-    {
-      id: 'GEN-004',
-      category: 'general',
-      name: 'Bảo trì hệ thống',
-      value: false,
-      description: 'Bật/tắt chế độ bảo trì',
-      editable: true
-    },
-
-    // Payment Settings
-    {
-      id: 'PAY-001',
-      category: 'payment',
-      name: 'Thanh toán COD',
-      value: true,
-      description: 'Cho phép thanh toán khi nhận hàng',
-      editable: true
-    },
-    {
-      id: 'PAY-002',
-      category: 'payment',
-      name: 'Thanh toán chuyển khoản',
-      value: true,
-      description: 'Cho phép thanh toán qua chuyển khoản',
-      editable: true
-    },
-    {
-      id: 'PAY-003',
-      category: 'payment',
-      name: 'Thanh toán PayOS',
-      value: true,
-      description: 'Tích hợp cổng thanh toán PayOS',
-      editable: true
-    },
-    {
-      id: 'PAY-004',
-      category: 'payment',
-      name: 'Phí xử lý thanh toán (%)',
-      value: 2.5,
-      description: 'Phần trăm phí giao dịch',
-      editable: true
-    },
-
-    // Delivery Settings
-    {
-      id: 'DEL-001',
-      category: 'delivery',
-      name: 'Phí ship nội thành',
-      value: 30000,
-      description: 'Phí giao hàng trong nội thành (VNĐ)',
-      editable: true
-    },
-    {
-      id: 'DEL-002',
-      category: 'delivery',
-      name: 'Phí ship ngoại thành',
-      value: 50000,
-      description: 'Phí giao hàng ngoại thành (VNĐ)',
-      editable: true
-    },
-    {
-      id: 'DEL-003',
-      category: 'delivery',
-      name: 'Miễn phí ship từ',
-      value: 500000,
-      description: 'Giá trị đơn hàng để được miễn phí ship (VNĐ)',
-      editable: true
-    },
-    {
-      id: 'DEL-004',
-      category: 'delivery',
-      name: 'Giao hàng nhanh',
-      value: true,
-      description: 'Cho phép dịch vụ giao hàng nhanh',
-      editable: true
-    },
-
-    // Notification Settings
-    {
-      id: 'NOT-001',
-      category: 'notification',
-      name: 'Email đơn hàng mới',
-      value: true,
-      description: 'Gửi email khi có đơn hàng mới',
-      editable: true
-    },
-    {
-      id: 'NOT-002',
-      category: 'notification',
-      name: 'SMS xác nhận',
-      value: true,
-      description: 'Gửi SMS xác nhận đơn hàng',
-      editable: true
-    },
-    {
-      id: 'NOT-003',
-      category: 'notification',
-      name: 'Thông báo khuyến mãi',
-      value: true,
-      description: 'Gửi thông báo về chương trình khuyến mãi',
-      editable: true
-    },
-    {
-      id: 'NOT-004',
-      category: 'notification',
-      name: 'Nhắc nhở đánh giá',
-      value: false,
-      description: 'Nhắc khách hàng đánh giá sau khi mua',
-      editable: false
-    },
-  ]);
+  const [configs, setConfigs] = useState<SystemConfig[]>([]);
 
   const categories = [
-    // { id: 'general', label: 'Chung', icon: '' },
-    // { id: 'payment', label: 'Thanh toán', icon: '' },
-    // { id: 'delivery', label: 'Vận chuyển', icon: '' },
-    // { id: 'notification', label: 'Thông báo', icon: '' },
     { id: 'ceremony', label: 'Thể loại nghi lễ', icon: '' },
   ];
 

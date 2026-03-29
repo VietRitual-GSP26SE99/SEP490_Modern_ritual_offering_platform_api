@@ -450,13 +450,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
     if (isStaff) {
       return [
         { id: 'overview', label: 'Tổng quan', icon: 'dashboard', path: '/staff/dashboard' },
-        { id: 'customers', label: 'Khách hàng', icon: 'group', path: '/staff-customers' },
+        // { id: 'customers', label: 'Khách hàng', icon: 'group', path: '/staff-customers' },
         { id: 'vendors', label: 'Duyệt Vendor', icon: 'verified_user', path: '/staff-vendors' },
         { id: 'products', label: 'Quản lý Sản phẩm', icon: 'inventory_2', path: '/staff-product' },
         { id: 'transactions', label: 'Giao dịch', icon: 'account_balance_wallet', path: '/staff-transactions' },
         { id: 'refunds', label: 'Hoàn tiền', icon: 'assignment_return', path: '/staff-refunds' },
         { id: 'banners', label: 'Quản lý Banner', icon: 'view_carousel', path: '/staff-banners' },
-        // { id: 'audit', label: 'Nhật ký hệ thống', icon: 'history_edu', path: '/staff-audit-logs' },
         { id: 'settings', label: 'Cài đặt hệ thống', icon: 'settings_suggest', path: '/staff-settings' },
       ];
     }
@@ -468,6 +467,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
         { id: 'analytics', label: 'Phân tích', icon: 'analytics', path: '/vendor/analytics' },
         { id: 'shipping', label: 'Vận chuyển', icon: 'local_shipping', path: '/vendor/shipping' },
         { id: 'discounts', label: 'Giảm giá', icon: 'percent', path: '/vendor/discounts' },
+        { id: 'banners', label: 'Quản lý Banner', icon: 'view_carousel', path: '/vendor/banners' },
         { id: 'transactions', label: 'Giao dịch', icon: 'receipt_long', path: '/vendor/transactions' },
         { id: 'shop', label: 'Cửa hàng', icon: 'store', path: '/vendor/shop' },
         { id: 'settings', label: 'Cài đặt', icon: 'settings', path: '/vendor/settings' },

@@ -69,8 +69,18 @@ const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
         const categories = await packageService.getCeremonyCategories();
         const activeCategories = categories.filter(c => c.isActive);
         
-        // Map categories to images (using existing services as reference)
-        const mapped = activeCategories.map(cat => {
+        // Map categories to images (using existing services as reference or dynamic fallbacks)
+        const ritualImages = [
+          'https://docungcattuong.com/wp-content/uploads/2023/03/mam-cung-day-thang-be-gai-7.jpg', // Đầy tháng
+          'https://docungcattuong.com/wp-content/uploads/2023/03/mam-cung-nha-moi.jpg',           // Tân gia
+          'https://docungcattuong.com/wp-content/uploads/2023/03/mam-cung-khai-truong-4-2.jpg',   // Khai trương
+          'https://store.longphuong.vn/wp-content/uploads/2023/01/mam-com-cung-gio-7.jpg',       // Cúng giỗ
+          'https://images2.thanhnien.vn/528068263637045248/2025/1/10/42586013067177933649921942352479888060916544n-17364781178141635611315.jpg', // Cúng tết
+          'https://file.hstatic.net/200000862061/article/cungramthang7a-1358_4fd0c5cc580d490da057583a4d245db0_1024x1024.jpg', // Cúng rằm
+          'https://cdn11.dienmaycholon.vn/filewebdmclnew/public/userupload/files/blog/van-hoa/cung-ruoc-ong-ba-ve-an-tet.jpg' // Cúng gia tiên
+        ];
+
+        const mapped = activeCategories.map((cat, idx) => {
           // Try to find a matching image from mock services
           const match = services.find(s => 
             s.title.toLowerCase().includes(cat.name.toLowerCase()) || 
@@ -79,7 +89,8 @@ const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
           
           return {
             title: cat.name,
-            img: match ? match.img : 'https://docungcattuong.com/wp-content/uploads/2023/03/mam-cung-day-thang-be-gai-7.jpg' // default image
+            // Luân phiên ảnh nếu không có match từ mock để tránh trùng lặp
+            img: match ? match.img : ritualImages[(cat.categoryId || idx) % ritualImages.length]
           };
         });
         
@@ -181,7 +192,7 @@ const HomePage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
             onClick={() => setShowAllServices(!showAllServices)}
             className="border-2 border-primary text-primary px-12 py-3 rounded-lg font-bold text-lg hover:bg-primary/5 transition-all"
           >
-            {showAllServices ? 'Thu Gọn' : 'Xem Thêm'} ({showAllServices ? (dynamicServices.length || services.length) : '4'} loại cúng)
+            {showAllServices ? 'Thu Gọn' : `Xem Thêm (${dynamicServices.length || services.length} loại cúng)`}
           </button>
         </div>
       </section>
