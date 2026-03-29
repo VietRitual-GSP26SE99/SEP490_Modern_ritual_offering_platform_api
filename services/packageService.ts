@@ -14,15 +14,20 @@ class PackageService {
   async getPackagesByStatus(status?: string): Promise<ApiPackage[]> {
     try {
       const token = getAuthToken();
-      const query = new URLSearchParams();
       const normalizedStatus = String(status || '').trim();
 
-      // Nếu không có status, sử dụng endpoint getAllPackages để tránh lỗi 400 Bad Request
+      // Nếu không có status và có token (Staff/Vendor), sử dụng endpoint management chung
+      // thay vì getAllPackages (Public) để lấy đúng list scoped theo role và đầy đủ variant.
+      if (!normalizedStatus && token) {
+        return this.getManagementPackages(1, 100);
+      }
+
+      // Fallback cho khách (không token) hoặc nếu phía trên fail
       if (!normalizedStatus) {
         return this.getAllPackages(1, 50);
       }
 
-      const endpoint = `${API_BASE_URL}/packages/management/by-status?pageNumber=1&pageSize=50&status=${normalizedStatus}`;
+      const endpoint = `${API_BASE_URL}/packages/management/by-status?pageNumber=1&pageSize=100&status=${normalizedStatus}`;
 
       const response = await fetch(endpoint, {
         method: 'GET',
@@ -33,9 +38,11 @@ class PackageService {
       });
 
       if (!response.ok) {
-        if (response.status === 404) {
-          console.warn('⚠️ Endpoint /packages/management/by-status not found (404), falling back to client-side filtering...');
-          const allPackages = await this.getAllPackages();
+        // Fallback cho endpoint by-status (nếu bị 404/403)
+        if (response.status === 404 || response.status === 403) {
+          console.warn(`⚠️ Management by-status endpoint failed (${response.status}). Falling back to management collection...`);
+          const allPackages = token ? await this.getManagementPackages() : await this.getAllPackages();
+          
           if (!normalizedStatus) return allPackages;
           return allPackages.filter(pkg =>
             (pkg as any).status === normalizedStatus ||
@@ -55,7 +62,6 @@ class PackageService {
       }
 
       if (data?.isSuccess && data.result) {
-        // Handle both direct array and paginated object { items: [], ... }
         if (Array.isArray(data.result)) {
           return data.result as ApiPackage[];
         }
@@ -67,9 +73,10 @@ class PackageService {
       return [];
     } catch (error) {
       console.error('Failed to fetch packages by status:', error);
-      // Final fallback: try to get all packages if something went wrong
+      // Final fallback
       try {
-        const all = await this.getAllPackages();
+        const token = getAuthToken();
+        const all = token ? await this.getManagementPackages() : await this.getAllPackages();
         const normalizedStatus = String(status || '').trim();
         if (!normalizedStatus) return all;
         return all.filter(pkg =>
@@ -80,6 +87,51 @@ class PackageService {
       } catch (innerError) {
         return [];
       }
+    }
+  }
+
+  /**
+   * Lấy danh sách packages từ management endpoint (Vendor/Staff)
+   * GET /api/packages/management
+   */
+  async getManagementPackages(pageNumber: number = 1, pageSize: number = 100): Promise<ApiPackage[]> {
+    try {
+      const token = getAuthToken();
+      if (!token) return this.getAllPackages(pageNumber, pageSize);
+
+      console.log(`📦 Fetching management packages (page ${pageNumber}, size ${pageSize})...`);
+      const response = await fetch(`${API_BASE_URL}/packages/management?PageNumber=${pageNumber}&PageSize=${pageSize}`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json, text/plain, */*',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        // Nếu 404 thì có thể dùng by-status không filter? 
+        // Backend thường không hỗ trợ /management chung mà bắt status, nên fallback về public là an toàn nhất.
+        if (response.status === 404) {
+          console.warn('⚠️ Management collection endpoint not found (404). Falling back to public API...');
+          return this.getAllPackages(pageNumber, pageSize);
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data: any = await response.json();
+      const isSuccess = data.isSuccess || data.isSucceeded || data.statusCode === 'OK';
+      
+      if (isSuccess && data.result) {
+        const payload = data.result;
+        const packages = Array.isArray(payload) ? payload : (payload.items || payload.data || []);
+        console.log(`✅ Management packages loaded: ${packages.length}`);
+        return packages;
+      }
+      
+      return Array.isArray(data) ? data : [];
+    } catch (error) {
+      console.error(' Failed to fetch management packages:', error);
+      return this.getAllPackages(pageNumber, pageSize); // Final safety fallback
     }
   }
 

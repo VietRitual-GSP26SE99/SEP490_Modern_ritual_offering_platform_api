@@ -215,15 +215,13 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
 
       const packages = await packageService.getPackagesByStatus(selectedStatus);
 
-      // On vendor management page, prioritize showing current vendor packages.
-      const ownedPackages = currentVendorId
-        ? packages.filter((item) => {
-          const vendorId = String((item as any).vendorProfileId || (item as any).vendorId || '').trim();
-          return vendorId === currentVendorId;
-        })
-        : [];
-
-      const source = ownedPackages.length > 0 ? ownedPackages : packages;
+      // Lọc chỉ lấy sản phẩm của vendor hiện tại
+      const source = currentVendorId
+        ? packages.filter((item: any) => {
+            const vendorId = String(item.vendorProfileId || item.vendorId || '').trim();
+            return vendorId === currentVendorId;
+          })
+        : packages;
 
       const mapped: Product[] = source.map((item: any) => {
         const variants = Array.isArray(item.packageVariants) ? item.packageVariants : (Array.isArray(item.variants) ? item.variants : []);
@@ -260,6 +258,7 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
       setLoadingProducts(false);
     }
   };
+
 
   useEffect(() => {
     loadPackages();
@@ -620,10 +619,9 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
                 onChange={(event) => setSelectedStatus(event.target.value as PackageStatusFilter)}
                 className="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
               >
-                <option value="">--</option>
                 <option value="Draft">Nháp</option>
-                <option value="Pending">Chờ</option>
-                <option value="Approved">Duyệt</option>
+                <option value="Pending">Chờ duyệt</option>
+                <option value="Approved">Đã duyệt</option>
                 <option value="Rejected">Bị từ chối</option>
               </select>
 
