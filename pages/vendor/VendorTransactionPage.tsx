@@ -191,7 +191,7 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
   }, [transactions]);
 
   return (
-    <div className="bg-slate-50 min-h-screen py-10 px-4 md:px-6 font-sans">
+    <div className="bg-white py-6 px-4 md:px-6">
       <div className="max-w-5xl mx-auto">
         
         {/* Header */}

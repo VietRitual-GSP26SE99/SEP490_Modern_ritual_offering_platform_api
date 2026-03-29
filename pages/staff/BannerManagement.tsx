@@ -392,6 +392,7 @@ const BannerManagement: React.FC = () => {
                   <img 
                     src={banner.imageUrl} 
                     alt={banner.title} 
+                    onError={bannerService.handleImageError}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                   />
                   <div className="absolute top-4 right-4 flex gap-2">
@@ -411,6 +412,9 @@ const BannerManagement: React.FC = () => {
                       </h3>
                       <p className="text-[10px] text-slate-500 font-medium mt-0.5 uppercase tracking-wider">
                         {banner.linkType} • ID: {banner.linkTargetId}
+                        {banner.vendorId && (
+                          <span className="ml-2 text-primary font-bold">• Vendor: {banner.vendorId}</span>
+                        )}
                       </p>
                     </div>
                     <div className="flex gap-2 ml-4">

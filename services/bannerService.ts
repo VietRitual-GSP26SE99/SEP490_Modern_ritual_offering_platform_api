@@ -1,6 +1,7 @@
 import { ApiResponse } from '../types';
 
 const API_BASE_URL = '/api';
+export const DEFAULT_BANNER_IMAGE = 'https://images.unsplash.com/photo-1528459801416-a7e992795770?auto=format&fit=crop&q=80&w=2000';
 
 export interface BannerResponse {
   bannerId: number;
@@ -15,13 +16,35 @@ export interface BannerResponse {
   isActive: boolean;
   createdAt: string;
   createdBy: string;
+  vendorId?: string | null;
 }
 
 class BannerService {
+  private fixUrl(url: string | undefined): string {
+    if (!url) return DEFAULT_BANNER_IMAGE;
+    if (url.includes('storage.vietritual.com')) {
+      // storage.vietritual.com is dead and vietritual.click/banners is also returning 404.
+      // Return fallback directly to avoid console noise and broken UI.
+      return DEFAULT_BANNER_IMAGE;
+    }
+    return url;
+  }
+
+  /**
+   * Helper to handle image errors in components
+   */
+  handleImageError(e: React.SyntheticEvent<HTMLImageElement, Event>) {
+    const target = e.target as HTMLImageElement;
+    if (target.src !== DEFAULT_BANNER_IMAGE) {
+      target.src = DEFAULT_BANNER_IMAGE;
+    }
+  }
+
   /**
    * Lấy danh sách banner đang hoạt động cho trang chủ.
+   * @param vendorId - Nếu vào trang cá nhân của vendor thì truyền vendorId vào
    */
-  async getActiveBanners(): Promise<ApiResponse<BannerResponse[]>> {
+  async getActiveBanners(vendorId?: string): Promise<ApiResponse<BannerResponse[]>> {
     try {
       const token = localStorage.getItem('smart-child-token');
       const headers: Record<string, string> = {
@@ -29,13 +52,25 @@ class BannerService {
       };
       if (token) headers['Authorization'] = `Bearer ${token}`;
 
-      const response = await fetch(`${API_BASE_URL}/banners/active`, {
+      let url = `${API_BASE_URL}/banners/active`;
+      if (vendorId) {
+        url += `?vendorId=${vendorId}`;
+      }
+
+      const response = await fetch(url, {
         method: 'GET',
         headers,
       });
 
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      return await response.json();
+      const data: ApiResponse<BannerResponse[]> = await response.json();
+      if (data.isSuccess && data.result) {
+        data.result = data.result.map(b => ({
+          ...b,
+          imageUrl: this.fixUrl(b.imageUrl)
+        }));
+      }
+      return data;
     } catch (error) {
       console.error('❌ Failed to fetch active banners:', error);
       return { 
@@ -64,7 +99,14 @@ class BannerService {
       });
 
       if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-      return await response.json();
+      const data: ApiResponse<BannerResponse[]> = await response.json();
+      if (data.isSuccess && data.result) {
+        data.result = data.result.map(b => ({
+          ...b,
+          imageUrl: this.fixUrl(b.imageUrl)
+        }));
+      }
+      return data;
     } catch (error) {
       console.error('❌ Failed to fetch all banners:', error);
       return { 
@@ -89,7 +131,12 @@ class BannerService {
           'Authorization': `Bearer ${token}`
         },
       });
-      return await response.json();
+      if (!response.ok) return await response.json();
+      const data: ApiResponse<BannerResponse> = await response.json();
+      if (data.isSuccess && data.result) {
+        data.result.imageUrl = this.fixUrl(data.result.imageUrl);
+      }
+      return data;
     } catch (error) {
       return { isSuccess: false, statusCode: '500', errorMessages: ['Lỗi khi lấy chi tiết banner'], result: undefined as any };
     }
@@ -121,7 +168,11 @@ class BannerService {
         };
       }
 
-      return await response.json();
+      const data: ApiResponse<BannerResponse> = await response.json();
+      if (data.isSuccess && data.result) {
+        data.result.imageUrl = this.fixUrl(data.result.imageUrl);
+      }
+      return data;
     } catch (error) {
       console.error('❌ Request failed:', error);
       return { isSuccess: false, statusCode: '500', errorMessages: ['Lỗi kết nối hoặc kích thước ảnh quá lớn'], result: undefined as any };
@@ -153,7 +204,11 @@ class BannerService {
         };
       }
 
-      return await response.json();
+      const data: ApiResponse<BannerResponse> = await response.json();
+      if (data.isSuccess && data.result) {
+        data.result.imageUrl = this.fixUrl(data.result.imageUrl);
+      }
+      return data;
     } catch (error) {
       return { isSuccess: false, statusCode: '500', errorMessages: ['Lỗi kết nối khi cập nhật banner'], result: undefined as any };
     }

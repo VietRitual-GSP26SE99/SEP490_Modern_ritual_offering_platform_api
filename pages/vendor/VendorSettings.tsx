@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import toast from '../../services/toast';
 import {
   getProfile,
@@ -822,7 +822,15 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
   };
 
   // Store Closure Logic
-  const fetchClosureStatus = async () => {
+  const fetchClosureStatus = useCallback(async () => {
+    // Optimization: Skip API call if profile tells us there is no closure pending
+    // This avoids the 400 Bad Request error in the browser console.
+    if (vendorProfile && vendorProfile.vendorStatus !== 'PendingClosure') {
+      setIsClosureRequested(false);
+      setClosureStatus(null);
+      return;
+    }
+
     try {
       setClosureLoading(true);
       const res = await vendorService.getStoreClosureStatus();
@@ -830,7 +838,10 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
         setClosureStatus(res.result);
         setIsClosureRequested(true);
       } else {
-        // If 400 with "Bạn chưa gửi yêu cầu đóng cửa hàng", it means no request active
+        // Handle 400 (Bad Request) as no active closure request
+        if (res.statusCode === '400') {
+          console.log('ℹ️ No active store closure request found.');
+        }
         setIsClosureRequested(false);
         setClosureStatus(null);
       }
@@ -839,13 +850,13 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
     } finally {
       setClosureLoading(false);
     }
-  };
+  }, [vendorProfile]);
 
   useEffect(() => {
     if (activeTab === 'closure') {
       fetchClosureStatus();
     }
-  }, [activeTab]);
+  }, [activeTab, fetchClosureStatus]);
 
   const handleRequestClosure = async () => {
     if (!closureReason.trim()) {
@@ -859,7 +870,9 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
       if (res.isSuccess) {
         toast.success('Gửi yêu cầu đóng cửa hàng thành công');
         setClosureReason('');
-        fetchClosureStatus();
+        // Refresh vendor profile to update vendorStatus to 'PendingClosure'
+        const updatedProfile = await getVendorProfile().catch(() => null);
+        if (updatedProfile) setVendorProfile(updatedProfile);
       } else {
         toast.error(res.errorMessages?.[0] || 'Gửi yêu cầu thất bại');
       }
@@ -876,7 +889,9 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
       const res = await vendorService.cancelStoreClosure();
       if (res.isSuccess) {
         toast.success('Đã hủy yêu cầu đóng cửa hàng thành công');
-        fetchClosureStatus();
+        // Refresh vendor profile to update vendorStatus to 'Active' or equivalent
+        const updatedProfile = await getVendorProfile().catch(() => null);
+        if (updatedProfile) setVendorProfile(updatedProfile);
       } else {
         toast.error(res.errorMessages?.[0] || 'Hủy yêu cầu thất bại');
       }
@@ -1596,19 +1611,21 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-                      <p className="text-xs font-bold text-gray-500 uppercase">Đơn hàng còn lại</p>
-                      <p className="text-2xl font-black text-slate-800">{closureStatus?.remainingOrders || 0}</p>
+                      <p className="text-xs font-bold text-gray-500 uppercase">Đơn hàng chưa tất toán</p>
+                      <p className="text-2xl font-black text-slate-800">
+                        {(closureStatus?.pendingOrderCount || 0) + (closureStatus?.futureOrderCount || 0)}
+                      </p>
                     </div>
                     <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-                      <p className="text-xs font-bold text-gray-500 uppercase">Hoàn tiền (Refund)</p>
-                      <p className="text-2xl font-black text-slate-800">{closureStatus?.refundAmount?.toLocaleString() || 0} ₫</p>
+                      <p className="text-xs font-bold text-gray-500 uppercase">Yêu cầu hoàn tiền</p>
+                      <p className="text-2xl font-black text-slate-800">{closureStatus?.openRefundCount || 0}</p>
                     </div>
                     <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-                      <p className="text-xs font-bold text-gray-500 uppercase">Số nợ (Debt)</p>
-                      <p className="text-2xl font-black text-red-600">{closureStatus?.debtAmount?.toLocaleString() || 0} ₫</p>
+                      <p className="text-xs font-bold text-gray-500 uppercase">Dư nợ hệ thống</p>
+                      <p className="text-2xl font-black text-red-600">{closureStatus?.remainingDebt?.toLocaleString() || 0} ₫</p>
                     </div>
                     <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-                      <p className="text-xs font-bold text-gray-500 uppercase">Số dư bị giữ (Held Balance)</p>
+                      <p className="text-xs font-bold text-gray-500 uppercase">Số dư bị giữ</p>
                       <p className="text-2xl font-black text-primary">{closureStatus?.heldBalance?.toLocaleString() || 0} ₫</p>
                     </div>
                   </div>

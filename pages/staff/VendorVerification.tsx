@@ -148,7 +148,7 @@ const VendorVerificationPage: React.FC<Props> = ({ onNavigate }) => {
                 <tr className="bg-slate-50 border-b border-slate-200">
                   <th className="px-6 py-5 text-xs font-black uppercase text-slate-400 tracking-widest">Vendor</th>
                   <th className="px-6 py-5 text-xs font-black uppercase text-slate-400 tracking-widest">Loại hình</th>
-                  <th className="px-6 py-5 text-xs font-black uppercase text-slate-400 tracking-widest">Số tài liệu</th>
+                  <th className="px-6 py-5 text-xs font-black uppercase text-slate-400 tracking-widest">Số sản phẩm</th>
                   <th className="px-6 py-5 text-xs font-black uppercase text-slate-400 tracking-widest">Ngày đăng ký</th>
                   <th className="px-6 py-5 text-xs font-black uppercase text-slate-400 tracking-widest text-center">Trạng thái</th>
                   <th className="px-6 py-5 text-xs font-black uppercase text-slate-400 tracking-widest text-right">Thao tác</th>
@@ -182,7 +182,7 @@ const VendorVerificationPage: React.FC<Props> = ({ onNavigate }) => {
                       <td className="px-6 py-5">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-black text-slate-800">{v.documentCount}</span>
-                          <span className="text-xs text-slate-400">tài liệu</span>
+                          <span className="text-xs text-slate-400">sản phẩm</span>
                         </div>
                       </td>
                       <td className="px-6 py-5 text-sm text-slate-500">
@@ -332,7 +332,7 @@ const VendorVerificationPage: React.FC<Props> = ({ onNavigate }) => {
 
                 {/* Documents List */}
                 <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 pb-2">Tài liệu pháp lý ({selectedProfile.documents.length})</h3>
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 pb-2">Sản phẩm xác minh ({selectedProfile.documents.length})</h3>
                   <div className="space-y-4">
                     {selectedProfile.documents.length === 0 ? (
                       <p className="text-slate-400 text-center py-8 italic">Không có tài liệu đính kèm.</p>
