@@ -5,7 +5,7 @@ import { UserRole, AppRoute, getPath } from '../types';
 import { getCurrentUser } from '../services/auth';
 import { cartService } from '../services/cartService';
 import { fetchNotifications, fetchUnreadNotificationCount, NotificationItem, markAllNotificationsAsReadApi, markNotificationAsRead } from '../services/notificationService';
-import { createTopupLink, createWithdrawal, getMyWallet, getMyWithdrawalRequests, WalletInfo, WalletType } from '../services/walletService';
+import { cancelPayosTopup, createTopupLink, createWithdrawal, getMyWallet, getMyWithdrawalRequests, WalletInfo, WalletType } from '../services/walletService';
 import { packageService } from '../services/packageService';
 import { CeremonyCategory } from '../types';
 import CartDropdown from './CartDropdown';
@@ -321,6 +321,16 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
     }
 
     if (isCancelled) {
+      const orderCodeRaw = params.get('orderCode');
+      if (orderCodeRaw) {
+        const oc = Number(String(orderCodeRaw).trim());
+        if (Number.isFinite(oc) && oc > 0) {
+          cancelPayosTopup(oc).catch((err) => {
+            console.warn('PayOS cancel-topup:', err);
+          });
+        }
+      }
+
       if (pendingCheckoutReturnPath) {
         sessionStorage.setItem(TOPUP_CANCEL_TOAST_KEY, '1');
         sessionStorage.removeItem(PENDING_CHECKOUT_KEY);
@@ -328,7 +338,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
         window.location.replace(pendingCheckoutReturnPath);
         return;
       }
-      toast.error('Nạp tiền đã thất bại.');
+      toast.info('Đã hủy chuyển khoản nạp tiền.');
     } else if (isSuccess) {
       if (pendingCheckoutReturnPath) {
         sessionStorage.setItem(TOPUP_SUCCESS_TOAST_KEY, '1');
@@ -446,7 +456,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
         { id: 'transactions', label: 'Giao dịch', icon: 'account_balance_wallet', path: '/staff-transactions' },
         { id: 'refunds', label: 'Hoàn tiền', icon: 'assignment_return', path: '/staff-refunds' },
         { id: 'banners', label: 'Quản lý Banner', icon: 'view_carousel', path: '/staff-banners' },
-        { id: 'audit', label: 'Nhật ký hệ thống', icon: 'history_edu', path: '/staff-audit-logs' },
+        // { id: 'audit', label: 'Nhật ký hệ thống', icon: 'history_edu', path: '/staff-audit-logs' },
         { id: 'settings', label: 'Cài đặt hệ thống', icon: 'settings_suggest', path: '/staff-settings' },
       ];
     }
@@ -790,6 +800,13 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
         toast.error('Không nhận được link thanh toán từ hệ thống.');
         return;
       }
+
+      sessionStorage.setItem(
+        PENDING_CHECKOUT_KEY,
+        JSON.stringify({
+          returnPath: `${window.location.pathname}${window.location.search || ''}`,
+        }),
+      );
 
       setIsWalletDropdownOpen(false);
       window.location.href = paymentUrl;

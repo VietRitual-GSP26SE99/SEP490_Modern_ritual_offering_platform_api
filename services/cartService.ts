@@ -133,20 +133,11 @@ class CartService {
     try {
       console.log('🛒 Fetching cart from API...');
       
-      // Try GET /api/cart first as it is the most standard endpoint
-      let response = await fetch(`${API_BASE_URL}/cart`, {
+      // OpenAPI: GET /api/cart only (no GET on /api/cart/items)
+      const response = await fetch(`${API_BASE_URL}/cart`, {
         method: 'GET',
         headers: this.getHeaders('GET'),
       });
-
-      // If /api/cart fails with 405 or 404, try /api/cart/items
-      if (response.status === 405 || response.status === 404) {
-        console.log(`⚠️ /api/cart returned ${response.status}, trying /api/cart/items...`);
-        response = await fetch(`${API_BASE_URL}/cart/items`, {
-          method: 'GET',
-          headers: this.getHeaders('GET'),
-        });
-      }
 
       if (!response.ok) {
         const errorText = await response.text().catch(() => '');
@@ -174,28 +165,24 @@ class CartService {
   async addToCart(request: AddToCartRequest): Promise<boolean> {
     try {
       console.log('➕ Adding to cart:', request);
-      
-      // Try POST /api/cart first
-      let response = await fetch(`${API_BASE_URL}/cart`, {
+
+      // Backend OpenAPI: only POST /api/cart/add (GET is /api/cart; /api/cart/items is PUT/DELETE only).
+      let response = await fetch(`${API_BASE_URL}/cart/add`, {
         method: 'POST',
         headers: this.getHeaders('POST'),
         body: JSON.stringify(request),
       });
 
-      // If 405 or 404, try /api/cart/items
       if (response.status === 405 || response.status === 404) {
-        console.log(`⚠️ /api/cart (POST) returned ${response.status}, trying /api/cart/items...`);
-        response = await fetch(`${API_BASE_URL}/cart/items`, {
+        response = await fetch(`${API_BASE_URL}/cart`, {
           method: 'POST',
           headers: this.getHeaders('POST'),
           body: JSON.stringify(request),
         });
       }
 
-      // Final fallback to /api/cart/add
       if (response.status === 405 || response.status === 404) {
-        console.log(`⚠️ /api/cart/items (POST) returned ${response.status}, trying /api/cart/add...`);
-        response = await fetch(`${API_BASE_URL}/cart/add`, {
+        response = await fetch(`${API_BASE_URL}/cart/items`, {
           method: 'POST',
           headers: this.getHeaders('POST'),
           body: JSON.stringify(request),
@@ -228,24 +215,24 @@ class CartService {
   async updateCartItem(request: UpdateCartItemRequest): Promise<boolean> {
     try {
       console.log('📝 Updating cart item:', request);
-      
-      // Try PUT /api/cart first
-      let response = await fetch(`${API_BASE_URL}/cart`, {
+
+      // OpenAPI: PUT /api/cart/items with UpdateCartItemRequest { cartItemId, quantity }
+      let response = await fetch(`${API_BASE_URL}/cart/items`, {
         method: 'PUT',
         headers: this.getHeaders('PUT'),
         body: JSON.stringify({
-          itemId: request.cartItemId,
-          quantity: request.quantity
+          cartItemId: request.cartItemId,
+          quantity: request.quantity,
         }),
       });
 
       if (response.status === 405 || response.status === 404) {
-        response = await fetch(`${API_BASE_URL}/cart/items`, {
+        response = await fetch(`${API_BASE_URL}/cart`, {
           method: 'PUT',
           headers: this.getHeaders('PUT'),
           body: JSON.stringify({
-            itemId: request.cartItemId,
-            quantity: request.quantity
+            cartItemId: request.cartItemId,
+            quantity: request.quantity,
           }),
         });
       }
@@ -269,14 +256,20 @@ class CartService {
   async removeCartItem(cartItemId: number): Promise<boolean> {
     try {
       console.log('🗑️ Removing cart item:', cartItemId);
-      
-      // Try standard REST style first: DELETE /api/cart/items/{id}
-      let response = await fetch(`${API_BASE_URL}/cart/items/${cartItemId}`, {
+
+      // OpenAPI: DELETE /api/cart/items?itemId=
+      let response = await fetch(`${API_BASE_URL}/cart/items?itemId=${encodeURIComponent(String(cartItemId))}`, {
         method: 'DELETE',
         headers: this.getHeaders('DELETE'),
       });
 
-      // Try DELETE /api/cart/{id}
+      if (response.status === 405 || response.status === 404) {
+        response = await fetch(`${API_BASE_URL}/cart/items/${cartItemId}`, {
+          method: 'DELETE',
+          headers: this.getHeaders('DELETE'),
+        });
+      }
+
       if (response.status === 405 || response.status === 404) {
         response = await fetch(`${API_BASE_URL}/cart/${cartItemId}`, {
           method: 'DELETE',
@@ -284,17 +277,8 @@ class CartService {
         });
       }
 
-      // Try query param style: DELETE /api/cart/items?itemId=
       if (response.status === 405 || response.status === 404) {
-        response = await fetch(`${API_BASE_URL}/cart/items?itemId=${cartItemId}`, {
-          method: 'DELETE',
-          headers: this.getHeaders('DELETE'),
-        });
-      }
-
-      // Try DELETE /api/cart?itemId=
-      if (response.status === 405 || response.status === 404) {
-        response = await fetch(`${API_BASE_URL}/cart?itemId=${cartItemId}`, {
+        response = await fetch(`${API_BASE_URL}/cart?itemId=${encodeURIComponent(String(cartItemId))}`, {
           method: 'DELETE',
           headers: this.getHeaders('DELETE'),
         });

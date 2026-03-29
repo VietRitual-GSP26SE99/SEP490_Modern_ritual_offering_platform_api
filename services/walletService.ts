@@ -1,4 +1,21 @@
-import { getAuthToken } from './auth';
+import { getAuthToken, getCurrentUser } from './auth';
+
+/** Values accepted by GET /api/transactions/me?ActiveRole=... (Swagger). */
+type TransactionsMeActiveRole = 'Customer' | 'Vendor' | 'Admin' | 'Staff';
+
+function resolveTransactionsMeActiveRole(filterWalletType?: WalletType): TransactionsMeActiveRole {
+  if (filterWalletType === 'Vendor') return 'Vendor';
+  if (filterWalletType === 'Customer') return 'Customer';
+  // System / unset: backend still requires ActiveRole — infer from logged-in user
+  const user = getCurrentUser();
+  const role = String(user?.role || '')
+    .trim()
+    .toLowerCase();
+  if (role === 'vendor') return 'Vendor';
+  if (role === 'admin') return 'Admin';
+  if (role === 'staff') return 'Staff';
+  return 'Customer';
+}
 
 export type WalletType = 'Customer' | 'Vendor' | 'System';
 
@@ -299,6 +316,42 @@ export async function createTopupLink(amount: number, type: WalletType): Promise
   return {};
 }
 
+/**
+ * Hủy phiên nạp tiền PayOS (chưa thanh toán).
+ * POST /api/payos/cancel-topup — body: { orderCode: number }
+ */
+export async function cancelPayosTopup(orderCode: number): Promise<void> {
+  const token = getAuthToken();
+  if (!token) {
+    throw new Error('Bạn chưa đăng nhập.');
+  }
+
+  const code = Number(orderCode);
+  if (!Number.isInteger(code) || code < 1) {
+    throw new Error('Mã giao dịch PayOS không hợp lệ.');
+  }
+
+  const response = await fetch('/api/payos/cancel-topup', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+      Authorization: `Bearer ${token}`,
+    },
+    body: JSON.stringify({ orderCode: code }),
+  });
+
+  const payload = await response.json().catch(() => null);
+
+  if (!response.ok || payload?.isSuccess === false || payload?.isSucceeded === false) {
+    const message =
+      (Array.isArray(payload?.errorMessages) && payload.errorMessages.filter((m: unknown) => typeof m === 'string').join(', ')) ||
+      (typeof payload?.message === 'string' ? payload.message : '') ||
+      `Không thể hủy giao dịch nạp tiền (${response.status}).`;
+    throw new Error(message);
+  }
+}
+
 export async function createWithdrawal(request: WithdrawalRequest): Promise<WithdrawalResult> {
   const token = getAuthToken();
   if (!token) {
@@ -511,11 +564,9 @@ export async function getMyTransactions(filter: TransactionFilter = {}): Promise
   }
 
   const params = new URLSearchParams();
-  
-  // ActiveRole determines the wallet context (Vendor/Customer)
-  if (filter.walletType) {
-    params.append('ActiveRole', filter.walletType);
-  }
+
+  // Backend requires ActiveRole on /api/transactions/me (same as Swagger); UI must not omit it.
+  params.append('ActiveRole', resolveTransactionsMeActiveRole(filter.walletType));
   
   // Type is the transaction category filter
   if (filter.type && filter.type.trim()) {

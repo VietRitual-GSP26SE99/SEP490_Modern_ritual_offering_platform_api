@@ -155,28 +155,16 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
   const isOwnerVendor = isVendor || isModerator; // Simplified for now but could be refined to check vendorId match if needed.
 
   const fetchReviews = useCallback(async () => {
-    const selectedVariant = product?.variants?.[selectedVariantIndex]
-      ?? (Array.isArray(packageMeta?.packageVariants)
-        ? packageMeta.packageVariants[selectedVariantIndex]
-        : null);
-    if (!selectedVariant || !selectedVariant.variantId) return;
-
-    const normalizedVariantId = typeof selectedVariant.variantId === 'string'
-      ? selectedVariant.variantId.trim()
-      : selectedVariant.variantId;
-
-    console.log('🔎 Review variantId:', normalizedVariantId, {
-      selectedVariant,
-      packageVariantIds: Array.isArray(packageMeta?.packageVariants)
-        ? packageMeta.packageVariants.map((v: any) => v.variantId)
-        : [],
-      productId: product?.id
-    });
+    const rawId = id ?? product?.id;
+    const packageId = Number(String(rawId ?? '').trim());
+    if (!Number.isInteger(packageId) || packageId <= 0) {
+      setReviews([]);
+      return;
+    }
 
     setLoadingReviews(true);
     try {
-      const data = await reviewService.getReviewsByVariant(normalizedVariantId);
-      console.log('✅ Reviews fetched:', normalizedVariantId, data.length);
+      const data = await reviewService.getReviewsByPackageId(packageId);
       setReviews(data);
     } catch (error) {
       console.error('Error fetching reviews:', error);
@@ -184,13 +172,13 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
     } finally {
       setLoadingReviews(false);
     }
-  }, [product, selectedVariantIndex]);
+  }, [id, product?.id]);
 
   useEffect(() => {
     if (product) {
       fetchReviews();
     }
-  }, [product, selectedVariantIndex, fetchReviews]);
+  }, [product, fetchReviews]);
 
   const handleVendorReply = async (reviewId: string) => {
     if (!vendorReplyText.trim()) {

@@ -110,17 +110,41 @@ class ReviewService {
         }
     }
 
+    /**
+     * OpenAPI: GET /api/reviews/package/{packageId} (public, paginated).
+     */
+    async getReviewsByPackageId(packageId: number): Promise<Review[]> {
+        try {
+            if (!Number.isFinite(packageId) || packageId <= 0) return [];
+            const qs = new URLSearchParams({ PageNumber: '1', PageSize: '50' });
+            const response = await fetch(`${API_BASE_URL}/reviews/package/${packageId}?${qs.toString()}`, {
+                method: 'GET',
+                headers: this.getHeaders(),
+            });
+
+            if (!response.ok) {
+                if (response.status === 404) return [];
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            return this.extractReviewArray(data);
+        } catch (error) {
+            console.error('❌ Failed to fetch reviews by package:', error);
+            return [];
+        }
+    }
+
+    /** @deprecated Backend exposes reviews per package; prefer getReviewsByPackageId(route package id). */
     async getReviewsByVariant(variantId: number | string): Promise<Review[]> {
         try {
-            console.log(`🔍 Fetching reviews for variant: ${variantId}`);
+            console.log(`🔍 Fetching reviews (legacy variant path) for: ${variantId}`);
             let response = await fetch(`${API_BASE_URL}/reviews/variant/${variantId}`, {
                 method: 'GET',
                 headers: this.getHeaders(),
             });
 
-            // Fallback if 404
-            if (response.status === 404) {
-                console.log('⚠️ /reviews/variant/{id} not found, trying query param...');
+            if (response.status === 404 || response.status === 405) {
                 response = await fetch(`${API_BASE_URL}/reviews?variantId=${variantId}`, {
                     method: 'GET',
                     headers: this.getHeaders(),

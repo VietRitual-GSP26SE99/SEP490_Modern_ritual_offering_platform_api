@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import Swal from 'sweetalert2';
 import {
   getMyTransactions,
   getMyWallet,
@@ -11,12 +12,30 @@ import {
 } from '../../services/walletService';
 import toast from '../../services/toast';
 
+const PENDING_CHECKOUT_KEY = 'pendingCheckoutRequest';
+const TOPUP_SUCCESS_TOAST_KEY = 'checkoutTopupSuccessToast';
+const TOPUP_CANCEL_TOAST_KEY = 'checkoutTopupCancelToast';
+
 interface VendorTransactionPageProps {
   onNavigate: (path: string) => void;
 }
 
 const formatCurrency = (amount: number) => {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(amount);
+};
+
+const formatAmountDigits = (value: number): string => {
+  return new Intl.NumberFormat('vi-VN').format(value);
+};
+
+const parseAmountInput = (value: string): number => {
+  return Number(String(value || '').replace(/[^0-9]/g, ''));
+};
+
+const formatAmountInput = (value: string): string => {
+  const amount = parseAmountInput(value);
+  if (!Number.isFinite(amount) || amount <= 0) return '';
+  return formatAmountDigits(amount);
 };
 
 const formatDateTimeVi = (dateStr: string) => {
@@ -32,7 +51,7 @@ const getTransactionStatusLabel = (status: string) => {
   if (normalized === 'success' || normalized === 'succeeded') return 'Thành công';
   if (normalized === 'pending') return 'Đang xử lý';
   if (normalized === 'failed') return 'Thất bại';
-  if (normalized === 'cancelled') return 'Đã hủy';
+  if (normalized === 'cancelled' || normalized === 'canceled') return 'Đã hủy';
   return status;
 };
 
@@ -40,8 +59,33 @@ const getTransactionStatusClass = (status: string) => {
   const normalized = String(status || '').trim().toLowerCase();
   if (normalized === 'success' || normalized === 'succeeded') return 'bg-emerald-50 text-emerald-700 border-emerald-100';
   if (normalized === 'pending') return 'bg-amber-50 text-amber-700 border-amber-100';
-  if (normalized === 'failed' || normalized === 'cancelled') return 'bg-rose-50 text-rose-700 border-rose-100';
+  if (normalized === 'cancelled' || normalized === 'canceled') return 'bg-slate-100 text-slate-700 border-slate-200';
+  if (normalized === 'failed') return 'bg-rose-50 text-rose-700 border-rose-100';
   return 'bg-slate-50 text-slate-700 border-slate-200';
+};
+
+/** Chuẩn hoá hiển thị: hủy chuyển khoản / PayOS có thể là Cancelled hoặc Failed + mô tả. */
+const getDisplayStatusLabel = (tx: WalletTransaction): string => {
+  const normalized = String(tx.status || '').trim().toLowerCase();
+  if (normalized === 'cancelled' || normalized === 'canceled') return 'Đã hủy';
+  if (normalized === 'failed') {
+    const blob = `${tx.description || ''} ${JSON.stringify(tx.raw || {})}`.toLowerCase();
+    if (
+      blob.includes('hủy') ||
+      blob.includes('cancelled') ||
+      blob.includes('canceled') ||
+      blob.includes('user cancel')
+    ) {
+      return 'Đã hủy';
+    }
+  }
+  return getTransactionStatusLabel(tx.status);
+};
+
+const getDisplayStatusClass = (tx: WalletTransaction): string => {
+  const label = getDisplayStatusLabel(tx);
+  if (label === 'Đã hủy') return 'bg-slate-100 text-slate-700 border-slate-200';
+  return getTransactionStatusClass(tx.status);
 };
 
 const getTransactionTypeLabel = (type: string, amount: number): string => {
@@ -102,6 +146,7 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
   const [detailOpen, setDetailOpen] = useState(false);
   const [relatedTxs, setRelatedTxs] = useState<WalletTransaction[]>([]);
   const [detailLoading, setDetailLoading] = useState(false);
+  const [topupLoading, setTopupLoading] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
@@ -135,6 +180,19 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
     fetchData();
   }, [fetchData]);
 
+  useEffect(() => {
+    if (sessionStorage.getItem(TOPUP_CANCEL_TOAST_KEY) === '1') {
+      sessionStorage.removeItem(TOPUP_CANCEL_TOAST_KEY);
+      toast.info('Đã hủy chuyển khoản. Giao dịch nạp tiền được cập nhật trên danh sách.');
+      void fetchData();
+    }
+    if (sessionStorage.getItem(TOPUP_SUCCESS_TOAST_KEY) === '1') {
+      sessionStorage.removeItem(TOPUP_SUCCESS_TOAST_KEY);
+      toast.success('Nạp tiền thành công.');
+      void fetchData();
+    }
+  }, [fetchData]);
+
   const handleOpenDetail = async (tx: WalletTransaction) => {
     setDetailTx(tx);
     setDetailOpen(true);
@@ -155,26 +213,72 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
   };
 
   const handleTopup = async () => {
-    const amountStr = window.prompt('Nhập số tiền muốn nạp (₫):', '100000');
-    if (!amountStr) return;
+    const promptResult = await Swal.fire({
+      title: 'Nạp tiền vào ví gian hàng',
+      html: '<p class="text-sm text-slate-600 text-left leading-relaxed m-0">Nhập số tiền (VND). Tối thiểu <strong>5.000₫</strong>. Bạn sẽ được chuyển tới cổng thanh toán PayOS.</p>',
+      input: 'text',
+      inputValue: formatAmountDigits(100000),
+      inputAttributes: {
+        inputmode: 'numeric',
+        autocomplete: 'off',
+        autocapitalize: 'off',
+      },
+      didOpen: () => {
+        const input = Swal.getInput() as HTMLInputElement | null;
+        if (!input) return;
+        input.value = formatAmountInput(input.value) || input.value;
+        input.addEventListener('input', () => {
+          input.value = formatAmountInput(input.value);
+        });
+      },
+      showCancelButton: true,
+      confirmButtonText: 'Tạo link thanh toán',
+      cancelButtonText: 'Đóng',
+      confirmButtonColor: '#059669',
+      cancelButtonColor: '#64748b',
+      customClass: {
+        popup: 'rounded-2xl shadow-2xl border border-slate-200/80',
+        title: 'text-xl font-black text-slate-900 tracking-tight px-1',
+        confirmButton: 'rounded-xl font-bold px-6 py-3 shadow-lg shadow-emerald-600/20',
+        cancelButton: 'rounded-xl font-bold px-6 py-3',
+        htmlContainer: 'text-left px-1',
+      },
+      inputValidator: (value) => {
+        const normalized = parseAmountInput(String(value || ''));
+        if (!Number.isFinite(normalized) || normalized < 5000) {
+          return 'Vui lòng nhập ít nhất 5.000₫.';
+        }
+        return undefined;
+      },
+    });
 
-    const amount = Number(amountStr);
-    if (isNaN(amount) || amount < 5000) {
+    if (!promptResult.isConfirmed) return;
+
+    const amount = parseAmountInput(String(promptResult.value || ''));
+    if (!Number.isFinite(amount) || amount < 5000) {
       toast.error('Số tiền nạp tối thiểu là 5.000 ₫');
       return;
     }
 
     try {
+      setTopupLoading(true);
       toast.info('Đang tạo liên kết thanh toán...');
       const result = await createTopupLink(amount, 'Vendor');
       const url = result.checkoutUrl || result.paymentLink || result.payUrl || result.url || result.link;
       if (url && typeof url === 'string') {
+        sessionStorage.setItem(
+          PENDING_CHECKOUT_KEY,
+          JSON.stringify({ returnPath: '/vendor/transactions' }),
+        );
         window.location.href = url;
       } else {
         toast.error('Không thể tạo link nạp tiền.');
       }
-    } catch (err: any) {
-      toast.error(err.message || 'Nạp tiền thất bại.');
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Nạp tiền thất bại.';
+      toast.error(message);
+    } finally {
+      setTopupLoading(false);
     }
   };
 
@@ -204,10 +308,12 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
           </div>
           <div className="flex gap-3">
             <button
-               onClick={handleTopup}
-               className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] shadow-lg shadow-emerald-600/20 hover:-translate-y-0.5 transition-all"
+              type="button"
+              onClick={() => void handleTopup()}
+              disabled={topupLoading}
+              className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] shadow-lg shadow-emerald-600/20 hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:pointer-events-none disabled:hover:translate-y-0"
             >
-              Nạp tiền
+              {topupLoading ? 'Đang xử lý…' : 'Nạp tiền'}
             </button>
             <button
               onClick={() => onNavigate('/vendor/withdraw')}
@@ -267,6 +373,7 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
                 <option value="Success">Thành công</option>
                 <option value="Pending">Đang xử lý</option>
                 <option value="Failed">Thất bại</option>
+                <option value="Cancelled">Đã hủy</option>
               </select>
             </div>
 
@@ -325,8 +432,8 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
             <div className="divide-y divide-slate-100">
               {transactions.map((tx) => {
                 const incoming = tx.amount >= 0;
-                const statusLabel = getTransactionStatusLabel(tx.status);
-                const statusClass = getTransactionStatusClass(tx.status);
+                const statusLabel = getDisplayStatusLabel(tx);
+                const statusClass = getDisplayStatusClass(tx);
 
                 return (
                   <div
@@ -418,8 +525,8 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
                  </div>
                  <div>
                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Trạng thái</p>
-                   <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${getTransactionStatusClass(detailTx.status)}`}>
-                     {getTransactionStatusLabel(detailTx.status)}
+                   <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${getDisplayStatusClass(detailTx)}`}>
+                     {getDisplayStatusLabel(detailTx)}
                    </span>
                  </div>
               </div>
