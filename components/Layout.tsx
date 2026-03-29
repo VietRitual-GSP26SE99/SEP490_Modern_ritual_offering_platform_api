@@ -517,17 +517,16 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
   };
 
   const resolveWalletType = (): WalletType => {
+    // Prioritize current route to determine which wallet to show
     if (activeRoute.startsWith('/vendor')) return 'Vendor';
     if (activeRoute.startsWith('/admin')) return 'System';
     if (activeRoute.startsWith('/staff')) return 'System';
-    if (userRole === 'vendor') return 'Vendor';
-    if (userRole === 'customer' || userRole === 'guest') return 'Customer';
-    if (userRole === 'admin') return 'System';
-
+    
+    // If not on a specific dashboard, check user role
     const normalizedRoles = (currentUser?.roles || []).map((role) => String(role).toLowerCase());
-    if (normalizedRoles.includes('vendor')) return 'Vendor';
+    if (normalizedRoles.includes('vendor') && activeRoute.includes('vendor')) return 'Vendor';
     if (normalizedRoles.includes('customer')) return 'Customer';
-
+    
     return 'Customer';
   };
 
@@ -653,13 +652,20 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
   const fetchWalletBalance = async () => {
     const buildCandidateTypes = (primary: WalletType): WalletType[] => {
       if (primary === 'System') return ['System', 'Vendor', 'Customer'];
+      if (primary === 'Vendor') return ['Vendor', 'Customer'];
+      if (primary === 'Customer') return ['Customer'];
       return [primary];
     };
 
-    const isNotFoundWalletError = (error: unknown): boolean => {
+    const isWalletPermissionError = (error: unknown): boolean => {
       if (!(error instanceof Error)) return false;
       const message = error.message.toLowerCase();
-      return message.includes('không tìm thấy ví') || message.includes('404');
+      return (
+        message.includes('không tìm thấy ví') || 
+        message.includes('404') || 
+        message.includes('403') || 
+        message.includes('không có quyền')
+      );
     };
 
     try {
@@ -676,7 +682,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
           return;
         } catch (error) {
           lastError = error;
-          const shouldTryNext = isNotFoundWalletError(error) && index < candidateTypes.length - 1;
+          const shouldTryNext = isWalletPermissionError(error) && index < candidateTypes.length - 1;
           if (!shouldTryNext) {
             throw error;
           }
@@ -697,7 +703,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
     if (isWalletDropdownOpen && !walletInfo) {
       fetchWalletBalance();
     }
-  }, [isWalletDropdownOpen, walletInfo]);
+  }, [isWalletDropdownOpen, walletInfo, activeRoute]);
+
+  // Reset wallet info when switching between contexts (e.g. from / to /vendor)
+  useEffect(() => {
+    setWalletInfo(null);
+  }, [activeRoute.startsWith('/vendor'), userRole]);
 
   const handleWalletClick = async () => {
     await fetchWalletBalance();

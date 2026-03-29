@@ -31,9 +31,14 @@ const Carousel: React.FC<{
             idx === currentSlide ? 'opacity-100 z-10' : 'opacity-0 z-0'
           }`}
         >
-          <div 
-            className="absolute inset-0 bg-cover bg-center transition-transform duration-[2000ms] ease-out group-hover:scale-110" 
-            style={{ backgroundImage: `url("${slide.image}")` }}
+          <img 
+            src={slide.image} 
+            alt={slide.title}
+            onError={(e) => {
+              const target = e.target as HTMLImageElement;
+              target.src = 'https://images.unsplash.com/photo-1528459801416-a7e992795770?auto=format&fit=crop&q=80&w=2000';
+            }}
+            className="absolute inset-0 w-full h-full object-cover transition-transform duration-[2000ms] ease-out group-hover:scale-110" 
           />
           {/* Enhanced Multi-layer Overlay */}
           <div className="absolute inset-0 bg-black/20" />

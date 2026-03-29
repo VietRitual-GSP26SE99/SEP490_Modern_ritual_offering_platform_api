@@ -2169,7 +2169,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
             <div className="space-y-6 md:space-y-8">
               <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
                 <span className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-black text-xs md:text-sm shadow-sm ring-4 ring-primary/5">1</span>
-                <h4 className="text-base md:text-xl font-black text-slate-800 uppercase tracking-widest italic font-display">Thông tin cửa hàng</h4>
+                <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Thông tin cửa hàng</h4>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -2388,7 +2388,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
             <div className="space-y-6 md:space-y-8">
               <div className="flex items-center gap-3 border-b border-gray-100 pb-4">
                 <span className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-black text-xs md:text-sm shadow-sm ring-4 ring-primary/5">2</span>
-                <h4 className="text-base md:text-xl font-black text-slate-800 uppercase tracking-widest italic font-display">Giấy tờ xác thực</h4>
+                <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider">Giấy tờ xác thực</h4>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -3191,7 +3191,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                       {/* Basic Information */}
                       <div className="space-y-6">
                         <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-                          <h3 className="text-base font-black text-slate-800 uppercase tracking-widest italic font-display">
+                          <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
                             Thông Tin Cá Nhân
                           </h3>
                         </div>
@@ -3240,7 +3240,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                       {/* Address Information */}
                       <div className="space-y-6">
                         <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-                          <h3 className="text-base font-black text-slate-800 uppercase tracking-widest italic font-display">
+                          <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
                             Thông Tin Địa Chỉ
                           </h3>
                         </div>
@@ -3259,7 +3259,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                       {profile?.isVendor && (
                         <div className="space-y-6">
                           <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-                            <h3 className="text-base font-black text-slate-800 uppercase tracking-widest italic font-display">
+                            <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
                               Thông Tin Đối Tác
                             </h3>
                           </div>
@@ -3287,7 +3287,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                       {/* System Information */}
                       <div className="space-y-6">
                         <div className="flex items-center gap-3 border-b border-slate-100 pb-4">
-                          <h3 className="text-base font-black text-slate-800 uppercase tracking-widest italic font-display">
+                          <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
                             Hệ Thống
                           </h3>
                         </div>
@@ -3316,7 +3316,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                       {/* Security - Change Password */}
                       <div className="space-y-6">
                         <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-                          <h3 className="text-base font-black text-slate-800 uppercase tracking-widest italic font-display">
+                          <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
                             Bảo Mật
                           </h3>
                           {!showChangePassword && (
