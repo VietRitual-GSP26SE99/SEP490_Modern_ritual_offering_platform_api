@@ -326,12 +326,14 @@ class RefundService {
             });
 
             if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
+                const text = await response.text();
+                const errorData = text ? JSON.parse(text) : {};
                 throw new Error(errorData.errorMessages?.[0] || `HTTP error! status: ${response.status}`);
             }
 
-            const data = await response.json();
-            return data.isSuccess || data.statusCode === 'OK';
+            const text = await response.text();
+            const data = text ? JSON.parse(text) : { isSuccess: true };
+            return data.isSuccess !== false && data.statusCode !== 'Error';
         } catch (error) {
             console.error('Failed to approve refund:', error);
             throw error;
@@ -344,19 +346,25 @@ class RefundService {
      */
     async rejectRefund(refundId: string, reason: string): Promise<boolean> {
         try {
+            const payload = {
+              isApprove: false, 
+              adminResponse: reason || ''
+            };
             const response = await fetch(`${API_BASE_URL}/refunds/${refundId}/reject`, {
                 method: 'PUT',
                 headers: this.getJsonHeaders(),
-                body: JSON.stringify({ isApprove: false, adminResponse: reason || '' }),
+                body: JSON.stringify(payload),
             });
 
             if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
+                const text = await response.text();
+                const errorData = text ? JSON.parse(text) : {};
                 throw new Error(errorData.errorMessages?.[0] || `HTTP error! status: ${response.status}`);
             }
 
-            const data = await response.json();
-            return data.isSuccess || data.statusCode === 'OK';
+            const text = await response.text();
+            const data = text ? JSON.parse(text) : { isSuccess: true };
+            return data.isSuccess !== false && data.statusCode !== 'Error';
         } catch (error) {
             console.error('Failed to reject refund:', error);
             throw error;

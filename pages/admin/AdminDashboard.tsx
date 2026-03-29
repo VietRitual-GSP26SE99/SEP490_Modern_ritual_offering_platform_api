@@ -1139,6 +1139,96 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
     }
   };
 
+  const handleViewRefundDetail = (refund: any) => {
+    let itemsHtml = '';
+    if (refund.items && refund.items.length > 0) {
+      itemsHtml = `
+        <div class="mt-4 border-t border-gold/10 pt-4 text-left">
+          <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Sản phẩm yêu cầu hoàn tiền</p>
+          <div class="space-y-3">
+            ${refund.items.map((item: any) => `
+              <div class="bg-slate-50 p-3 rounded-xl border border-gold/10 flex justify-between items-center text-sm">
+                <div class="flex-1 pr-4">
+                  <p class="font-bold text-slate-700 line-clamp-1" title="${item.packageName}">${item.packageName}</p>
+                  ${item.variantName ? `<p class="text-xs text-slate-500">${item.variantName}</p>` : ''}
+                  <p class="text-xs text-slate-500 mt-1">Số lượng: ${item.quantity}</p>
+                </div>
+                <p class="font-bold text-primary whitespace-nowrap">${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(item.refundAmount)}</p>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    let imagesHtml = '';
+    if (refund.proofImages && refund.proofImages.length > 0) {
+      imagesHtml = `
+        <div class="mt-4 border-t border-gold/10 pt-4 text-left">
+          <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3">Hình ảnh minh chứng</p>
+          <div class="flex flex-wrap gap-2">
+            ${refund.proofImages.map((url: string) => `
+              <a href="${url}" target="_blank" rel="noopener noreferrer" class="block w-20 h-20 rounded-lg overflow-hidden border border-gold/10 hover:border-primary transition-all shadow-sm">
+                <img src="${url}" class="w-full h-full object-cover hover:scale-110 transition-transform duration-300" />
+              </a>
+            `).join('')}
+          </div>
+        </div>
+      `;
+    }
+
+    Swal.fire({
+      title: 'Chi tiết yêu cầu',
+      width: 600,
+      customClass: {
+        confirmButton: 'rounded-2xl font-black px-8 py-4 text-white bg-gradient-to-r from-primary to-primary/80 shadow-lg tracking-wide hover:shadow-primary/30 transition-all active:scale-95',
+        popup: 'rounded-[3rem] border-none shadow-2xl overflow-hidden',
+      },
+      html: `
+        <div class="text-left space-y-4 p-4 text-sm mt-2">
+          <div class="grid grid-cols-2 gap-6 bg-slate-50 p-6 rounded-2xl border border-slate-100">
+            <div>
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Mã hệ thống</p>
+              <p class="font-mono text-xs font-bold text-primary truncate" title="${refund.refundId}">${refund.refundId}</p>
+            </div>
+            <div>
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Mã Đơn Hàng</p>
+              <p class="font-mono text-xs font-bold text-slate-700 truncate">#${refund.orderCode || refund.orderId.slice(0, 8)}</p>
+            </div>
+            <div>
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Khách hàng</p>
+              <p class="font-bold text-slate-700">${refund.customerName}</p>
+            </div>
+            <div>
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Số điện thoại</p>
+              <p class="font-bold text-slate-700">${refund.customerPhone || 'N/A'}</p>
+            </div>
+            <div>
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Số tiền chờ hoàn</p>
+              <p class="font-black text-xl text-rose-600 tracking-tighter">${new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(refund.refundAmount)}</p>
+            </div>
+             <div>
+              <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Trạng thái</p>
+              <p class="font-bold text-slate-700">${refund.status === 'Pending' ? 'Chờ xử lý' : refund.status === 'Approved' ? 'Đã duyệt' : 'Từ chối'}</p>
+            </div>
+          </div>
+          
+          <div class="mt-6 pt-4 border-t border-gold/10">
+            <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Lý do từ khách hàng</p>
+            <div class="p-4 bg-rose-50 text-rose-800 rounded-xl text-sm font-medium border border-rose-100">
+              "${refund.reason || 'Không có mô tả chi tiết'}"
+            </div>
+          </div>
+          
+          ${itemsHtml}
+          ${imagesHtml}
+        </div>
+      `,
+      confirmButtonText: 'Đóng',
+      buttonsStyling: false,
+    });
+  };
+
   const handleApproveRefund = async (refundId: string) => {
     const result = await Swal.fire({
       title: 'Duyệt hoàn tiền?',
@@ -1693,6 +1783,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
 
                       <div className="flex gap-2 pt-4 border-t border-gold/10">
                         <button
+                          onClick={() => handleViewRefundDetail(refund)}
                           className="flex-1 px-4 py-2 border-2 border-primary text-primary rounded-lg font-bold text-sm hover:bg-primary/5 transition-all"
                         >
                           Xem chi tiết
