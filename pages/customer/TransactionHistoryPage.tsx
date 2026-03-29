@@ -396,11 +396,11 @@ const TransactionHistoryPage: React.FC<TransactionHistoryPageProps> = () => {
                     >
                       {incoming ? '+' : '-'}{formatCurrency(tx.amount)}
                     </p>
-                    {Number.isFinite(tx.balanceAfter ?? NaN) && (
+                    {/* {Number.isFinite(tx.balanceAfter ?? NaN) && (
                       <p className="mt-1 text-xs text-slate-500">
                         Số dư sau giao dịch: {formatCurrency((tx.balanceAfter as number) ?? 0)}
                       </p>
-                    )}
+                    )} */}
                   </div>
                 </div>
               );
@@ -479,12 +479,12 @@ const TransactionHistoryPage: React.FC<TransactionHistoryPageProps> = () => {
                     <p>{formatCurrency((detailTx.balanceBefore as number) ?? 0)}</p>
                   </div>
                 )}
-                {Number.isFinite(detailTx.balanceAfter ?? NaN) && (
+                {/* {Number.isFinite(detailTx.balanceAfter ?? NaN) && (
                   <div>
                     <p className="text-xs text-slate-400 uppercase tracking-widest mb-1">Số dư sau GD</p>
                     <p>{formatCurrency((detailTx.balanceAfter as number) ?? 0)}</p>
                   </div>
-                )}
+                )} */}
               </div>
 
               <div>

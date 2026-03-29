@@ -440,7 +440,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
     if (isStaff) {
       return [
         { id: 'overview', label: 'Tổng quan', icon: 'dashboard', path: '/staff/dashboard' },
-        { id: 'customers', label: 'Khách hàng', icon: 'group', path: '/staff-customers' },
+        // { id: 'customers', label: 'Khách hàng', icon: 'group', path: '/staff-customers' },
         { id: 'vendors', label: 'Duyệt Vendor', icon: 'verified_user', path: '/staff-vendors' },
         { id: 'products', label: 'Quản lý Sản phẩm', icon: 'inventory_2', path: '/staff-product' },
         { id: 'transactions', label: 'Giao dịch', icon: 'account_balance_wallet', path: '/staff-transactions' },

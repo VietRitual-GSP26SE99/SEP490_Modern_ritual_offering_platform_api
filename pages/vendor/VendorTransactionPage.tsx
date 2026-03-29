@@ -142,11 +142,22 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
     setRelatedTxs([]);
     try {
       const [detail, related] = await Promise.all([
-        getTransactionById(tx.id),
+        getTransactionById(tx.id, 'Vendor'),
         getRelatedTransactions(tx.id)
       ]);
+      
+      // Merge related transactions from detail API and related API
+      const combinedRelated = [...(detail.relatedTransactions || [])];
+      
+      // Only add from 'related' if not already in 'combined'
+      related.forEach(rt => {
+        if (!combinedRelated.some(existing => existing.id === rt.id)) {
+          combinedRelated.push(rt);
+        }
+      });
+
       setDetailTx(detail);
-      setRelatedTxs(related);
+      setRelatedTxs(combinedRelated);
     } catch (err) {
       console.error('Failed to fetch transaction detail:', err);
     } finally {
@@ -356,11 +367,11 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
                       <p className={`text-base md:text-lg font-extrabold tabular-nums ${incoming ? 'text-emerald-600' : 'text-rose-600'}`}>
                         {incoming ? '+' : '-'}{formatCurrency(Math.abs(tx.amount))}
                       </p>
-                      {tx.balanceAfter !== null && (
+                      {/* {tx.balanceAfter !== null && (
                         <p className="mt-1 text-xs text-slate-500 font-bold">
                           Số dư sau giao dịch: {formatCurrency(Math.abs(tx.balanceAfter as number))}
                         </p>
-                      )}
+                      )} */}
                     </div>
                   </div>
                 );
@@ -406,12 +417,12 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
                      {detailTx.amount >= 0 ? '+' : ''}{formatCurrency(detailTx.amount)}
                    </p>
                  </div>
-                 <div>
+                 {/* <div>
                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Số dư sau GD</p>
                    <p className="text-2xl font-black text-slate-900 tabular-nums">
                      {detailTx.balanceAfter !== null ? formatCurrency(detailTx.balanceAfter as number) : '--'}
                    </p>
-                 </div>
+                 </div> */}
                  <div>
                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ngày tạo</p>
                    <p className="text-sm font-bold text-slate-700">{formatDateTimeVi(detailTx.createdAt)}</p>

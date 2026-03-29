@@ -240,7 +240,7 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
         {/* Filters */}
         <div className="bg-white rounded-2xl shadow-sm p-4 mb-6 border border-gray-200 flex flex-col sm:flex-row gap-4 justify-between items-center">
           <div className="flex gap-4 items-center">
-            <div className="flex items-center gap-2">
+            {/* <div className="flex items-center gap-2">
               <label htmlFor="status" className="font-semibold text-gray-700 text-sm">Trạng thái:</label>
               <select
                 id="status"
@@ -254,7 +254,7 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
                 <option value="Rejected">Bị từ chối</option>
                 <option value="Draft">Bản nháp</option>
               </select>
-            </div>
+            </div> */}
             <div className="flex items-center gap-2">
               <label htmlFor="category" className="font-semibold text-gray-700 text-sm">Danh mục:</label>
               <select
@@ -288,7 +288,7 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
                     <th className="p-4 font-semibold text-sm">Sản Phẩm</th>
                     <th className="p-4 font-semibold text-sm">Danh Mục</th>
                     <th className="p-4 font-semibold text-sm text-center">Đơn Hàng</th>
-                    <th className="p-4 font-semibold text-sm text-center">Trạng Thái</th>
+                    {/* <th className="p-4 font-semibold text-sm text-center">Trạng Thái</th> */}
                     <th className="p-4 font-semibold text-sm text-center">Thao Tác</th>
                   </tr>
                 </thead>
@@ -319,7 +319,7 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
                       <td className="p-4 text-center font-semibold text-gray-800">
                         {product.orders}
                       </td>
-                      <td className="p-4 text-center">
+                      {/* <td className="p-4 text-center">
                         <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
                           product.status === 'Approved' ? 'bg-green-100 text-green-700 border border-green-200' :
                           product.status === 'Rejected' ? 'bg-red-100 text-red-700 border border-red-200' :
@@ -329,7 +329,7 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
                            product.status === 'Rejected' ? 'Từ chối' : 
                            product.status === 'Draft' ? 'Bản nháp' : 'Chờ duyệt'}
                         </span>
-                      </td>
+                      </td> */}
                       <td className="p-4 text-center">
                         <div className="flex items-center justify-center gap-2">
                           <button
@@ -409,12 +409,12 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
                 Đóng
               </button>
               <div className="flex gap-2 items-center flex-1">
-                <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest flex-shrink-0 ${viewProductDetails.approvalStatus === 'Approved' ? 'bg-green-100 text-green-700 border border-green-200' :
+                {/* <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest flex-shrink-0 ${viewProductDetails.approvalStatus === 'Approved' ? 'bg-green-100 text-green-700 border border-green-200' :
                   viewProductDetails.approvalStatus === 'Rejected' ? 'bg-red-100 text-red-700 border border-red-200' :
                     'bg-yellow-100 text-yellow-700 border border-yellow-200'
                   }`}>
                   {viewProductDetails.approvalStatus === 'Approved' ? 'Đã Duyệt' : viewProductDetails.approvalStatus === 'Rejected' ? 'Từ Chối' : 'Chờ Duyệt'}
-                </span>
+                </span> */}
                 <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest flex-shrink-0 ${viewProductDetails.isActive ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-gray-100 text-gray-700 border border-gray-200'
                   }`}>
                   {viewProductDetails.isActive ? 'Đang Bán' : 'Tạm Ngừng'}

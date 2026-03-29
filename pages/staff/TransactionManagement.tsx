@@ -304,11 +304,11 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ onNavigat
                           <p className={`text-base md:text-lg font-extrabold tabular-nums ${incoming ? 'text-emerald-600' : 'text-rose-600'}`}>
                             {incoming ? '+' : '-'}{formatCurrency(Math.abs(tx.amount))}
                           </p>
-                          {tx.balanceAfter !== null && (
+                          {/* {tx.balanceAfter !== null && (
                             <p className="mt-1 text-xs text-slate-500">
                               Số dư sau giao dịch: {formatCurrency(Math.abs(tx.balanceAfter as number))}
                             </p>
-                          )}
+                          )} */}
                         </div>
                      </div>
                    );
@@ -392,12 +392,12 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ onNavigat
                       {detailTx.amount >= 0 ? '+' : ''}{formatCurrency(detailTx.amount)}
                     </p>
                   </div>
-                  <div>
+                  {/* <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Dư sau GD</p>
                     <p className="text-2xl font-black text-slate-900 tabular-nums tracking-tighter">
                       {detailTx.balanceAfter !== null ? formatCurrency(detailTx.balanceAfter as number) : '--'}
                     </p>
-                  </div>
+                  </div> */}
                </div>
 
                <div className="bg-slate-50 rounded-3xl p-8 border border-slate-100">

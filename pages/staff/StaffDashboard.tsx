@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { packageService } from '../../services/packageService';
 import { staffService, VendorVerification } from '../../services/staffService';
+import { CeremonyCategory } from '../../types';
 
 interface StaffDashboardProps {
   onNavigate: (path: string) => void;
@@ -12,7 +13,7 @@ interface ProductDashboardItem {
   name: string;
   category: string;
   price: number;
-  status: 'active' | 'inactive' | 'draft';
+  status: 'Pending' | 'Approved' | 'Rejected' | 'Draft' | 'active' | 'inactive';
   date: string;
   vendorName: string;
 }
@@ -37,21 +38,30 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
     { label: 'Đã từ chối', value: '0', change: '0' },
   ]);
   const [pendingVendors, setPendingVendors] = useState<VendorVerification[]>([]);
+  const [categories, setCategories] = useState<CeremonyCategory[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Helper category map
-  const categoryLabelMap: Record<number, string> = {
-    1: 'Đầy Tháng',
-    2: 'Tân Gia',
-    3: 'Khai Trương',
-    4: 'Tổ Tiên',
-    5: 'Khác',
+  // Helper category mapping
+  const mapCategory = (id: number) => {
+    return categories.find(c => Number(c.categoryId) === id)?.name || 'Khác';
   };
 
   useEffect(() => {
     const fetchData = async () => {
       setLoading(true);
       try {
+        // Tải danh mục trước để ánh xạ tên chính xác
+        let currentCategories = categories;
+        if (categories.length === 0) {
+          try {
+            const cats = await packageService.getCeremonyCategories();
+            setCategories(cats);
+            currentCategories = cats;
+          } catch (e) {
+            console.error('Failed to load categories', e);
+          }
+        }
+
         const allPackages = await packageService.getPackagesByStatus('');
 
         let activeCount = 0;
@@ -59,24 +69,43 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
         let rejectedCount = 0;
 
         const mappedProducts: ProductDashboardItem[] = allPackages.map((pkg: any) => {
-          const variants = Array.isArray(pkg.packageVariants) ? pkg.packageVariants : [];
+          const variants = Array.isArray(pkg.packageVariants) ? pkg.packageVariants : (Array.isArray(pkg.variants) ? pkg.variants : []);
           const activeVariants = variants.filter((v: any) => Boolean(v?.isActive));
-          const price = Number((activeVariants[0] || variants[0])?.price || 0);
+          const selectedVariant = activeVariants[0] || variants[0];
+          const price = Number(selectedVariant?.price || 0);
 
           const isActive = Boolean(pkg.isActive);
+          const rawStatus = String(pkg.approvalStatus || pkg.packageStatus || pkg.status || 'Pending');
 
-          if (isActive) activeCount++;
-          // Mocking logic for pending vs rejected based on isSuccess or variants if unavailable.
-          // Since we don't have true Pending/Rejected fields in ApiPackage, we mock it.
-          else if (pkg.packageVariants?.length === 0) rejectedCount++;
-          else pendingCount++;
+          let displayStatus: ProductDashboardItem['status'] = 'Pending';
+          if (rawStatus === 'Approved') {
+            displayStatus = 'Approved';
+            if (isActive) activeCount++;
+          }
+          else if (rawStatus === 'Rejected') {
+            displayStatus = 'Rejected';
+            rejectedCount++;
+          }
+          else if (rawStatus === 'Draft') displayStatus = 'Draft';
+          else if (rawStatus === 'Pending') {
+            displayStatus = 'Pending';
+            pendingCount++;
+          }
+          else {
+            if (isActive) {
+              displayStatus = 'active';
+              activeCount++;
+            } else {
+              displayStatus = 'inactive';
+            }
+          }
 
           return {
             id: String(pkg.packageId || pkg.id || ''),
             name: String(pkg.packageName || pkg.name || 'Sản phẩm'),
-            category: categoryLabelMap[Number(pkg.categoryId || 0)] || 'Khác',
+            category: currentCategories.find(c => Number(c.categoryId) === Number(pkg.categoryId))?.name || 'Khác',
             price: Number.isFinite(price) ? price : 0,
-            status: isActive ? 'active' : 'inactive',
+            status: displayStatus,
             date: String(pkg.createdAt || new Date().toISOString().split('T')[0]),
             vendorName: String(pkg.vendorProfileId || pkg.vendorId || 'N/A'),
           };
@@ -89,8 +118,12 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
           { label: 'Đã từ chối', value: String(rejectedCount), change: '0' },
         ]);
 
-        // Sort by date descending and take top 5
-        const sorted = mappedProducts.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        // Ưu tiên hiển thị mâm cúng Đang chờ duyệt lên trước, sau đó sắp xếp theo ngày mới nhất
+        const sorted = mappedProducts.sort((a, b) => {
+          if (a.status === 'Pending' && b.status !== 'Pending') return -1;
+          if (a.status !== 'Pending' && b.status === 'Pending') return 1;
+          return new Date(b.date).getTime() - new Date(a.date).getTime();
+        });
         setRecentProducts(sorted.slice(0, 5));
 
         // Fetch pending vendors
@@ -98,10 +131,14 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
           const pendingData = await staffService.getVendorVerifications('2'); // 2 = Pending
           setPendingVendors(pendingData.slice(0, 5));
 
-          setStats(prev => [
-            ...prev,
-            { label: 'Vendor chờ duyệt', value: String(pendingData.length), change: 'new' }
-          ]);
+          setStats(prev => {
+            // Tránh lặp lại nhãn nếu đã có
+            if (prev.some(s => s.label === 'Vendor chờ duyệt')) return prev;
+            return [
+              ...prev,
+              { label: 'Vendor chờ duyệt', value: String(pendingData.length), change: 'new' }
+            ];
+          });
         } catch (error) {
           console.error('Failed to fetch pending vendors', error);
         }
@@ -118,18 +155,24 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
 
   const getStatusColor = (status: string) => {
     switch (status) {
+      case 'Approved':
       case 'active': return 'bg-green-100 text-green-800 border-green-200';
       case 'inactive': return 'bg-gray-100 text-gray-800 border-gray-200';
-      case 'draft': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'Draft': return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'Pending': return 'bg-amber-100 text-amber-800 border-amber-200';
+      case 'Rejected': return 'bg-red-100 text-red-800 border-red-200';
       default: return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'active': return 'Đang hoạt động';
+      case 'Approved':
+      case 'active': return 'Đã hoạt động';
       case 'inactive': return 'Tạm ẩn';
-      case 'draft': return 'Bản nháp';
+      case 'Draft': return 'Bản nháp';
+      case 'Pending': return 'Chờ duyệt';
+      case 'Rejected': return 'Từ chối';
       default: return 'Không xác định';
     }
   };
@@ -196,7 +239,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
         </div>
 
         {/* Recent Products */}
-        <div className="bg-white rounded-[2rem] p-8 border border-gold/10 shadow-sm">
+        {/* <div className="bg-white rounded-[2rem] p-8 border border-gold/10 shadow-sm">
           <div className="flex justify-between items-center mb-10">
             <h2 className="text-2xl font-bold text-primary flex items-center gap-2">
               <span className="material-symbols-outlined">inventory_2</span>
@@ -243,7 +286,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
               ))}
             </div>
           )}
-        </div>
+        </div> */}
       </div>
     </div>
   );
