@@ -288,7 +288,6 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
                     <th className="p-4 font-semibold text-sm">Sản Phẩm</th>
                     <th className="p-4 font-semibold text-sm">Danh Mục</th>
                     <th className="p-4 font-semibold text-sm text-center">Đơn Hàng</th>
-                    <th className="p-4 font-semibold text-sm text-center">Trạng Thái</th>
                     <th className="p-4 font-semibold text-sm text-center">Thao Tác</th>
                   </tr>
                 </thead>
@@ -318,17 +317,6 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
                       </td>
                       <td className="p-4 text-center font-semibold text-gray-800">
                         {product.orders}
-                      </td>
-                      <td className="p-4 text-center">
-                        <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                          product.status === 'Approved' ? 'bg-green-100 text-green-700 border border-green-200' :
-                          product.status === 'Rejected' ? 'bg-red-100 text-red-700 border border-red-200' :
-                          'bg-yellow-100 text-yellow-700 border border-yellow-200'
-                        }`}>
-                          {product.status === 'Approved' ? 'Đã duyệt' : 
-                           product.status === 'Rejected' ? 'Từ chối' : 
-                           product.status === 'Draft' ? 'Bản nháp' : 'Chờ duyệt'}
-                        </span>
                       </td>
                       <td className="p-4 text-center">
                         <div className="flex items-center justify-center gap-2">

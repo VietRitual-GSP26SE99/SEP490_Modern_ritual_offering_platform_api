@@ -132,8 +132,23 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
         throw new Error('Không tìm thấy thông tin chi tiết sản phẩm');
       }
 
+      // Normalize approvalStatus từ nhiều field khả dĩ của API
+      // Fallback về selectedStatus vì product đang ở filter đó (e.g. "Approved")
+      const rawApproval = pkgDetails.approvalStatus || pkgDetails.packageStatus || pkgDetails.status || selectedStatus || '';
+      pkgDetails.approvalStatus = rawApproval;
+
+      // Khi package isActive=true, force variant isActive=true
+      // Vì API thường trả isActive=false cho variant dù package đang hoạt động
+      if (pkgDetails.isActive && Array.isArray(pkgDetails.packageVariants)) {
+        pkgDetails.packageVariants = pkgDetails.packageVariants.map((v: any) => ({
+          ...v,
+          isActive: true,
+        }));
+      }
+
       setViewDisplayImageIndex(pkgDetails.primaryImageIndex || 0);
       setViewProductDetails(pkgDetails);
+
       setEditProductOpen(false);
     } catch (error) {
       Swal.close();
@@ -830,16 +845,28 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
                   </p>
                 </div> */}
                 <div className="flex gap-2 items-center">
-                  <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest flex-shrink-0 ${viewProductDetails.approvalStatus === 'Approved' ? 'bg-green-100 text-green-700 border border-green-200' :
-                    viewProductDetails.approvalStatus === 'Rejected' ? 'bg-red-100 text-red-700 border border-red-200' :
-                      'bg-yellow-100 text-yellow-700 border border-yellow-200'
-                    }`}>
-                    {viewProductDetails.approvalStatus === 'Approved' ? 'Đã Duyệt' : viewProductDetails.approvalStatus === 'Rejected' ? 'Từ Chối' : 'Chờ Duyệt'}
-                  </span>
-                  <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest flex-shrink-0 ${viewProductDetails.isActive ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-gray-100 text-gray-700 border border-gray-200'
-                    }`}>
-                    {viewProductDetails.isActive ? 'Đang Bán' : 'Tạm Ngừng'}
-                  </span>
+
+                  {(() => {
+                    const approval = viewProductDetails.approvalStatus || viewProductDetails.packageStatus || viewProductDetails.status || '';
+                    const isApproved = approval === 'Approved';
+                    const isRejected = approval === 'Rejected';
+                    return (
+                      <>
+                        <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest flex-shrink-0 ${
+                          isApproved ? 'bg-green-100 text-green-700 border border-green-200' :
+                          isRejected ? 'bg-red-100 text-red-700 border border-red-200' :
+                          'bg-yellow-100 text-yellow-700 border border-yellow-200'
+                        }`}>
+                          {isApproved ? 'Đã Duyệt' : isRejected ? 'Từ Chối' : 'Chờ Duyệt'}
+                        </span>
+                        {!isApproved && (
+                          <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-widest flex-shrink-0 ${viewProductDetails.isActive ? 'bg-blue-100 text-blue-700 border border-blue-200' : 'bg-gray-100 text-gray-700 border border-gray-200'}`}>
+                            {viewProductDetails.isActive ? 'Đang Bán' : 'Tạm Ngừng'}
+                          </span>
+                        )}
+                      </>
+                    );
+                  })()}
                   {editProductOpen ? (
                     <>
                       <button
@@ -997,9 +1024,15 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
                                 ) : (
                                   <p className="font-black text-primary text-lg">{Number(v.price).toLocaleString('vi-VN')}đ</p>
                                 )}
-                                <span className={`inline-block mt-1.5 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${v.isActive ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-gray-200 text-gray-600 border border-gray-300'}`}>
-                                  {v.isActive ? 'Hoạt động' : 'Tạm ngừng'}
-                                </span>
+                                {(() => {
+                                  const approval = viewProductDetails.approvalStatus || viewProductDetails.packageStatus || viewProductDetails.status || '';
+                                  if (approval === 'Approved') return null;
+                                  return (
+                                    <span className={`inline-block mt-1.5 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${v.isActive ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-gray-200 text-gray-600 border border-gray-300'}`}>
+                                      {v.isActive ? 'Hoạt động' : 'Tạm ngừng'}
+                                    </span>
+                                  );
+                                })()}
                               </div>
                             </div>
                             {editProductOpen && editForm ? (
