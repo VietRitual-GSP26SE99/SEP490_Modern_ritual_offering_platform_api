@@ -281,7 +281,7 @@ export async function confirmEmail(data: ConfirmEmailRequest): Promise<ConfirmEm
   try {
     console.log('✉️ Calling confirm-email API...');
     console.log('📤 Request data:', { email: data.email, token: data.token.substring(0, 20) + '...' });
-    
+
     const response = await fetch(`${API_BASE_URL}/api/auth/confirm-email`, {
       method: 'POST',
       headers: {
@@ -322,17 +322,17 @@ export async function confirmEmail(data: ConfirmEmailRequest): Promise<ConfirmEm
         const errorData = JSON.parse(responseText);
         if (errorData.errorMessages && errorData.errorMessages.length > 0) {
           const message = errorData.errorMessages[0];
-          
+
           // Special case: Concurrency failure = email was just verified (treat as success)
-          if (message.includes('Optimistic concurrency failure') || 
-              message.includes('object has been modified')) {
+          if (message.includes('Optimistic concurrency failure') ||
+            message.includes('object has been modified')) {
             console.log('✅ Concurrency error detected - email was already verified, treating as success');
             return {
               success: true,
               message: 'Email đã được xác nhận thành công! Bạn có thể đăng nhập ngay.'
             };
           }
-          
+
           errorMessage = errorData.errorMessages.join(', ');
         }
       } catch (e) {
@@ -377,7 +377,7 @@ export async function confirmEmail(data: ConfirmEmailRequest): Promise<ConfirmEm
 export async function logoutApi(): Promise<void> {
   try {
     console.log('🔄 Calling Logout API...');
-    
+
     const token = getAuthToken();
     if (!token) {
       console.warn('⚠️ No token found, skipping API logout');
@@ -402,7 +402,7 @@ export async function logoutApi(): Promise<void> {
     });
 
     console.log('📡 Logout API status:', response.status);
-    
+
     if (!response.ok) {
       console.warn('⚠️ Logout API failed, but proceeding with local logout');
     } else {
@@ -569,7 +569,7 @@ export interface RegisterVendorRequest {
  */
 export async function getProfile(): Promise<UserProfile> {
   console.log('📱 Fetching user profile...');
-  
+
   const token = getAuthToken();
   if (!token) {
     throw new Error('No authentication token found');
@@ -812,7 +812,7 @@ export async function registerVendor(registerData: RegisterVendorRequest): Promi
 
     if (!responseText.trim()) return null;
     const data: ApiResponse<any> = JSON.parse(responseText);
-    
+
     if (!data.isSuccess) {
       throw new Error(data.errorMessages?.join(', ') || 'Đăng ký thất bại');
     }
@@ -928,7 +928,7 @@ export async function resubmitVendorRegistration(registerData: Partial<RegisterV
 
     if (!responseText.trim()) return null;
     const data: ApiResponse<any> = JSON.parse(responseText);
-    
+
     if (!data.isSuccess) {
       throw new Error(data.errorMessages?.join(', ') || 'Gửi lại đơn thất bại');
     }
@@ -957,7 +957,7 @@ export interface UpdateProfileRequest {
 
 export async function updateProfile(profileData: UpdateProfileRequest): Promise<UserProfile> {
   console.log('✏️ Updating user profile...');
-  
+
   const token = getAuthToken();
   if (!token) {
     throw new Error('No authentication token found');
@@ -973,7 +973,7 @@ export async function updateProfile(profileData: UpdateProfileRequest): Promise<
     formData.append('AddressText', profileData.addressText);
     formData.append('Latitude', profileData.latitude.toString());
     formData.append('Longitude', profileData.longitude.toString());
-    
+
     if (profileData.avatarFile) {
       formData.append('AvatarFile', profileData.avatarFile);
     }
@@ -1117,10 +1117,10 @@ export async function forgotPassword(email: string): Promise<ForgotPasswordRespo
     console.log('✅ Forgot Password API Response:', responseData);
 
     if (responseData.isSuccess) {
-      const resultMessage = typeof responseData.result === 'string' 
-        ? responseData.result 
+      const resultMessage = typeof responseData.result === 'string'
+        ? responseData.result
         : responseData.result?.message || 'Email đặt lại mật khẩu đã được gửi đến địa chỉ email của bạn.';
-      
+
       return {
         message: resultMessage,
       };
@@ -1187,10 +1187,10 @@ export async function resetPassword(data: ResetPasswordRequest): Promise<ResetPa
     console.log('✅ Reset Password API Response:', responseData);
 
     if (responseData.isSuccess) {
-      const resultMessage = typeof responseData.result === 'string' 
-        ? responseData.result 
+      const resultMessage = typeof responseData.result === 'string'
+        ? responseData.result
         : responseData.result?.message || 'Mật khẩu đã được đặt lại thành công.';
-      
+
       return {
         message: resultMessage,
       };
@@ -1214,7 +1214,7 @@ export async function changePassword(data: ChangePasswordRequest): Promise<{ mes
   try {
     console.log('🔄 Calling Change Password API...');
     console.log('📤 Request:', { oldPassword: '***', newPassword: '***' });
-    
+
     const token = getAuthToken();
     if (!token) {
       throw new Error('Vui lòng đăng nhập để đổi mật khẩu');
@@ -1233,17 +1233,17 @@ export async function changePassword(data: ChangePasswordRequest): Promise<{ mes
     });
 
     console.log('📡 Response status:', response.status);
-    
+
     const responseText = await response.text();
     console.log('📥 Response text:', responseText);
-    
+
     const responseData: ApiResponse<any> = JSON.parse(responseText);
 
     if (responseData.isSuccess) {
       const resultMessage = typeof responseData.result === 'string'
         ? responseData.result
         : responseData.result?.message || 'Mật khẩu đã được thay đổi thành công!';
-      
+
       console.log('✅ Change Password successful');
       return { message: resultMessage };
     } else {

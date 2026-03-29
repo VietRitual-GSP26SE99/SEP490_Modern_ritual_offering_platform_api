@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { vendorService, VendorProfile } from '../../services/vendorService';
 import { packageService } from '../../services/packageService';
+import { bannerService, BannerResponse } from '../../services/bannerService';
+import Carousel from '../../components/Carousel';
 import { Product } from '../../types';
 import toast from '../../services/toast';
 
@@ -16,9 +18,12 @@ const ProductCard: React.FC<{
   >
     <div className="relative w-full pt-[100%] overflow-hidden bg-slate-50 shrink-0">
       <img 
-        src={product.image} 
+        src={product.image || 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=1000'} 
         alt={product.name} 
         className="absolute top-0 left-0 w-full h-full object-cover group-hover:scale-110 transition-all duration-700" 
+        onError={(e) => {
+          (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=1000';
+        }}
       />
     </div>
     <div className="p-6 flex-1 flex flex-col">
@@ -67,6 +72,8 @@ const VendorProfilePage: React.FC<VendorProfilePageProps> = ({ onNavigate }) => 
   const [activeTab, setActiveTab] = useState<'home' | 'products' | 'about'>('home');
   const [categories, setCategories] = useState<{ categoryId: number; name: string }[]>([]);
   const [activeFilter, setActiveFilter] = useState('All');
+  const [banners, setBanners] = useState<BannerResponse[]>([]);
+  const [loadingBanners, setLoadingBanners] = useState(true);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -111,6 +118,34 @@ const VendorProfilePage: React.FC<VendorProfilePageProps> = ({ onNavigate }) => 
 
     void fetchData();
   }, [id]);
+
+  // Fetch banners for this vendor
+  useEffect(() => {
+    if (!id) return;
+    const fetchBanners = async () => {
+      setLoadingBanners(true);
+      try {
+        const response = await bannerService.getActiveBanners(id);
+        if (response.isSuccess && response.result) {
+          setBanners(response.result);
+        }
+      } catch (error) {
+        console.error('Error fetching vendor banners:', error);
+      } finally {
+        setLoadingBanners(false);
+      }
+    };
+    fetchBanners();
+  }, [id]);
+
+  const handleBannerClick = (slide: any) => {
+    if (slide.rawBanner) {
+      const url = bannerService.getNavigationUrl(slide.rawBanner);
+      onNavigate(url);
+    } else {
+      onNavigate('/shop');
+    }
+  };
 
   if (loading) {
     return (
@@ -232,9 +267,25 @@ const VendorProfilePage: React.FC<VendorProfilePageProps> = ({ onNavigate }) => 
       <div className="container mx-auto px-6 py-16">
         {activeTab === 'home' && (
           <div className="space-y-24">
-            <div className="w-full aspect-[21/9] bg-slate-50 flex items-center justify-center border border-slate-100">
-              <h2 className="text-4xl font-bold text-slate-200 tracking-[0.5em] uppercase">{vendor.shopName}</h2>
-            </div>
+            {/* Banner Section */}
+            {banners.length > 0 ? (
+               <div className="md:-mx-6 -mt-8 mb-16">
+                 <Carousel 
+                   slides={banners.map(b => ({
+                     image: b.imageUrl,
+                     title: b.title,
+                     subtitle: b.linkType === 'Ritual' ? 'Dịch vụ nổi bật' : 'Chương trình ưu đãi',
+                     description: `Khám phá ngay ${b.title} tại ${vendor.shopName}.`,
+                     rawBanner: b
+                   }))} 
+                   onCtaClick={handleBannerClick} 
+                 />
+               </div>
+            ) : (
+               <div className="w-full aspect-[21/9] bg-slate-50 flex items-center justify-center border border-slate-100 rounded-[3rem]">
+                 <h2 className="text-4xl font-bold text-slate-200 tracking-[0.5em] uppercase">{vendor.shopName}</h2>
+               </div>
+            )}
 
             <div className="space-y-10">
               <h3 className="text-lg font-bold text-slate-900 uppercase tracking-widest border-b border-slate-100 pb-4">Đề xuất</h3>

@@ -225,26 +225,29 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
 
       const source = ownedPackages.length > 0 ? ownedPackages : packages;
 
-      const mapped: Product[] = source.map((item) => {
-        const variants = Array.isArray((item as any).packageVariants) ? (item as any).packageVariants : [];
+      const mapped: Product[] = source.map((item: any) => {
+        const variants = Array.isArray(item.packageVariants) ? item.packageVariants : (Array.isArray(item.variants) ? item.variants : []);
         const activeVariants = variants.filter((variant: any) => Boolean(variant?.isActive));
         const selectedVariant = activeVariants[0] || variants[0];
         const price = Number(selectedVariant?.price || 0);
 
+        // Map images from various possible field names
+        const imageUrls = item.imageUrls || item.packageImages || [];
+        const primaryIdx = item.primaryImageIndex || 0;
+        const imageUrl = item.imageUrl || item.packageAvatarUrl || (Array.isArray(imageUrls) && imageUrls.length > 0 ? imageUrls[primaryIdx] || imageUrls[0] : '');
+
         return {
-          id: String((item as any).packageId ?? (item as any).id ?? ''),
-          name: String((item as any).packageName || (item as any).name || 'Sản phẩm'),
-          categoryId: Number((item as any).categoryId || 0),
-          category: mapCategory(Number((item as any).categoryId || 0)),
+          id: String(item.packageId ?? item.id ?? ''),
+          name: String(item.packageName || item.name || 'Sản phẩm'),
+          categoryId: Number(item.categoryId || 0),
+          category: mapCategory(Number(item.categoryId || 0)),
           price: Number.isFinite(price) ? price : 0,
-          stock: activeVariants.length,
-          image: Array.isArray((item as any).imageUrls) && (item as any).imageUrls.length > 0
-            ? ((item as any).imageUrls[(item as any).primaryImageIndex || 0] || (item as any).imageUrls[0])
-            : String((item as any).imageUrl || ''),
-          rating: Number((item as any).ratingAvg || 0),
-          orders: Number((item as any).totalSold || 0),
-          status: Boolean((item as any).isActive) ? 'active' : 'inactive',
-          created: String((item as any).createdAt || ''),
+          stock: activeVariants.length || variants.length,
+          image: String(imageUrl),
+          rating: Number(item.ratingAvg || 0),
+          orders: Number(item.totalSold || 0),
+          status: Boolean(item.isActive) ? 'active' : 'inactive',
+          created: String(item.createdAt || ''),
         };
       });
 
