@@ -303,20 +303,26 @@ class VendorService {
     }
   }
 
-  /**
-   * Xem tiến trình thanh lý cửa hàng.
-   * GET /api/vendor/closure/status
-   */
   async getStoreClosureStatus(): Promise<ApiResponse<any>> {
     try {
       const token = localStorage.getItem('smart-child-token');
-      const response = await fetch(`${API_BASE_URL}/vendor/closure/status`, {
+      const response = await fetch(`${API_BASE_URL}/vendor/closure/status?ActiveRole=Vendor`, {
         method: 'GET',
         headers: {
           'Accept': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
       });
+      // Handle non-200 responses safely
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        return { 
+          isSuccess: false, 
+          statusCode: String(response.status), 
+          errorMessages: [errorData.message || `Lỗi hệ thống (${response.status})`], 
+          result: null 
+        };
+      }
       return await response.json();
     } catch (error) {
       console.error('❌ Failed to get store closure status:', error);
@@ -331,7 +337,7 @@ class VendorService {
   async cancelStoreClosure(): Promise<ApiResponse<any>> {
     try {
       const token = localStorage.getItem('smart-child-token');
-      const response = await fetch(`${API_BASE_URL}/vendor/closure/cancel`, {
+      const response = await fetch(`${API_BASE_URL}/vendor/closure/cancel?ActiveRole=Vendor`, {
         method: 'POST',
         headers: {
           'Accept': 'application/json',

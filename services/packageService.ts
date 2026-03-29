@@ -21,8 +21,8 @@ class PackageService {
       }
 
       const endpoint = query.toString()
-        ? `${API_BASE_URL}/packages/by-status?${query.toString()}`
-        : `${API_BASE_URL}/packages/by-status`;
+        ? `${API_BASE_URL}/packages/management/by-status?PageNumber=1&PageSize=50&${query.toString()}`
+        : `${API_BASE_URL}/packages/management/by-status?PageNumber=1&PageSize=50`;
 
       const response = await fetch(endpoint, {
         method: 'GET',
@@ -33,6 +33,18 @@ class PackageService {
       });
 
       if (!response.ok) {
+        if (response.status === 404) {
+          console.warn('⚠️ Endpoint /packages/management/by-status not found (404), falling back to client-side filtering...');
+          const allPackages = await this.getAllPackages();
+          if (!normalizedStatus) return allPackages;
+          return allPackages.filter(pkg => 
+            (pkg as any).status === normalizedStatus || 
+            (pkg as any).packageStatus === normalizedStatus ||
+            (pkg as any).approvalStatus === normalizedStatus ||
+            (normalizedStatus === 'Approved' && pkg.isActive) ||
+            (normalizedStatus === 'Inactive' && !pkg.isActive)
+          );
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
@@ -55,7 +67,19 @@ class PackageService {
       return [];
     } catch (error) {
       console.error('Failed to fetch packages by status:', error);
-      return [];
+      // Final fallback: try to get all packages if something went wrong
+      try {
+        const all = await this.getAllPackages();
+        const normalizedStatus = String(status || '').trim();
+        if (!normalizedStatus) return all;
+        return all.filter(pkg => 
+          (pkg as any).status === normalizedStatus || 
+          (pkg as any).packageStatus === normalizedStatus ||
+          (normalizedStatus === 'Approved' && pkg.isActive)
+        );
+      } catch (innerError) {
+        return [];
+      }
     }
   }
 
@@ -65,10 +89,10 @@ class PackageService {
    * @param pageSize - Số lượng item trên mỗi trang
    * @returns Promise<ApiPackage[]>
    */
-  async getAllPackages(pageNumber: number = 1, pageSize: number = 1000): Promise<ApiPackage[]> {
+  async getAllPackages(pageNumber: number = 1, pageSize: number = 50): Promise<ApiPackage[]> {
     try {
       console.log(` Fetching packages from API (page ${pageNumber}, size ${pageSize})...`);
-      const response = await fetch(`${API_BASE_URL}/packages?pageNumber=${pageNumber}&pageSize=${pageSize}`, {
+      const response = await fetch(`${API_BASE_URL}/packages?PageNumber=${pageNumber}&PageSize=${pageSize}`, {
         method: 'GET',
         headers: {
           'Accept': 'text/plain',
@@ -163,7 +187,8 @@ class PackageService {
       }
 
       console.log(' Fetching package detail for ID:', normalizedId);
-      const response = await fetch(`${API_BASE_URL}/packages/${normalizedId}`, {
+      const endpoint = token ? `${API_BASE_URL}/packages/management/${normalizedId}` : `${API_BASE_URL}/packages/${normalizedId}`;
+      const response = await fetch(endpoint, {
         method: 'GET',
         headers: {
           Accept: 'application/json, text/plain, */*',
@@ -206,7 +231,7 @@ class PackageService {
     try {
       const token = getAuthToken();
       const normalizedId = Number(String(id).trim());
-      const response = await fetch(`${API_BASE_URL}/packages/${normalizedId}/approve`, {
+      const response = await fetch(`${API_BASE_URL}/packages/management/${normalizedId}/approve`, {
         method: 'POST',
         headers: {
           Accept: 'application/json, text/plain, */*',
@@ -231,7 +256,7 @@ class PackageService {
     try {
       const token = getAuthToken();
       const normalizedId = Number(String(id).trim());
-      const response = await fetch(`${API_BASE_URL}/packages/${normalizedId}/reject`, {
+      const response = await fetch(`${API_BASE_URL}/packages/management/${normalizedId}/reject`, {
         method: 'POST',
         headers: {
           Accept: 'application/json, text/plain, */*',
@@ -301,11 +326,22 @@ class PackageService {
    */
   mapToProduct(apiPackage: ApiPackage, vendorMap?: Map<string, VendorProfile>): Product {
     // Find default variant or use first variant for pricing
-    const defaultVariant = apiPackage.packageVariants?.[0];
+    const variantsSource = apiPackage.packageVariants || (apiPackage as any).variants || [];
+    const defaultVariant = variantsSource[0];
     
+    // Helper to fix dead storage.vietritual.com URLs
+    const fixUrl = (url: string | undefined): string => {
+      if (!url) return '';
+      if (url.includes('storage.vietritual.com')) {
+        // storage.vietritual.com is dead. Use a high-quality product placeholder.
+        return 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?auto=format&fit=crop&q=80&w=1000';
+      }
+      return url;
+    };
+
     // Parse variants và chuyển description thành items array
     const packageId = apiPackage.packageId ?? (apiPackage as any).id;
-    const parsedVariants = apiPackage.packageVariants?.map(variant => {
+    const parsedVariants = variantsSource.map((variant: any) => {
       console.log('🔍 Processing variant:', variant.variantName, 'Description:', variant.description);
 
       const rawVariantId = (variant as any).variantId ?? (variant as any).id ?? (variant as any).packageVariantId;
@@ -358,7 +394,7 @@ class PackageService {
       };
     });
     
-    console.log('📦 Final parsed variants:', parsedVariants);
+    console.log('📦 Final parsed variants:', parsedVariants || []);
     
     // Get vendor info from map if available
     const vendorId = apiPackage.vendorProfileId || (apiPackage as any).vendorId;
@@ -374,19 +410,19 @@ class PackageService {
       description: apiPackage.description || 'Mâm cúng truyền thống với đầy đủ lễ vật',
       category: (apiPackage as any).categoryName || (apiPackage as any).ceremonyCategory?.name || this.mapCategoryIdToOccasion(apiPackage.categoryId?.toString() || '1'),
       price: defaultVariant?.price || 2500000,
-      image: ((apiPackage as any).imageUrls && (apiPackage as any).imageUrls.length > 0)
+      image: fixUrl(((apiPackage as any).imageUrls && (apiPackage as any).imageUrls.length > 0)
         ? ((apiPackage as any).imageUrls[(apiPackage as any).primaryImageIndex || 0] || (apiPackage as any).imageUrls[0])
-        : (apiPackage.packageAvatarUrl || (apiPackage as any).imageUrl || this.generatePlaceholderImage(pkgId)),
+        : (apiPackage.packageAvatarUrl || (apiPackage as any).imageUrl || this.generatePlaceholderImage(pkgId))),
       gallery: ((apiPackage as any).imageUrls && (apiPackage as any).imageUrls.length > 0)
-        ? (apiPackage as any).imageUrls
-        : (apiPackage.packageAvatarUrl ? [apiPackage.packageAvatarUrl] : this.generateGalleryImages(pkgId)),
+        ? (apiPackage as any).imageUrls.map((url: string) => fixUrl(url))
+        : (apiPackage.packageAvatarUrl ? [fixUrl(apiPackage.packageAvatarUrl)] : this.generateGalleryImages(pkgId)),
       rating: apiPackage.ratingAvg || 0,
       reviews: apiPackage.reviewCount || 0,
       totalSold: Number((apiPackage as any).totalSold || 0),
       orders: 0,
       status: apiPackage.isActive ? 'active' : 'inactive',
       tag: undefined,
-      variants: parsedVariants,
+      variants: parsedVariants || [],
       vendorId: vendorId,
       vendorName: vendor?.shopName || (vendorId ? `Shop ${vendorId.substring(0, 8)}` : 'Shop'),
     };
@@ -495,7 +531,7 @@ class PackageService {
     }
   ): Promise<any> {
     const token = getAuthToken();
-    const response = await fetch(`${API_BASE_URL}/packages/${id}`, {
+    const response = await fetch(`${API_BASE_URL}/packages/management/${id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',

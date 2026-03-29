@@ -229,7 +229,8 @@ export async function getMyWallet(type: WalletType): Promise<WalletInfo> {
     throw new Error('Bạn chưa đăng nhập.');
   }
 
-  const response = await fetch(`/api/wallets/me?type=${encodeURIComponent(type)}`, {
+  // Swagger shows the parameter name is 'ActiveRole' and values are 'Vendor', 'Customer', etc.
+  const response = await fetch(`/api/wallets/me?ActiveRole=${encodeURIComponent(type)}`, {
     method: 'GET',
     headers: {
       Accept: 'application/json',
@@ -510,21 +511,30 @@ export async function getMyTransactions(filter: TransactionFilter = {}): Promise
   }
 
   const params = new URLSearchParams();
-  if (filter.type && filter.type.trim()) {
-    params.append('type', filter.type.trim());
+  
+  // ActiveRole determines the wallet context (Vendor/Customer)
+  if (filter.walletType) {
+    params.append('ActiveRole', filter.walletType);
   }
+  
+  // Type is the transaction category filter
+  if (filter.type && filter.type.trim()) {
+    params.append('Type', filter.type.trim());
+  }
+  
   if (filter.status && filter.status.trim()) {
-    params.append('status', filter.status.trim());
+    params.append('Status', filter.status.trim());
   }
   if (filter.from && filter.from.trim()) {
-    params.append('from', filter.from.trim());
+    params.append('From', filter.from.trim());
   }
   if (filter.to && filter.to.trim()) {
-    params.append('to', filter.to.trim());
+    params.append('To', filter.to.trim());
   }
-  if (filter.walletType && (filter.walletType as string).trim()) {
-    params.append('walletType', (filter.walletType as string).trim());
-  }
+  
+  // Add default pagination to ensure we get items
+  params.append('PageNumber', '1');
+  params.append('PageSize', '100');
 
   const queryString = params.toString();
 

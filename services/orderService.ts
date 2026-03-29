@@ -137,6 +137,8 @@ interface VendorOrdersApiItem {
     CustomerProfileId?: string;
     customerName?: string;
     CustomerName?: string;
+    customerId?: string;
+    CustomerId?: string;
     customerPhone?: string;
     CustomerPhone?: string;
     customer?: {
@@ -567,9 +569,10 @@ class OrderService {
     }
 
     // Get all orders for the current vendor
-    async getVendorOrders(): Promise<VendorOrder[]> {
+    async getVendorOrders(pageNumber: number = 1, pageSize: number = 100): Promise<VendorOrder[]> {
         try {
-            const response = await fetch(`${API_BASE_URL}/orders/vendor`, {
+            const url = `${API_BASE_URL}/orders/vendor?PageNumber=${pageNumber}&PageSize=${pageSize}`;
+            const response = await fetch(url, {
                 method: 'GET',
                 headers: this.getHeaders(),
             });
@@ -580,8 +583,11 @@ class OrderService {
 
             const data = await response.json();
             const isSuccess = data?.isSuccess || data?.isSucceeded || data?.statusCode === 'OK';
-            if (isSuccess && Array.isArray(data?.result)) {
-                const mappedOrders: VendorOrder[] = data.result.map((raw: VendorOrdersApiItem) => {
+            if (isSuccess && data?.result) {
+                const payload = data.result;
+                const rawItems = Array.isArray(payload) ? payload : (payload.items || []);
+                
+                const mappedOrders: VendorOrder[] = rawItems.map((raw: VendorOrdersApiItem) => {
                     const items = Array.isArray(raw.items)
                         ? raw.items.map((item) => {
                             const quantity = Number(item.quantity) || 0;
@@ -597,14 +603,16 @@ class OrderService {
                                 price: unitPrice,
                                 lineTotal,
                                 decorationNote: item.decorationNote || '',
-                                imageUrl: item.imageUrl || (item as any).packageImageUrl || (item as any).productImageUrl || '',
+                                imageUrl: item.imageUrl || (item as any).packageAvatarUrl || (item as any).packageImageUrl || (item as any).productImageUrl || '',
                             };
                         })
                         : [];
 
                     const subTotal = Number(raw.subTotal) || items.reduce((sum, item) => sum + item.lineTotal, 0);
                     const shippingFee = Number(raw.shippingFee) || 0;
-                    const totalAmount = Number(raw.finalAmount) || Number(raw.vendorNetAmount) || (subTotal + shippingFee);
+                    const finalAmountFromApi = Number(raw.finalAmount);
+                    const totalAmount = Number.isFinite(finalAmountFromApi) ? finalAmountFromApi : (subTotal + shippingFee);
+                    
                     const commissionRate = this.normalizeCommissionRate(raw.commissionRate);
                     const platformFee = Number(raw.platformFee) || (totalAmount * commissionRate);
                     const vendorNetAmount = Number(raw.vendorNetAmount) || (totalAmount - platformFee);
@@ -612,8 +620,8 @@ class OrderService {
                     return {
                         orderId: raw.orderId || '',
                         orderStatus: raw.orderStatus || 'Pending',
-                        customerProfileId: raw.customerProfileId || raw.CustomerProfileId || raw.customer?.profileId || raw.customer?.customerId || '',
-                        customerName: raw.customerName || raw.CustomerName || raw.customer?.fullName || raw.customer?.customerName || '',
+                        customerProfileId: raw.customerProfileId || raw.CustomerProfileId || raw.customer?.profileId || raw.customer?.customerId || raw.customerId || '',
+                        customerName: raw.customerName || raw.CustomerName || raw.customer?.fullName || raw.customer?.customerName || 'N/A',
                         customerPhone: raw.customerPhone || raw.CustomerPhone || raw.customer?.phoneNumber || raw.customer?.customerPhone || '',
                         vendorProfileId: raw.vendorId || '',
                         vendorName: raw.shopName || 'Shop',
@@ -632,7 +640,7 @@ class OrderService {
                         createdAt: raw.createdAt || raw.deliveryDate || new Date().toISOString(),
                         customerAvatar: (raw.customer as any)?.avatarUrl || (raw as any).customerAvatar || '',
                         preparationProofImages: raw.preparationProofImages || [],
-                        finalAmount: Number(raw.finalAmount) || totalAmount,
+                        finalAmount: totalAmount,
                     };
                 });
 
