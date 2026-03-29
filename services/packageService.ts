@@ -16,13 +16,13 @@ class PackageService {
       const token = getAuthToken();
       const query = new URLSearchParams();
       const normalizedStatus = String(status || '').trim();
-      if (normalizedStatus) {
-        query.set('status', normalizedStatus);
+
+      // Nếu không có status, sử dụng endpoint getAllPackages để tránh lỗi 400 Bad Request
+      if (!normalizedStatus) {
+        return this.getAllPackages(1, 50);
       }
 
-      const endpoint = query.toString()
-        ? `${API_BASE_URL}/packages/management/by-status?PageNumber=1&PageSize=50&${query.toString()}`
-        : `${API_BASE_URL}/packages/management/by-status?PageNumber=1&PageSize=50`;
+      const endpoint = `${API_BASE_URL}/packages/management/by-status?pageNumber=1&pageSize=50&status=${normalizedStatus}`;
 
       const response = await fetch(endpoint, {
         method: 'GET',
@@ -37,8 +37,8 @@ class PackageService {
           console.warn('⚠️ Endpoint /packages/management/by-status not found (404), falling back to client-side filtering...');
           const allPackages = await this.getAllPackages();
           if (!normalizedStatus) return allPackages;
-          return allPackages.filter(pkg => 
-            (pkg as any).status === normalizedStatus || 
+          return allPackages.filter(pkg =>
+            (pkg as any).status === normalizedStatus ||
             (pkg as any).packageStatus === normalizedStatus ||
             (pkg as any).approvalStatus === normalizedStatus ||
             (normalizedStatus === 'Approved' && pkg.isActive) ||
@@ -49,7 +49,7 @@ class PackageService {
       }
 
       const data: any = await response.json();
-      
+
       if (Array.isArray(data)) {
         return data as ApiPackage[];
       }
@@ -72,8 +72,8 @@ class PackageService {
         const all = await this.getAllPackages();
         const normalizedStatus = String(status || '').trim();
         if (!normalizedStatus) return all;
-        return all.filter(pkg => 
-          (pkg as any).status === normalizedStatus || 
+        return all.filter(pkg =>
+          (pkg as any).status === normalizedStatus ||
           (pkg as any).packageStatus === normalizedStatus ||
           (normalizedStatus === 'Approved' && pkg.isActive)
         );
@@ -107,20 +107,20 @@ class PackageService {
 
       const data: any = await response.json();
       console.log(' API Response:', data);
-      
+
       if (Array.isArray(data)) {
         console.log('✅ Packages received (array):', data.length);
         return data as ApiPackage[];
       }
-      
+
       const isSuccess = data.isSuccess || data.isSucceeded || data.statusCode === 'OK';
       if (isSuccess && data.result) {
         // Handle both direct array and paginated objects with common field names
         const payload = data.result;
-        const packages = Array.isArray(payload) 
-          ? payload 
+        const packages = Array.isArray(payload)
+          ? payload
           : (payload.items || payload.data || payload.list || []);
-          
+
         console.log('✅ Packages received (result):', packages.length);
         return packages;
       } else {
@@ -149,7 +149,7 @@ class PackageService {
       });
 
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      
+
       const data: any = await response.json();
       if (data.isSuccess && data.result) {
         // Nếu API trả về mảng trực tiếp thay vì bọc trong items
@@ -188,13 +188,13 @@ class PackageService {
       }
 
       console.log(' Fetching package detail for ID:', normalizedId, useManagement ? '(Management Mode)' : '(Public Mode)');
-      
-      // Only use management endpoint if explicitly requested AND token is available
-      const endpoint = (useManagement && token) 
-        ? `${API_BASE_URL}/packages/management/${normalizedId}` 
+
+      // Attempt primary endpoint
+      const primaryEndpoint = (useManagement && token)
+        ? `${API_BASE_URL}/packages/management/${normalizedId}`
         : `${API_BASE_URL}/packages/${normalizedId}`;
 
-      const response = await fetch(endpoint, {
+      let response = await fetch(primaryEndpoint, {
         method: 'GET',
         headers: {
           Accept: 'application/json, text/plain, */*',
@@ -202,30 +202,62 @@ class PackageService {
         },
       });
 
-      console.log(' Response status:', response.status);
+      console.log(' Primary response status:', response.status);
+
+      // Fallback to public endpoint if management fails (e.g. 403 or 404)
+      if (!response.ok && useManagement) {
+        console.warn(`⚠️ Management endpoint failed (${response.status}). Falling back to public endpoint...`);
+        response = await fetch(`${API_BASE_URL}/packages/${normalizedId}`, {
+          method: 'GET',
+          headers: {
+            Accept: 'application/json, text/plain, */*',
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+        });
+        console.log(' Fallback response status:', response.status);
+      }
 
       if (!response.ok) {
-        if (response.status === 403 && useManagement) {
-          console.warn('⚠️ 403 Forbidden in management mode. This usually means the user lacks Staff/Vendor permissions.');
-        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data: any = await response.json();
-      console.log(' Package detail:', data);
-      
-      if (!data.isSuccess && (data.packageId !== undefined || data.id !== undefined || data.vendorId !== undefined)) {
-        console.log(' Package loaded successfully from raw format');
-        return data as ApiPackage;
+      console.log(' Raw API response data:', data);
+
+      let result: any = null;
+
+      // Case 1: Package is inside result wrapper (Standard ApiResponse)
+      if (data.result && typeof data.result === 'object') {
+        console.log(' Package loaded successfully from data.result');
+        result = data.result;
       }
-      
-      if (data.isSuccess && data.result) {
-        console.log(' Package loaded successfully');
-        return data.result;
-      } else {
-        console.error('❌ API Error:', data.errorMessages || 'Unknown error');
-        return null;
+      // Case 2: Root object is the package (Raw object)
+      else if (data.packageId !== undefined || data.id !== undefined || data.packageName !== undefined || data.name !== undefined) {
+        console.log(' Package loaded successfully from root object');
+        result = data;
       }
+      // Case 3: data.isSuccess is true but no result and not a package object
+      else if (data.isSuccess === true) {
+        console.warn('⚠️ API returned isSuccess: true but no recognizable package data. Returning raw data as fallback.');
+        result = data;
+      }
+
+      if (result) {
+        // Normalize fields (Public API uses different names than Management API)
+        if (!result.imageUrls && result.packageImages) {
+          result.imageUrls = result.packageImages;
+        }
+        if (!result.packageVariants && result.variants) {
+          result.packageVariants = result.variants;
+        }
+        if (result.packageId === undefined && result.id !== undefined) {
+          result.packageId = result.id;
+        }
+        return result as ApiPackage;
+      }
+
+      console.error('❌ Could not find package data in response:', data.errorMessages || 'Unknown structure');
+      return null;
     } catch (error) {
       console.error('❌ Failed to fetch package:', error);
       return null;
@@ -337,7 +369,7 @@ class PackageService {
     // Find default variant or use first variant for pricing
     const variantsSource = apiPackage.packageVariants || (apiPackage as any).variants || [];
     const defaultVariant = variantsSource[0];
-    
+
     // Helper to fix dead storage.vietritual.com URLs
     const fixUrl = (url: string | undefined): string => {
       if (!url) return '';
@@ -357,10 +389,10 @@ class PackageService {
       const resolvedVariantId = (variant as any).id && packageId != null && Number((variant as any).variantId) === Number(packageId)
         ? (variant as any).id
         : rawVariantId;
-      
+
       // Extract items from description
       let items: string[] = [];
-      
+
       if (variant.description) {
         // Thử nhiều patterns khác nhau
         const patterns = [
@@ -370,7 +402,7 @@ class PackageService {
           /(?:với|Với)\s+(.+?)(?:\.|$)/is,                  // "với ..." (NEW)
           /:\s*(.+?)(?:\.|$)/is                              // Fallback: lấy mọi thứ sau dấu hai chấm
         ];
-        
+
         let itemsText = '';
         for (const pattern of patterns) {
           const match = variant.description.match(pattern);
@@ -380,7 +412,7 @@ class PackageService {
             break;
           }
         }
-        
+
         if (itemsText) {
           // Split theo dấu phẩy và trim
           items = itemsText
@@ -392,7 +424,7 @@ class PackageService {
           console.warn('⚠️ No items found in description');
         }
       }
-      
+
       return {
         variantId: resolvedVariantId,
         packageId: variant.packageId,
@@ -402,29 +434,38 @@ class PackageService {
         items: items.length > 0 ? items : []
       };
     });
-    
+
     console.log('📦 Final parsed variants:', parsedVariants || []);
-    
+
     // Get vendor info from map if available
     const vendorId = apiPackage.vendorProfileId || (apiPackage as any).vendorId;
     const vendor = vendorId ? vendorMap?.get(vendorId) : undefined;
-    
+
     // Fallbacks for missing fields
     const pkgId = apiPackage.packageId?.toString() || (apiPackage as any).id?.toString() || defaultVariant?.packageId?.toString() || '';
     const pkgName = apiPackage.packageName || (apiPackage as any).name || defaultVariant?.variantName || 'Mâm cúng truyền thống';
-    
+
+    // Support multiple image field names from API (Management vs Public)
+    const rawImageUrls = (apiPackage as any).imageUrls || (apiPackage as any).packageImages || [];
+    const primaryImgIdx = (apiPackage as any).primaryImageIndex || 0;
+    const fallbackImg = apiPackage.packageAvatarUrl || (apiPackage as any).imageUrl || this.generatePlaceholderImage(pkgId);
+
+    const finalImage = fixUrl((Array.isArray(rawImageUrls) && rawImageUrls.length > 0)
+      ? (rawImageUrls[primaryImgIdx] || rawImageUrls[0])
+      : fallbackImg);
+
+    const finalGallery = (Array.isArray(rawImageUrls) && rawImageUrls.length > 0)
+      ? rawImageUrls.map((url: string) => fixUrl(url))
+      : (apiPackage.packageAvatarUrl ? [fixUrl(apiPackage.packageAvatarUrl)] : this.generateGalleryImages(pkgId));
+
     return {
       id: pkgId,
       name: pkgName,
       description: apiPackage.description || 'Mâm cúng truyền thống với đầy đủ lễ vật',
       category: (apiPackage as any).categoryName || (apiPackage as any).ceremonyCategory?.name || this.mapCategoryIdToOccasion(apiPackage.categoryId?.toString() || '1'),
       price: defaultVariant?.price || 2500000,
-      image: fixUrl(((apiPackage as any).imageUrls && (apiPackage as any).imageUrls.length > 0)
-        ? ((apiPackage as any).imageUrls[(apiPackage as any).primaryImageIndex || 0] || (apiPackage as any).imageUrls[0])
-        : (apiPackage.packageAvatarUrl || (apiPackage as any).imageUrl || this.generatePlaceholderImage(pkgId))),
-      gallery: ((apiPackage as any).imageUrls && (apiPackage as any).imageUrls.length > 0)
-        ? (apiPackage as any).imageUrls.map((url: string) => fixUrl(url))
-        : (apiPackage.packageAvatarUrl ? [fixUrl(apiPackage.packageAvatarUrl)] : this.generateGalleryImages(pkgId)),
+      image: finalImage,
+      gallery: finalGallery,
       rating: apiPackage.ratingAvg || 0,
       reviews: apiPackage.reviewCount || 0,
       totalSold: Number((apiPackage as any).totalSold || 0),
@@ -456,7 +497,7 @@ class PackageService {
       // Lấy danh sách unique vendor IDs
       const vendorIds = [...new Set(apiPackages.map(pkg => pkg.vendorProfileId || (pkg as any).vendorId).filter(id => id))];
       console.log('🏪 Fetching vendors for IDs:', vendorIds);
-      
+
       // Fetch tất cả vendors với error handling cho từng vendor
       const vendorPromises = vendorIds.map(async (id) => {
         try {
@@ -467,7 +508,7 @@ class PackageService {
         }
       });
       const vendors = await Promise.all(vendorPromises);
-      
+
       // Tạo vendor map
       const vendorMap = new Map<string, VendorProfile>();
       vendors.forEach((vendor, index) => {
@@ -476,9 +517,9 @@ class PackageService {
           console.log(`✅ Loaded vendor: ${vendor.shopName}`);
         }
       });
-      
+
       console.log(`✅ Vendor map created with ${vendorMap.size}/${vendorIds.length} vendors`);
-      
+
       // Map packages to products với vendor info
       return apiPackages.map(pkg => this.mapToProduct(pkg, vendorMap));
     } catch (error) {
@@ -660,12 +701,12 @@ class PackageService {
           }
         }
       };
-      
+
       xhr.onerror = () => {
         console.error('XHR Upload Error');
         reject(new Error('Lỗi mạng khi upload ảnh (Vite Proxy ProxyRes Error). Hãy chắc chắn server Backend đang chạy và ổn định.'));
       };
-      
+
       xhr.send(formData);
     });
   }
@@ -688,12 +729,12 @@ class PackageService {
       }
 
       const data: any = await response.json();
-      
+
       // Handle ApiResponse format
       if (data?.isSuccess && Array.isArray(data.result)) {
         return data.result as CeremonyCategory[];
       }
-      
+
       // Handle raw array format
       if (Array.isArray(data)) {
         return data as CeremonyCategory[];

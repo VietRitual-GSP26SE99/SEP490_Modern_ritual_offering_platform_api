@@ -30,6 +30,7 @@ import ShippingConfigPage from './pages/vendor/ShippingConfigPage';
 import VendorTransactionPage from './pages/vendor/VendorTransactionPage';
 import VendorWithdrawPage from './pages/vendor/VendorWithdrawPage';
 import DiscountPolicyManagement from './pages/vendor/DiscountPolicyManagement';
+import VendorBannerManagement from './pages/vendor/VendorBannerManagement';
 
 // Admin Pages
 import AdminDashboard from './pages/admin/AdminDashboard';
@@ -163,6 +164,7 @@ const AppContent: React.FC<{
       <Route path="/vendor/shipping" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/shipping" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><ShippingConfigPage onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
       <Route path="/vendor/discounts" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/discounts" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><DiscountPolicyManagement onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
       <Route path="/vendor/transactions" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/transactions" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorTransactionPage onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
+      <Route path="/vendor/banners" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/banners" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorBannerManagement /></Layout> : <Navigate to="/auth" />} />
       <Route path="/vendor/withdraw" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/withdraw" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorWithdrawPage onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
 
       {/* Staff Routes */}
@@ -173,7 +175,6 @@ const AppContent: React.FC<{
       <Route path="/staff-refunds" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-refunds" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><RefundManagement onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
       <Route path="/staff-vendors" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-vendors" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><VendorVerificationPage onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
       <Route path="/staff-transactions" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-transactions" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><TransactionManagement onNavigate={handleNavigate} userRole="staff" /></Layout> : <Navigate to="/auth" />} />
-      <Route path="/staff-audit-logs" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-audit-logs" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><AuditLogPage onNavigate={handleNavigate} userRole="staff" /></Layout> : <Navigate to="/auth" />} />
       <Route path="/staff-banners" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-banners" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><BannerManagement /></Layout> : <Navigate to="/auth" />} />
 
       {/* Admin Routes */}
