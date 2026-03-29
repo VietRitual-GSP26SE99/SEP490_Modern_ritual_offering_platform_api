@@ -375,8 +375,15 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ onNavigat
                   <div className="col-span-2">
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ví chủ thể</p>
                     <p className="font-mono text-xs font-bold text-primary p-3 bg-primary/5 rounded-xl border border-primary/10 truncate">
-                       {detailTx.walletId}
-                       <span className="ml-2 px-1.5 py-0.5 bg-primary text-white text-[8px] rounded uppercase font-black">{detailTx.walletType}</span>
+                      {detailTx.walletId}
+                      {detailTx.walletType && (
+                        <span className="ml-2 px-1.5 py-0.5 bg-primary text-white text-[8px] rounded uppercase font-black">
+                          {detailTx.walletType === 'System' ? 'Hệ thống' :
+                           detailTx.walletType === 'Vendor' ? 'Nhà cung cấp' :
+                           detailTx.walletType === 'Customer' ? 'Khách hàng' : 
+                           detailTx.walletType}
+                        </span>
+                      )}
                     </p>
                   </div>
                   <div>

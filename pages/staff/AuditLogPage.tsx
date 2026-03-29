@@ -22,6 +22,16 @@ const ACTION_LABELS: Record<string, string> = {
   'Withdraw': 'Rút tiền',
   'Refund': 'Hoàn tiền',
   'Transaction': 'Giao dịch',
+  'REFUNDAPPROVE': 'Duyệt hoàn tiền',
+  'REFUNDREJECT': 'Từ chối hoàn tiền',
+  'STAFFREVIEWED': 'NV đã kiểm duyệt',
+  'STAFFREVIEW': 'NV kiểm duyệt',
+  'CANCEL': 'Hủy bỏ',
+  'ESCALATE': 'Khiếu nại',
+  'Login': 'Đăng nhập',
+  'Logout': 'Đăng xuất',
+  'Pay': 'Thanh toán',
+  'StaffReviewed': 'NV đã kiểm duyệt',
 };
 
 const ENTITY_LABELS: Record<string, string> = {
@@ -33,8 +43,10 @@ const ENTITY_LABELS: Record<string, string> = {
   'Order': 'Đơn hàng',
   'Transaction': 'Giao dịch',
   'Refund': 'Yêu cầu hoàn tiền',
+  'RefundRequest': 'Yêu cầu hoàn tiền',
   'WithdrawalRequest': 'Yêu cầu rút tiền',
   'BusinessProfile': 'Hồ sơ kinh doanh',
+  'PackageItem': 'Chi tiết gói sản phẩm',
 };
 
 const AuditLogPage: React.FC<AuditLogPageProps> = ({ onNavigate, userRole }) => {

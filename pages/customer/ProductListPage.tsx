@@ -309,7 +309,6 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
     }
 
     if (!product.variants || product.variants.length === 0) {
-      toast.warning('Sản phẩm này chưa có chi tiết gói lễ. Vui lòng xem chi tiết.');
       handleNavigateToProductDetail(product.id);
       return;
     }

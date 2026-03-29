@@ -35,9 +35,14 @@ class SystemConfigService {
 
   async getAllConfigs(group?: string): Promise<ApiResponse<SystemConfig[]>> {
     try {
-      const url = group 
-        ? `${API_BASE_URL}/system-configs?group=${encodeURIComponent(group)}`
-        : `${API_BASE_URL}/system-configs`;
+      const params = new URLSearchParams({
+        PageNumber: '1',
+        PageSize: '100'
+      });
+      if (group) {
+        params.append('Group', group);
+      }
+      const url = `${API_BASE_URL}/system-configs?${params.toString()}`;
       
       const response = await fetch(url, {
         method: 'GET',

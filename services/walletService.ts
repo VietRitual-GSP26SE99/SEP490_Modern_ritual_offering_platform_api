@@ -686,25 +686,30 @@ export async function getAllTransactions(filter: AllTransactionFilter = {}): Pro
   }
 
   const params = new URLSearchParams();
-  if (filter.walletId && filter.walletId.trim()) {
-    params.append('walletId', filter.walletId.trim());
-  }
+  
+  // Swagger indicates ActiveRole=Admin is required for admins to view their/system transactions
+  params.append('ActiveRole', 'Admin');
+
   if (filter.type && filter.type.trim()) {
-    params.append('type', filter.type.trim());
+    params.append('Type', filter.type.trim());
   }
   if (filter.status && filter.status.trim()) {
-    params.append('status', filter.status.trim());
+    params.append('Status', filter.status.trim());
   }
   if (filter.from && filter.from.trim()) {
-    params.append('from', filter.from.trim());
+    params.append('From', filter.from.trim());
   }
   if (filter.to && filter.to.trim()) {
-    params.append('to', filter.to.trim());
+    params.append('To', filter.to.trim());
   }
+  
+  // Add pagination limits
+  params.append('PageNumber', '1');
+  params.append('PageSize', '100');
 
   const queryString = params.toString();
 
-  const response = await fetch(`/api/transactions${queryString ? `?${queryString}` : ''}`, {
+  const response = await fetch(`/api/transactions/me${queryString ? `?${queryString}` : ''}`, {
     method: 'GET',
     headers: {
       Accept: 'application/json',

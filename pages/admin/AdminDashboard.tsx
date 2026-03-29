@@ -916,7 +916,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
             
             <div class="grid grid-cols-2 gap-4 border-t border-gold/10 pt-4">
               <div>
-                <p class="text-xs font-bold text-slate-400 uppercase">User ID</p>
+                <p class="text-xs font-bold text-slate-400 uppercase">ID người dùng</p>
                 <p class="text-sm font-medium text-slate-700 truncate" title="${user.userId}">${user.userId}</p>
               </div>
               <div>
@@ -932,7 +932,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
                 <p class="text-sm font-medium text-slate-700">${user.createdAt ? formatDateTimeVN(user.createdAt) : 'N/A'}</p>
               </div>
               <div>
-                <p class="text-xs font-bold text-slate-400 uppercase">Profile ID</p>
+                <p class="text-xs font-bold text-slate-400 uppercase">ID Hồ sơ</p>
                 <p class="text-sm font-medium text-primary">${user.profileId || 'N/A'}</p>
               </div>
             </div>
