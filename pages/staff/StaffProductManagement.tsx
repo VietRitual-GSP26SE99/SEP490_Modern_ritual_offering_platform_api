@@ -208,7 +208,7 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
 
   const handleViewDetails = async (id: string) => {
     try {
-      let details = await packageService.getPackageById(id);
+      let details = await packageService.getPackageById(id, true);
 
       if (details) {
         setViewDisplayImageIndex((details as any).primaryImageIndex || 0);

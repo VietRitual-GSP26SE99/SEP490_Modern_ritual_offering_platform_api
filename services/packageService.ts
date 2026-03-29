@@ -176,9 +176,10 @@ class PackageService {
   /**
    * Lấy chi tiết package theo ID
    * @param id - Package ID
+   * @param useManagement - Sử dụng endpoint management (Staff/Vendor)
    * @returns Promise<ApiPackage | null>
    */
-  async getPackageById(id: string | number): Promise<ApiPackage | null> {
+  async getPackageById(id: string | number, useManagement: boolean = false): Promise<ApiPackage | null> {
     try {
       const token = getAuthToken();
       const normalizedId = Number(String(id).trim());
@@ -186,8 +187,13 @@ class PackageService {
         throw new Error(`Invalid package id: ${id}`);
       }
 
-      console.log(' Fetching package detail for ID:', normalizedId);
-      const endpoint = token ? `${API_BASE_URL}/packages/management/${normalizedId}` : `${API_BASE_URL}/packages/${normalizedId}`;
+      console.log(' Fetching package detail for ID:', normalizedId, useManagement ? '(Management Mode)' : '(Public Mode)');
+      
+      // Only use management endpoint if explicitly requested AND token is available
+      const endpoint = (useManagement && token) 
+        ? `${API_BASE_URL}/packages/management/${normalizedId}` 
+        : `${API_BASE_URL}/packages/${normalizedId}`;
+
       const response = await fetch(endpoint, {
         method: 'GET',
         headers: {
@@ -199,6 +205,9 @@ class PackageService {
       console.log(' Response status:', response.status);
 
       if (!response.ok) {
+        if (response.status === 403 && useManagement) {
+          console.warn('⚠️ 403 Forbidden in management mode. This usually means the user lacks Staff/Vendor permissions.');
+        }
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 

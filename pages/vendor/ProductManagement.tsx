@@ -124,7 +124,7 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
         }
       });
 
-      const pkgDetails: any = await packageService.getPackageById(product.id);
+      const pkgDetails: any = await packageService.getPackageById(product.id, true);
 
       Swal.close();
 
@@ -192,7 +192,7 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
       });
       toast.success(action === 'draft' ? 'Lưu chỉnh sửa bản nháp thành công!' : 'Đã gửi duyệt thay đổi!');
       // Reload details
-      const updated = await packageService.getPackageById(viewProductDetails.packageId || viewProductDetails.id);
+      const updated = await packageService.getPackageById(viewProductDetails.packageId || viewProductDetails.id, true);
       setViewProductDetails(updated);
       setEditProductOpen(false);
       loadPackages();
