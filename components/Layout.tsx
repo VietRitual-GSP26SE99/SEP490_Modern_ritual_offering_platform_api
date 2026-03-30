@@ -1,11 +1,9 @@
-
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import Swal from 'sweetalert2';
-import { UserRole, AppRoute, getPath } from '../types';
 import { getCurrentUser } from '../services/auth';
 import { cartService } from '../services/cartService';
 import { fetchNotifications, fetchUnreadNotificationCount, NotificationItem, markAllNotificationsAsReadApi, markNotificationAsRead } from '../services/notificationService';
-import { cancelPayosTopup, createTopupLink, createWithdrawal, getMyWallet, getMyWithdrawalRequests, WalletInfo, WalletType } from '../services/walletService';
+import { cancelPayosTopup, createTopupLink, getMyWallet, WalletInfo, WalletType } from '../services/walletService';
 import { packageService } from '../services/packageService';
 import { CeremonyCategory } from '../types';
 import CartDropdown from './CartDropdown';
@@ -26,12 +24,11 @@ interface LayoutProps {
   children: React.ReactNode;
   activeRoute: string;
   onNavigate: (path: string) => void;
-  userRole?: UserRole;
   onLogout?: () => void;
-  hideHeader?: boolean; // Hide header for first-time setup
+  hideHeader?: boolean;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, userRole = 'customer', onLogout, hideHeader = false }) => {
+const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLogout, hideHeader = false }) => {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [cartCount, setCartCount] = useState<number>(0);
   const [isCartDropdownOpen, setIsCartDropdownOpen] = useState<boolean>(false);
@@ -44,8 +41,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
   const [walletInfo, setWalletInfo] = useState<WalletInfo | null>(null);
   const [walletLoading, setWalletLoading] = useState<boolean>(false);
   const [topupLoading, setTopupLoading] = useState<boolean>(false);
-  const [withdrawLoading, setWithdrawLoading] = useState<boolean>(false);
-  const [withdrawalHistoryLoading, setWithdrawalHistoryLoading] = useState<boolean>(false);
   const [userName, setUserName] = useState<string>('');
   const [categories, setCategories] = useState<CeremonyCategory[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
@@ -61,32 +56,17 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
     };
     fetchCategories();
   }, []);
+
   const cartDropdownTimeout = useRef<NodeJS.Timeout | null>(null);
   const accountDropdownTimeout = useRef<NodeJS.Timeout | null>(null);
   const walletDropdownTimeout = useRef<NodeJS.Timeout | null>(null);
   const notificationDropdownTimeout = useRef<NodeJS.Timeout | null>(null);
-  
+
   const notificationRef = useRef<HTMLDivElement>(null);
   const walletRef = useRef<HTMLDivElement>(null);
   const accountRef = useRef<HTMLDivElement>(null);
   const cartRef = useRef<HTMLDivElement>(null);
   const isTopupReturnHandled = useRef(false);
-  const isCustomer = userRole === 'customer' || userRole === 'guest';
-  const isVendor = userRole === 'vendor';
-  const isAdmin = userRole === 'admin';
-  const isStaff = userRole === 'staff';
-  const hideWalletAndProfileOnAdminDashboard = false;
-  const currentUser = getCurrentUser();
-  const hasVendorRole =
-    currentUser?.role === 'vendor' ||
-    currentUser?.roles?.some((role) => typeof role === 'string' && role.toLowerCase() === 'vendor');
-  const hasStaffRole =
-    currentUser?.role === 'staff' ||
-    currentUser?.roles?.some((role) => typeof role === 'string' && role.toLowerCase() === 'staff');
-  const hasAdminRole =
-    currentUser?.role === 'admin' ||
-    currentUser?.roles?.some((role) => typeof role === 'string' && role.toLowerCase() === 'admin');
-  const isDashboardRoute = activeRoute.startsWith('/vendor') || activeRoute.startsWith('/staff') || activeRoute.startsWith('/admin/') || activeRoute === '/staff-dashboard' || activeRoute.startsWith('/staff-') || activeRoute.startsWith('/admin-');
 
   const markAllNotificationsAsRead = () => {
     setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
@@ -111,95 +91,25 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
     const title = (item.title || '').toLowerCase();
     const message = (item.message || '').toLowerCase();
 
-    // 1. Đăng ký Vendor -> chuyển hướng về tab tương ứng trong profile (cho User) hoặc trang Duyệt Vendor (cho Staff)
-    if (title.includes('đăng ký vendor') || message.includes('đăng ký vendor') || (rawUrl && rawUrl.includes('vendor/registration'))) {
-      if (isStaff || hasStaffRole) return '/staff-vendors';
-      return '/profile?tab=vendor-register';
-    }
-
-    // 2. Logic dành riêng cho Staff
-    if (isStaff || hasStaffRole) {
-      if (title.includes('sản phẩm') && (title.includes('duyệt') || message.includes('duyệt'))) {
-        return '/staff-product';
-      }
-      if (title.includes('vendor') && (title.includes('duyệt') || message.includes('duyệt'))) {
-        return '/staff-vendors';
-      }
-    }
-
-    // 3. Logic dành riêng cho Admin
-    if (isAdmin || hasAdminRole) {
-      // Rút tiền -> tab withdrawals
-      if (title.includes('rút tiền') || message.includes('rút tiền')) {
-        return '/admin/dashboard?tab=withdrawals';
-      }
-      // Hoàn tiền hoặc Hủy đơn -> tab disputes (trong AdminDashboard tab disputes xử lý refund)
-      if (title.includes('hoàn tiền') || message.includes('hoàn tiền') || title.includes('hủy đơn') || message.includes('hủy đơn')) {
-        return '/admin/dashboard?tab=disputes';
-      }
-      // Duyệt Vendor cho Admin
-      if (title.includes('vendor') && (title.includes('duyệt') || message.includes('duyệt'))) {
-        return '/admin/dashboard?tab=vendors';
-      }
-    }
-
-    // 2. Logic dành riêng cho Vendor
-    if (hasVendorRole) {
-      // Hoàn tiền hoặc Hủy đơn -> tab refunds
-      if (title.includes('hoàn tiền') || message.includes('hoàn tiền') || title.includes('hủy đơn') || message.includes('hủy đơn')) {
-        return '/vendor/orders?tab=refunds';
-      }
-
-      // Nạp rút / Giao dịch ví -> trang giao dịch
-      if (title.includes('quyết toán') || title.includes('ví') || title.includes('rút tiền') || title.includes('nạp tiền') || message.includes('rút tiền') || message.includes('nạp tiền')) {
-        return '/vendor/transactions';
-      }
-
-      // 4. Sản phẩm -> trang sản phẩm
-      if (title.includes('sản phẩm')) {
-        return '/vendor/products';
-      }
-
-      // 5. Đơn hàng mới (Vendor) - Cố gắng trích xuất OrderID từ nội dung (ví dụ: #abc123)
-      if (title.includes('đơn hàng')) {
-        const orderIdMatch = message.match(/#([a-zA-Z0-9]+)/);
-        if (orderIdMatch) {
-          return `/vendor/orders?orderId=${encodeURIComponent(orderIdMatch[1])}`;
-        }
-        return '/vendor/orders';
-      }
-    }
-
-    // 3. Fallback cho các trường hợp khác (Customer/Admin/Staff)
     if (title.includes('quyết toán') || title.includes('ví') || message.includes('quyết toán')) {
       return '/wallet/transactions';
     }
 
-    // 4. Các trường hợp khác nếu có redirectUrl (như backend gửi)
     if (!rawUrl) return '';
 
     const trimmed = rawUrl.trim();
     if (!trimmed) return '';
 
-    // External link: keep nguyên
     if (/^https?:\/\//i.test(trimmed)) {
       return trimmed;
     }
 
-    // Backend trả /orders/{id} => map sang route thực của app
     const orderMatch = trimmed.match(/^\/orders\/([^/?#]+)/i);
     if (orderMatch) {
       const orderId = orderMatch[1];
-      if (isCustomer) {
-        return `/profile/orders/${orderId}`;
-      }
-      if (isVendor) {
-        // Vendor hiện tại có route danh sách /vendor/orders, truyền orderId qua query để page xử lý nếu cần
-        return `/vendor/orders?orderId=${encodeURIComponent(orderId)}`;
-      }
+      return `/profile/orders/${orderId}`;
     }
 
-    // Các path nội bộ khác: trả về như backend gửi
     return trimmed;
   };
 
@@ -213,16 +123,16 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
       }
     };
 
-    if (userName && !hideWalletAndProfileOnAdminDashboard) {
+    if (userName) {
       loadUnreadCount();
     }
-  }, [userName, hideWalletAndProfileOnAdminDashboard]);
+  }, [userName]);
 
   // Click outside listener
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node;
-      
+
       if (isNotificationDropdownOpen && notificationRef.current && !notificationRef.current.contains(target)) {
         setIsNotificationDropdownOpen(false);
       }
@@ -254,8 +164,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
   // Fetch cart count
   useEffect(() => {
     const fetchCartCount = async () => {
-      if (!isCustomer) return;
-
       const user = getCurrentUser();
       if (!user) return;
 
@@ -289,9 +197,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
       window.removeEventListener('cartUpdated', handleCartUpdate);
       clearInterval(interval);
     };
-  }, [isCustomer, activeRoute]); // Re-fetch when route changes
+  }, [activeRoute]);
 
-  // Detect PayOS return status from URL and notify user.
+  // Detect PayOS return status
   useLayoutEffect(() => {
     if (isTopupReturnHandled.current) return;
 
@@ -350,7 +258,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
       toast.success('Nạp tiền thành công.');
     }
 
-    // Remove only payment callback params, keep other query params untouched.
     params.delete('code');
     params.delete('id');
     params.delete('cancel');
@@ -358,122 +265,35 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
     params.delete('orderCode');
 
     const nextQuery = params.toString();
-    const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}${window.location.hash || ''}`;
+    const nextUrl = `${window.location.pathname}${nextQuery ? \`?\${nextQuery}\` : ''}${window.location.hash || ''}`;
     window.history.replaceState({}, document.title, nextUrl);
 
     isTopupReturnHandled.current = true;
   }, []);
 
-  useEffect(() => {
-    const styleId = 'vendor-withdrawal-history-swal-style';
-    if (document.getElementById(styleId)) return;
-
-    const style = document.createElement('style');
-    style.id = styleId;
-    style.textContent = `
-      .vendor-withdrawal-history-popup { border-radius: 16px; }
-      .vendor-withdrawal-history-container { margin: 0; padding-top: 8px; }
-      .vendor-withdrawal-history-container .wdh-wrap { text-align:left; }
-      .vendor-withdrawal-history-container .wdh-summary { display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:10px; margin-bottom:12px; }
-      .vendor-withdrawal-history-container .wdh-summary-item { background:#f8fafc; border:1px solid #e2e8f0; border-radius:12px; padding:10px; }
-      .vendor-withdrawal-history-container .wdh-summary-label { font-size:11px; color:#64748b; text-transform:uppercase; letter-spacing:.05em; font-weight:700; margin-bottom:4px; }
-      .vendor-withdrawal-history-container .wdh-summary-value { font-size:16px; color:#0f172a; font-weight:800; }
-      .vendor-withdrawal-history-container .wdh-list { max-height:58vh; overflow:auto; padding-right:4px; }
-      .vendor-withdrawal-history-container .wdh-card { border:1px solid #e2e8f0; background:#fff; border-radius:14px; padding:12px; margin-bottom:10px; }
-      .vendor-withdrawal-history-container .wdh-top-row { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; }
-      .vendor-withdrawal-history-container .wdh-left-meta { display:flex; gap:10px; align-items:flex-start; min-width:0; }
-      .vendor-withdrawal-history-container .wdh-index { min-width:30px; height:30px; border-radius:999px; background:#f1f5f9; color:#334155; font-weight:800; display:flex; align-items:center; justify-content:center; font-size:12px; }
-      .vendor-withdrawal-history-container .wdh-holder { font-size:13px; font-weight:800; color:#0f172a; word-break:break-word; }
-      .vendor-withdrawal-history-container .wdh-bank { margin-top:3px; font-size:12px; color:#475569; }
-      .vendor-withdrawal-history-container .wdh-amount { font-size:20px; font-weight:900; color:#0f172a; white-space:nowrap; }
-      .vendor-withdrawal-history-container .wdh-status-row { display:flex; gap:8px; flex-wrap:wrap; margin-top:10px; }
-      .vendor-withdrawal-history-container .wdh-chip { display:inline-block; padding:5px 10px; border-radius:999px; font-size:12px; font-weight:700; }
-      .vendor-withdrawal-history-container .wdh-grid { margin-top:10px; display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:10px; }
-      .vendor-withdrawal-history-container .wdh-label { font-size:11px; color:#64748b; text-transform:uppercase; letter-spacing:.04em; font-weight:700; margin-bottom:3px; }
-      .vendor-withdrawal-history-container .wdh-value { font-size:13px; color:#334155; font-weight:600; word-break:break-word; }
-      @media (max-width: 860px) {
-        .vendor-withdrawal-history-container .wdh-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-        .vendor-withdrawal-history-container .wdh-grid { grid-template-columns: 1fr; }
-        .vendor-withdrawal-history-container .wdh-amount { font-size:18px; }
-      }
-    `;
-
-    document.head.appendChild(style);
-  }, []);
-
   const getNavItems = (): NavItem[] => {
-    if (isCustomer) {
-      return [
-        { path: '/', label: 'Trang chủ' },
-        {
-          label: 'Sản phẩm',
-          submenu: [
-            { path: '/shop', label: 'Tất cả sản phẩm' },
-            ...(categories.length > 0
-              ? categories.map(cat => ({
-                path: `/shop?category=${encodeURIComponent(cat.name)}`,
-                label: cat.name
-              }))
-              : [
-                { path: '/shop?category=Full Moon', label: 'Cúng Đầy Tháng' },
-                { path: '/shop?category=House Warming', label: 'Cúng Tân Gia' },
-                { path: '/shop?category=Grand Opening', label: 'Cúng Khai Trương' },
-                { path: '/shop?category=Ancestral', label: 'Cúng Giỗ' },
-                { path: '/shop?category=Year End', label: 'Cúng Tết' }
-              ])
-          ]
-        },
-        { path: '/about', label: 'Về chúng tôi' },
-
-        // { path: '/tracking', label: 'Theo dõi' },
-      ];
-    } else if (isVendor) {
-      return [
-        { path: '/vendor/dashboard', label: 'Bảng điều khiển' },
-        { path: '/vendor/transactions', label: 'Giao dịch' },
-        { path: '/vendor/shop', label: 'Cửa hàng' },
-      ];
-    } else if (isAdmin) {
-      return [
-        { path: '/admin/dashboard', label: 'Quản lý hệ thống' },
-
-      ];
-    } else if (isStaff) {
-      return [
-        { path: '/staff/dashboard', label: 'Bảng điều khiển' },
-      ];
-    }
-    return [];
-  };
-
-  const getSidebarItems = (): { id: string; label: string; icon: string; path: string }[] => {
-    if (isStaff) {
-      return [
-        { id: 'overview', label: 'Tổng quan', icon: 'dashboard', path: '/staff/dashboard' },
-        // { id: 'customers', label: 'Khách hàng', icon: 'group', path: '/staff-customers' },
-        { id: 'vendors', label: 'Duyệt Vendor', icon: 'verified_user', path: '/staff-vendors' },
-        { id: 'products', label: 'Quản lý Sản phẩm', icon: 'inventory_2', path: '/staff-product' },
-        { id: 'transactions', label: 'Giao dịch', icon: 'account_balance_wallet', path: '/staff-transactions' },
-        { id: 'refunds', label: 'Hoàn tiền', icon: 'assignment_return', path: '/staff-refunds' },
-        { id: 'banners', label: 'Quản lý Banner', icon: 'view_carousel', path: '/staff-banners' },
-        { id: 'settings', label: 'Cài đặt hệ thống', icon: 'settings_suggest', path: '/staff-settings' },
-      ];
-    }
-    if (isVendor) {
-      return [
-        { id: 'overview', label: 'Bảng điều khiển', icon: 'dashboard', path: '/vendor/dashboard' },
-        { id: 'orders', label: 'Đơn hàng', icon: 'shopping_cart', path: '/vendor/orders' },
-        { id: 'products', label: 'Sản phẩm', icon: 'inventory_2', path: '/vendor/products' },
-        { id: 'analytics', label: 'Phân tích', icon: 'analytics', path: '/vendor/analytics' },
-        { id: 'shipping', label: 'Vận chuyển', icon: 'local_shipping', path: '/vendor/shipping' },
-        { id: 'discounts', label: 'Giảm giá', icon: 'percent', path: '/vendor/discounts' },
-        { id: 'banners', label: 'Quản lý Banner', icon: 'view_carousel', path: '/vendor/banners' },
-        { id: 'transactions', label: 'Giao dịch', icon: 'receipt_long', path: '/vendor/transactions' },
-        { id: 'shop', label: 'Cửa hàng', icon: 'store', path: '/vendor/shop' },
-        { id: 'settings', label: 'Cài đặt', icon: 'settings', path: '/vendor/settings' },
-      ];
-    }
-    return [];
+    return [
+      { path: '/', label: 'Trang chủ' },
+      {
+        label: 'Sản phẩm',
+        submenu: [
+          { path: '/shop', label: 'Tất cả sản phẩm' },
+          ...(categories.length > 0
+            ? categories.map(cat => ({
+              path: `/shop?category=${encodeURIComponent(cat.name)}`,
+              label: cat.name
+            }))
+            : [
+              { path: '/shop?category=Full Moon', label: 'Cúng Đầy Tháng' },
+              { path: '/shop?category=House Warming', label: 'Cúng Tân Gia' },
+              { path: '/shop?category=Grand Opening', label: 'Cúng Khai Trương' },
+              { path: '/shop?category=Ancestral', label: 'Cúng Giỗ' },
+              { path: '/shop?category=Year End', label: 'Cúng Tết' }
+            ])
+        ]
+      },
+      { path: '/about', label: 'Về chúng tôi' },
+    ];
   };
 
   const handleLogoutClick = async () => {
@@ -503,41 +323,11 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
       toast.warning('Vui lòng đăng nhập để vào giỏ hàng');
       return;
     }
-
     onNavigate('/cart');
   };
 
-  const handleNavigateToTracking = () => {
-    const user = getCurrentUser();
-    if (!user) {
-      toast.warning('Vui lòng đăng nhập để theo dõi đơn hàng');
-      return;
-    }
-
-    onNavigate('/tracking');
-  };
-
   const handleMainNavClick = (path: string) => {
-    if (path === '/tracking') {
-      handleNavigateToTracking();
-      return;
-    }
-
     onNavigate(path);
-  };
-
-  const resolveWalletType = (): WalletType => {
-    // Prioritize current route to determine which wallet to show
-    if (activeRoute.startsWith('/vendor')) return 'Vendor';
-    if (activeRoute.startsWith('/admin')) return 'System';
-    if (activeRoute.startsWith('/staff')) return 'System';
-    
-    // If not on a specific dashboard, check user role
-    const normalizedRoles = (currentUser?.roles || []).map((role) => String(role).toLowerCase());
-    if (normalizedRoles.includes('vendor') && activeRoute.includes('vendor')) return 'Vendor';
-    if (normalizedRoles.includes('customer')) return 'Customer';
-    
-    return 'Customer';
   };
 
   const formatCurrency = (value: number): string => {
@@ -586,122 +376,11 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
     return formatCurrency(amount);
   };
 
-  const formatDateTime = (value?: string | null): string => {
-    if (!value) return 'N/A';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return value;
-    return new Intl.DateTimeFormat('vi-VN', {
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-    }).format(date);
-  };
-
-  const escapeHtml = (value: unknown): string => {
-    return String(value ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&#39;');
-  };
-
-  const getDisplayWithdrawalStatus = (status: string): string => {
-    const normalized = String(status || '').trim().toLowerCase();
-    if (normalized.includes('approved') || normalized.includes('đã duyệt') || normalized.includes('completed')) return 'Đã duyệt';
-    if (normalized.includes('pending') || normalized.includes('chờ duyệt')) return 'Chờ duyệt';
-    if (normalized.includes('rejected') || normalized.includes('từ chối')) return 'Đã từ chối';
-    if (normalized.includes('processing') || normalized.includes('đang xử lý')) return 'Đang xử lý';
-    return status || 'Không xác định';
-  };
-
-  const getWithdrawalStatusStyle = (status: string): string => {
-    const normalized = String(status || '').trim().toLowerCase();
-    if (normalized.includes('approved') || normalized.includes('đã duyệt') || normalized.includes('completed')) return 'background:#dcfce7;color:#166534;';
-    if (normalized.includes('rejected') || normalized.includes('từ chối')) return 'background:#fee2e2;color:#b91c1c;';
-    if (normalized.includes('processing') || normalized.includes('đang xử lý')) return 'background:#dbeafe;color:#1d4ed8;';
-    return 'background:#fef3c7;color:#a16207;';
-  };
-
-  const getTransactionStatusStyle = (status: string): string => {
-    const normalized = String(status || '').trim().toLowerCase();
-    if (normalized.includes('success') || normalized.includes('thành công')) return 'background:#dcfce7;color:#166534;';
-    if (normalized.includes('fail') || normalized.includes('error') || normalized.includes('thất bại')) return 'background:#fee2e2;color:#b91c1c;';
-    if (normalized.includes('pending') || normalized.includes('processing')) return 'background:#fef3c7;color:#a16207;';
-    return 'background:#e2e8f0;color:#334155;';
-  };
-
-  const getDisplayTransactionStatus = (status: string): string => {
-    const normalized = String(status || '').trim().toLowerCase();
-    if (normalized.includes('success')) return 'Thành công';
-    if (normalized.includes('fail') || normalized.includes('error')) return 'Thất bại';
-    if (normalized.includes('pending')) return 'Chờ xử lý';
-    if (normalized.includes('processing')) return 'Đang xử lý';
-    if (!normalized || normalized === 'n/a' || normalized === 'không có') return 'Không có';
-    return status;
-  };
-
-  const mapWalletTypeLabel = (typeValue: WalletType | string | number | undefined): string => {
-    if (typeValue === 0 || String(typeValue).toLowerCase() === 'customer') return 'Customer';
-    if (typeValue === 1 || String(typeValue).toLowerCase() === 'vendor') return 'Vendor';
-    if (typeValue === 2 || String(typeValue).toLowerCase() === 'system') return 'System';
-    return String(typeValue ?? 'N/A');
-  };
-
-  const normalizeWalletType = (typeValue: WalletType | string | number | undefined): WalletType | null => {
-    const normalized = mapWalletTypeLabel(typeValue).toLowerCase();
-    if (normalized === 'customer') return 'Customer';
-    if (normalized === 'vendor') return 'Vendor';
-    if (normalized === 'system') return 'System';
-    return null;
-  };
-
   const fetchWalletBalance = async () => {
-    const buildCandidateTypes = (primary: WalletType): WalletType[] => {
-      if (primary === 'System') return ['System', 'Vendor', 'Customer'];
-      if (primary === 'Vendor') return ['Vendor', 'Customer'];
-      if (primary === 'Customer') return ['Customer'];
-      return [primary];
-    };
-
-    const isWalletPermissionError = (error: unknown): boolean => {
-      if (!(error instanceof Error)) return false;
-      const message = error.message.toLowerCase();
-      return (
-        message.includes('không tìm thấy ví') || 
-        message.includes('404') || 
-        message.includes('403') || 
-        message.includes('không có quyền')
-      );
-    };
-
     try {
       setWalletLoading(true);
-      const primaryType = resolveWalletType();
-      const candidateTypes = buildCandidateTypes(primaryType);
-
-      let lastError: unknown = null;
-      for (let index = 0; index < candidateTypes.length; index += 1) {
-        const candidate = candidateTypes[index];
-        try {
-          const wallet = await getMyWallet(candidate);
-          setWalletInfo(wallet);
-          return;
-        } catch (error) {
-          lastError = error;
-          const shouldTryNext = isWalletPermissionError(error) && index < candidateTypes.length - 1;
-          if (!shouldTryNext) {
-            throw error;
-          }
-        }
-      }
-
-      if (lastError) {
-        throw lastError;
-      }
+      const wallet = await getMyWallet('Customer');
+      setWalletInfo(wallet);
     } catch (error) {
       console.error('❌ Failed to fetch wallet:', error);
     } finally {
@@ -714,11 +393,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
       fetchWalletBalance();
     }
   }, [isWalletDropdownOpen, walletInfo, activeRoute]);
-
-  // Reset wallet info when switching between contexts (e.g. from / to /vendor)
-  useEffect(() => {
-    setWalletInfo(null);
-  }, [activeRoute.startsWith('/vendor'), userRole]);
 
   const handleWalletClick = async () => {
     await fetchWalletBalance();
@@ -739,12 +413,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
   };
 
   const handleTopupClick = async () => {
-    const walletType = resolveWalletType();
-    if (walletType !== 'Customer') {
-      toast.warning('Chức năng nạp tiền hiện chỉ hỗ trợ cho ví khách hàng.');
-      return;
-    }
-
     const promptResult = await Swal.fire({
       title: 'Nạp tiền vào ví',
       text: 'Nhập số tiền cần nạp (VND)',
@@ -792,7 +460,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
 
     try {
       setTopupLoading(true);
-      const result = await createTopupLink(amount, walletType);
+      const result = await createTopupLink(amount, 'Customer');
       const resultData = result as Record<string, unknown>;
       const paymentUrl = extractTopupUrl(resultData);
 
@@ -819,265 +487,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
     }
   };
 
-  const handleWithdrawClick = async () => {
-    if (currentWalletType !== 'Vendor') {
-      toast.warning('Chức năng rút tiền chỉ áp dụng cho ví người bán.');
-      return;
-    }
-
-    const modalResult = await Swal.fire({
-      title: 'Yêu cầu rút tiền',
-      html: `
-        <div style="display:flex;flex-direction:column;gap:12px;text-align:left;">
-          <div>
-            <label for="withdraw-amount" style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">Số tiền rút (VND)</label>
-            <input id="withdraw-amount" class="swal2-input" style="margin:0;width:100%;" placeholder="Ví dụ: 100,000" inputmode="numeric" autocomplete="off" />
-          </div>
-          <div>
-            <label for="withdraw-bank-name" style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">Tên ngân hàng</label>
-            <input id="withdraw-bank-name" class="swal2-input" style="margin:0;width:100%;" placeholder="Ví dụ: Vietcombank" autocomplete="off" />
-          </div>
-          <div>
-            <label for="withdraw-account-number" style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">Số tài khoản</label>
-            <input id="withdraw-account-number" class="swal2-input" style="margin:0;width:100%;" placeholder="Nhập số tài khoản" autocomplete="off" />
-          </div>
-          <div>
-            <label for="withdraw-account-holder" style="display:block;font-size:13px;font-weight:600;margin-bottom:6px;">Chủ tài khoản</label>
-            <input id="withdraw-account-holder" class="swal2-input" style="margin:0;width:100%;" placeholder="Họ tên chủ tài khoản" autocomplete="off" />
-          </div>
-        </div>
-      `,
-      showCancelButton: true,
-      confirmButtonText: 'Gửi yêu cầu',
-      cancelButtonText: 'Hủy',
-      confirmButtonColor: '#b45309',
-      cancelButtonColor: '#64748b',
-      customClass: {
-        popup: 'rounded-2xl',
-        confirmButton: 'rounded-lg font-bold px-6 py-3',
-        cancelButton: 'rounded-lg font-bold px-6 py-3',
-      },
-      didOpen: () => {
-        const amountInput = document.getElementById('withdraw-amount') as HTMLInputElement | null;
-        if (!amountInput) return;
-
-        amountInput.addEventListener('input', () => {
-          amountInput.value = formatAmountInput(amountInput.value);
-        });
-      },
-      preConfirm: () => {
-        const amountInput = (document.getElementById('withdraw-amount') as HTMLInputElement | null)?.value || '';
-        const bankName = (document.getElementById('withdraw-bank-name') as HTMLInputElement | null)?.value?.trim() || '';
-        const accountNumberRaw = (document.getElementById('withdraw-account-number') as HTMLInputElement | null)?.value?.trim() || '';
-        const accountHolderRaw = (document.getElementById('withdraw-account-holder') as HTMLInputElement | null)?.value?.trim() || '';
-
-        const amount = parseAmountInput(amountInput);
-        const accountNumber = accountNumberRaw.replace(/\s+/g, '');
-        const accountHolder = accountHolderRaw.replace(/\s+/g, ' ').trim();
-
-        if (!Number.isFinite(amount) || amount <= 0) {
-          Swal.showValidationMessage('Vui lòng nhập số tiền rút hợp lệ.');
-          return null;
-        }
-
-        if (amount > availableBalance) {
-          Swal.showValidationMessage('Số tiền rút vượt quá số dư khả dụng.');
-          return null;
-        }
-
-        if (!bankName) {
-          Swal.showValidationMessage('Vui lòng nhập tên ngân hàng.');
-          return null;
-        }
-
-        if (!accountNumber) {
-          Swal.showValidationMessage('Vui lòng nhập số tài khoản.');
-          return null;
-        }
-
-        if (!accountHolder) {
-          Swal.showValidationMessage('Vui lòng nhập tên chủ tài khoản.');
-          return null;
-        }
-
-        return { amount, bankName, accountNumber, accountHolder };
-      },
-    });
-
-    if (!modalResult.isConfirmed || !modalResult.value) return;
-
-    try {
-      setWithdrawLoading(true);
-      await createWithdrawal({ ...modalResult.value, type: currentWalletType });
-      toast.success('Đã gửi yêu cầu rút tiền thành công.');
-      await fetchWalletBalance();
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Không thể gửi yêu cầu rút tiền.';
-      toast.error(message);
-    } finally {
-      setWithdrawLoading(false);
-    }
-  };
-
-  const handleWithdrawalHistoryClick = async () => {
-    if (currentWalletType !== 'Vendor') {
-      toast.warning('Chức năng lịch sử rút tiền chỉ áp dụng cho ví người bán.');
-      return;
-    }
-
-    try {
-      setWithdrawalHistoryLoading(true);
-      const historyItems = await getMyWithdrawalRequests();
-
-      const toTimestamp = (value: string): number => {
-        const timestamp = new Date(value).getTime();
-        return Number.isNaN(timestamp) ? 0 : timestamp;
-      };
-
-      const sortedItems = [...historyItems].sort(
-        (a, b) => toTimestamp(b.requestedAt) - toTimestamp(a.requestedAt),
-      );
-
-      const summary = sortedItems.reduce(
-        (acc, item) => {
-          const status = String(item.status || '').toLowerCase();
-          acc.total += 1;
-          acc.amount += Number(item.amount || 0);
-
-          if (status.includes('approved') || status.includes('đã duyệt') || status.includes('completed')) {
-            acc.approved += 1;
-          } else if (status.includes('rejected') || status.includes('từ chối')) {
-            acc.rejected += 1;
-          } else {
-            acc.pending += 1;
-          }
-
-          return acc;
-        },
-        { total: 0, amount: 0, approved: 0, rejected: 0, pending: 0 },
-      );
-
-      const cardsHtml = sortedItems.map((item, index) => {
-        const raw = (item.raw || {}) as Record<string, unknown>;
-        const transaction = (raw.transaction || raw.Transaction || {}) as Record<string, unknown>;
-        const txId = String(transaction.transactionId || transaction.TransactionId || 'N/A');
-        const txStatusRaw = String(transaction.status || transaction.Status || 'N/A');
-        const txStatus = txStatusRaw === 'N/A' ? 'Không có' : txStatusRaw;
-        const txStatusDisplay = getDisplayTransactionStatus(txStatus);
-        const accountHolder = String(raw.accountHolder || raw.AccountHolder || 'Không có').trim();
-        const rejectionReason = String(raw.rejectionReason || raw.RejectionReason || '').trim();
-
-        const requestedAtText = formatDateTime(item.requestedAt);
-        const processedAtText = formatDateTime(String(raw.processedDate || raw.ProcessedDate || ''));
-
-        return `
-          <div class="wdh-card">
-            <div class="wdh-top-row">
-              <div class="wdh-left-meta">
-                <div class="wdh-index">#${index + 1}</div>
-                <div>
-                  <div class="wdh-holder">${escapeHtml(accountHolder || 'Không có')}</div>
-                  <div class="wdh-bank">${escapeHtml(item.bank)}</div>
-                </div>
-              </div>
-              <div class="wdh-amount">${escapeHtml(formatCurrency(item.amount))}đ</div>
-            </div>
-
-            <div class="wdh-status-row">
-              <span class="wdh-chip" style="${getWithdrawalStatusStyle(item.status)}">${escapeHtml(getDisplayWithdrawalStatus(item.status))}</span>
-              <span class="wdh-chip" style="${getTransactionStatusStyle(txStatusDisplay)}">GD: ${escapeHtml(txStatusDisplay)}</span>
-            </div>
-
-            <div class="wdh-grid">
-              <div>
-                <div class="wdh-label">Thời gian yêu cầu</div>
-                <div class="wdh-value">${escapeHtml(requestedAtText)}</div>
-              </div>
-              <div>
-                <div class="wdh-label">Thời gian xử lý</div>
-                <div class="wdh-value">${escapeHtml(processedAtText)}</div>
-              </div>
-              <div>
-                <div class="wdh-label">Mã giao dịch</div>
-                <div class="wdh-value">${escapeHtml(txId)}</div>
-              </div>
-              <div>
-                <div class="wdh-label">Lý do từ chối</div>
-                <div class="wdh-value">${escapeHtml(rejectionReason || 'Không có')}</div>
-              </div>
-            </div>
-          </div>
-        `;
-      }).join('');
-
-      await Swal.fire({
-        title: 'Lịch sử rút tiền',
-        width: 980,
-        confirmButtonText: 'Đóng',
-        buttonsStyling: false,
-        customClass: {
-          popup: 'vendor-withdrawal-history-popup',
-          htmlContainer: 'vendor-withdrawal-history-container',
-          confirmButton: 'rounded-lg font-bold px-6 py-3 text-white bg-primary hover:opacity-90 transition-all',
-        },
-        html: sortedItems.length === 0
-          ? '<div style="padding:20px 8px;color:#64748b;font-weight:600;">Chưa có yêu cầu rút tiền nào.</div>'
-          : `
-            <div class="wdh-wrap">
-              <div class="wdh-summary">
-                <div class="wdh-summary-item">
-                  <div class="wdh-summary-label">Tổng yêu cầu</div>
-                  <div class="wdh-summary-value">${summary.total}</div>
-                </div>
-                <div class="wdh-summary-item">
-                  <div class="wdh-summary-label">Tổng tiền rút</div>
-                  <div class="wdh-summary-value">${escapeHtml(formatCurrency(summary.amount))}đ</div>
-                </div>
-                <div class="wdh-summary-item">
-                  <div class="wdh-summary-label">Đã duyệt</div>
-                  <div class="wdh-summary-value">${summary.approved}</div>
-                </div>
-                <div class="wdh-summary-item">
-                  <div class="wdh-summary-label">Chờ xử lý/Từ chối</div>
-                  <div class="wdh-summary-value">${summary.pending + summary.rejected}</div>
-                </div>
-              </div>
-              <div class="wdh-list">${cardsHtml}</div>
-            </div>
-          `,
-      });
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Không thể tải lịch sử rút tiền.';
-      toast.error(message);
-    } finally {
-      setWithdrawalHistoryLoading(false);
-    }
-  };
-
-  const currentWalletType = resolveWalletType();
   const availableBalance = getWalletAmount(walletInfo, 'balance');
-  const heldBalance = getWalletAmount(walletInfo, 'heldBalance');
-  const debtBalance = getWalletAmount(walletInfo, 'debt');
 
   return (
     <div className="min-h-screen flex flex-col font-sans">
-      {!hideHeader && isCustomer && activeRoute === '/' && hasVendorRole && (
-        <div className="bg-gradient-to-r from-amber-50 via-white to-amber-50 border-b border-amber-100">
-          <div className={`${(isStaff || isVendor) ? 'max-w-full' : 'max-w-7xl'} mx-auto px-6 md:px-10 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2`}>
-            <div className="flex items-center gap-2 text-amber-800">
-              <span className="text-sm font-semibold tracking-wide">Tài khoản của bạn có quyền Người Bán</span>
-            </div>
-            <button
-              onClick={() => onNavigate('/vendor/dashboard')}
-              className="inline-flex items-center justify-center rounded-full border border-amber-300 bg-white px-4 py-1.5 text-xs font-bold uppercase tracking-wider text-amber-800 hover:bg-amber-100 transition-all"
-            >
-              Đi Đến Kênh Người Bán
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Header - Hidden during first-time setup */}
       {!hideHeader && (
         <header className="sticky top-0 z-50 bg-white border-b border-gray-200">
           <div className="max-w-[92rem] mx-auto px-6 md:px-10 py-4 flex items-center justify-between">
@@ -1091,12 +504,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
               </button>
               <div
                 className="cursor-pointer"
-                onClick={() => {
-                  if (isAdmin) onNavigate('/admin/dashboard');
-                  else if (isStaff) onNavigate('/staff/dashboard');
-                  else if (isVendor) onNavigate('/vendor/dashboard');
-                  else onNavigate('/');
-                }}
+                onClick={() => onNavigate('/')}
               >
                 <div className="w-[240px] h-[72px] md:w-[288px] md:h-[84px] lg:w-[312px] lg:h-[96px] -ml-16">
                   <img
@@ -1156,8 +564,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                 <span className="text-sm">1900 8888</span>
               </div>
 
-              {/* Notification Bell */}
-              {userName && !hideWalletAndProfileOnAdminDashboard && (
+              {userName && (
                 <div
                   className="relative hidden md:block"
                   onMouseEnter={() => {
@@ -1300,7 +707,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                 </div>
               )}
 
-              {(userName || onLogout) && !hideWalletAndProfileOnAdminDashboard && (
+              {(userName || onLogout) && (
                 <div
                   className="relative"
                   onMouseEnter={() => {
@@ -1322,7 +729,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                 >
                   <button
                     onClick={handleWalletClick}
-                    disabled={walletLoading || topupLoading || withdrawLoading || withdrawalHistoryLoading}
+                    disabled={walletLoading || topupLoading}
                     className="flex items-center justify-center w-10 h-10 md:w-auto md:h-auto md:px-3 md:py-2 rounded-lg border border-gray-300 text-primary hover:border-primary transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                     title="Ví của tôi"
                   >
@@ -1368,70 +775,22 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                               <span className="text-xs font-bold text-slate-400 mb-1">VND</span>
                             </div>
                           )}
-
-                          {/* Extra info for Vendor/Admin */}
-                          {currentWalletType === 'Vendor' || (currentWalletType !== 'Customer' && debtBalance > 0) ? (
-                            <div className="mt-4 space-y-2 pt-4 border-t border-dashed border-slate-100">
-                              {currentWalletType === 'Vendor' && (
-                                <div className="flex justify-between items-center text-xs">
-                                  <span className="text-slate-500">Số dư đang giữ:</span>
-                                  <span className="font-bold text-amber-600">{formatCurrency(heldBalance)}đ</span>
-                                </div>
-                              )}
-                              {debtBalance > 0 && (
-                                <div className="flex justify-between items-center text-xs">
-                                  <span className="text-slate-500">Công nợ:</span>
-                                  <span className="font-bold text-red-500">-{formatCurrency(debtBalance)}đ</span>
-                                </div>
-                              )}
-                            </div>
-                          ) : null}
                         </div>
 
-                        {currentWalletType === 'Customer' && (
-                          <button
-                            onClick={async () => {
-                              await handleTopupClick();
-                            }}
-                            disabled={topupLoading || walletLoading}
-                            className="w-full bg-primary hover:bg-primary/95 text-white p-3 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-3 group active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none"
-                          >
-                            <div className="size-7 rounded-lg bg-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
-                              </svg>
-                            </div>
-                            <span className="font-bold text-sm tracking-wide">Nạp thêm tiền</span>
-                          </button>
-                        )}
-
-                        {currentWalletType === 'Vendor' && (
-                          <div className="grid grid-cols-2 gap-2">
-                            <button
-                              onClick={handleWithdrawalHistoryClick}
-                              disabled={walletLoading || withdrawLoading || withdrawalHistoryLoading}
-                              className="w-full border-2 border-amber-600 text-amber-700 p-3 rounded-xl transition-all flex items-center justify-center gap-2 active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none"
-                            >
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                              </svg>
-                              <span className="font-bold text-sm tracking-wide">{withdrawalHistoryLoading ? 'Đang tải...' : 'Lịch sử'}</span>
-                            </button>
-
-                            <button
-                              onClick={handleWithdrawClick}
-                              disabled={walletLoading || withdrawLoading || withdrawalHistoryLoading}
-                              className="w-full bg-amber-600 hover:bg-amber-700 text-white p-3 rounded-xl transition-all shadow-lg shadow-amber-500/20 flex items-center justify-center gap-3 group active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none"
-                            >
-                              <div className="size-7 rounded-lg bg-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M17 9l-5 5-5-5" />
-                                </svg>
-                              </div>
-                              <span className="font-bold text-sm tracking-wide">{withdrawLoading ? 'Đang gửi...' : 'Rút tiền'}</span>
-                            </button>
+                        <button
+                          onClick={async () => {
+                            await handleTopupClick();
+                          }}
+                          disabled={topupLoading || walletLoading}
+                          className="w-full bg-primary hover:bg-primary/95 text-white p-3 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-3 group active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none"
+                        >
+                          <div className="size-7 rounded-lg bg-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+                            </svg>
                           </div>
-                        )}
+                          <span className="font-bold text-sm tracking-wide">Nạp thêm tiền</span>
+                        </button>
                       </div>
                     </div>
                   )}
@@ -1439,7 +798,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
               )}
 
               {/* Account Dropdown */}
-              {userName && !hideWalletAndProfileOnAdminDashboard && (
+              {userName && (
                 <div
                   className="relative"
                   onMouseEnter={() => {
@@ -1464,11 +823,11 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                       if (window.innerWidth < 768) {
                         setIsAccountDropdownOpen(prev => !prev);
                       } else {
-                        isCustomer ? onNavigate('/profile') : setIsAccountDropdownOpen(prev => !prev);
+                        onNavigate('/profile');
                       }
                     }}
                     className="flex items-center gap-2 px-3 py-2 md:px-4 md:py-2 rounded-lg border border-gray-300 text-primary font-bold text-sm hover:border-primary transition-all"
-                    title={isCustomer ? 'Hồ sơ cá nhân' : userName}
+                    title={'Hồ sơ cá nhân'}
                   >
                     <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
                       <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
@@ -1486,60 +845,42 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                         }
                       }}
                     >
-                      {!isVendor && (
-                        <button
-                          onClick={() => {
-                            onNavigate('/profile');
-                            setIsAccountDropdownOpen(false);
-                          }}
-                          className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-3"
-                        >
-                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                          </svg>
-                          Hồ sơ cá nhân
-                        </button>
-                      )}
-                      {isCustomer && (
-                        <>
-                          <button
-                            onClick={() => {
-                              onNavigate('/profile/orders');
-                              setIsAccountDropdownOpen(false);
-                            }}
-                            className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-3"
-                          >
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M13 12h7v1.5h-7zm0-2.5h7V11h-7zm0 5h7V16h-7zM21 4H3c-1.1 0-2 .9-2 2v13c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 15h-9V6h9v13z" />
-                            </svg>
-                            Đơn hàng của tôi
-                          </button>
-                          <button
-                            onClick={() => {
-                              onNavigate('/wallet/transactions');
-                              setIsAccountDropdownOpen(false);
-                            }}
-                            className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-3"
-                          >
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M5 4h14a2 2 0 012 2v2H3V6a2 2 0 012-2zm-2 7h18v7a2 2 0 01-2 2H5a2 2 0 01-2-2v-7zm9 2a3 3 0 100 6 3 3 0 000-6z" />
-                            </svg>
-                            Lịch sử giao dịch
-                          </button>
-                          {/* <button
-                            onClick={() => {
-                              handleNavigateToTracking();
-                              setIsAccountDropdownOpen(false);
-                            }}
-                            className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-3"
-                          >
-                            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                              <path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z" />
-                            </svg>
-                            Theo dõi đơn hàng
-                          </button> */}
-                        </>
-                      )}
+                      <button
+                        onClick={() => {
+                          onNavigate('/profile');
+                          setIsAccountDropdownOpen(false);
+                        }}
+                        className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-3"
+                      >
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                        </svg>
+                        Hồ sơ cá nhân
+                      </button>
+                      <button
+                        onClick={() => {
+                          onNavigate('/profile/orders');
+                          setIsAccountDropdownOpen(false);
+                        }}
+                        className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-3"
+                      >
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M13 12h7v1.5h-7zm0-2.5h7V11h-7zm0 5h7V16h-7zM21 4H3c-1.1 0-2 .9-2 2v13c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 15h-9V6h9v13z" />
+                        </svg>
+                        Đơn hàng của tôi
+                      </button>
+                      <button
+                        onClick={() => {
+                          onNavigate('/wallet/transactions');
+                          setIsAccountDropdownOpen(false);
+                        }}
+                        className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-3"
+                      >
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                          <path d="M5 4h14a2 2 0 012 2v2H3V6a2 2 0 012-2zm-2 7h18v7a2 2 0 01-2 2H5a2 2 0 01-2-2v-7zm9 2a3 3 0 100 6 3 3 0 000-6z" />
+                        </svg>
+                        Lịch sử giao dịch
+                      </button>
                       {onLogout && (
                         <button
                           onClick={async () => {
@@ -1558,118 +899,86 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                   )}
                 </div>
               )}
-              {hideWalletAndProfileOnAdminDashboard && onLogout && (
+
+              {/* Cart with Dropdown */}
+              <div
+                className="relative"
+                onMouseEnter={() => {
+                  if (window.innerWidth >= 768) {
+                    if (!getCurrentUser()) return;
+                    if (cartDropdownTimeout.current) clearTimeout(cartDropdownTimeout.current);
+                    setIsCartDropdownOpen(true);
+                  }
+                }}
+                onMouseLeave={() => {
+                  if (window.innerWidth >= 768) {
+                    cartDropdownTimeout.current = setTimeout(() => {
+                      setIsCartDropdownOpen(false);
+                    }, 200);
+                  }
+                }}
+                ref={cartRef}
+              >
                 <button
-                  onClick={handleLogoutClick}
-                  className="hidden md:flex items-center gap-2 px-4 py-2 rounded-lg border border-red-200 text-red-600 font-bold text-sm hover:bg-red-50 transition-all"
-                  title="Đăng xuất"
+                  onClick={() => {
+                    if (window.innerWidth < 768) {
+                      setIsCartDropdownOpen(prev => !prev);
+                    } else {
+                      handleNavigateToCart();
+                    }
+                  }}
+                  className="relative flex items-center justify-center w-10 h-10 md:w-auto md:h-auto md:px-4 md:py-2 rounded-lg border border-gray-300 text-primary font-bold text-sm hover:border-primary transition-all"
+                  title="Giỏ hàng"
                 >
-                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M17 7l-1.41 1.41L18.17 11H8v2h10.17l-2.58 2.58L17 17l5-5zM4 5h8V3H4c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h8v-2H4V5z" />
+                  <svg
+                    className="w-5 h-5"
+                    viewBox="0 0 24 24"
+                    fill="currentColor"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z" />
                   </svg>
-                  <span className="hidden lg:inline">Đăng xuất</span>
+                  {cartCount > 0 && (
+                    <span className="absolute -top-2 -right-2 bg-primary text-white text-[10px] font-black rounded-full w-5 h-5 flex items-center justify-center">
+                      {cartCount > 99 ? '99+' : cartCount}
+                    </span>
+                  )}
                 </button>
-              )}
-              {isCustomer && (
-                <>
-                  {/* Cart with Dropdown */}
-                  <div
-                    className="relative"
-                    onMouseEnter={() => {
-                      if (window.innerWidth >= 768) {
-                        if (!getCurrentUser()) return;
-                        if (cartDropdownTimeout.current) clearTimeout(cartDropdownTimeout.current);
-                        setIsCartDropdownOpen(true);
-                      }
-                    }}
-                    onMouseLeave={() => {
-                      if (window.innerWidth >= 768) {
-                        cartDropdownTimeout.current = setTimeout(() => {
-                          setIsCartDropdownOpen(false);
-                        }, 200);
-                      }
-                    }}
-                    ref={cartRef}
-                  >
-                      <button
-                        onClick={() => {
-                          if (window.innerWidth < 768) {
-                            setIsCartDropdownOpen(prev => !prev);
-                          } else {
-                            handleNavigateToCart();
-                          }
-                        }}
-                        className="relative flex items-center justify-center w-10 h-10 md:w-auto md:h-auto md:px-4 md:py-2 rounded-lg border border-gray-300 text-primary font-bold text-sm hover:border-primary transition-all"
-                        title="Giỏ hàng"
-                      >
-                        <svg
-                          className="w-5 h-5"
-                          viewBox="0 0 24 24"
-                          fill="currentColor"
-                          xmlns="http://www.w3.org/2000/svg"
-                        >
-                          <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z" />
-                        </svg>
-                        {cartCount > 0 && (
-                          <span className="absolute -top-2 -right-2 bg-primary text-white text-[10px] font-black rounded-full w-5 h-5 flex items-center justify-center">
-                            {cartCount > 99 ? '99+' : cartCount}
-                          </span>
-                        )}
-                      </button>
-                    <CartDropdown
-                      isOpen={isCartDropdownOpen}
-                      onClose={() => setIsCartDropdownOpen(false)}
-                      onNavigateToCart={handleNavigateToCart}
-                      onNavigateToShop={() => onNavigate('/shop')}
-                    />
-                  </div>
-                  {/* Call to Action Button */}
-                  <button
-                    onClick={() => onNavigate(userName ? '/shop' : '/auth')}
-                    className={`${userName ? 'hidden md:block' : ''} border-2 border-primary text-primary hover:bg-primary/5 rounded-lg px-6 py-2 text-sm font-bold transition-all`}
-                  >
-                    {userName ? 'Đặt mâm ngay' : 'Đăng nhập'}
-                  </button>
-                </>
-              )}
-              {/* {isVendor && (
-                <button
-                  onClick={() => onNavigate('/vendor/dashboard')}
-                  className="border-2 border-primary text-primary hover:bg-primary/5 rounded-lg px-6 py-2 text-sm font-bold transition-all"
-                >
-                  Bảng điều khiển
-                </button>
-              )} */}
-              {isAdmin && (
-                <button
-                  onClick={() => onNavigate('/admin/dashboard')}
-                  className="border-2 border-primary text-primary hover:bg-primary/5 rounded-lg px-6 py-2 text-sm font-bold transition-all"
-                >
-                  Quản lý
-                </button>
-              )}
+                <CartDropdown
+                  isOpen={isCartDropdownOpen}
+                  onClose={() => setIsCartDropdownOpen(false)}
+                  onNavigateToCart={handleNavigateToCart}
+                  onNavigateToShop={() => onNavigate('/shop')}
+                />
+              </div>
+
+              {/* Call to Action Button */}
+              <button
+                onClick={() => onNavigate(userName ? '/shop' : '/auth')}
+                className={`${userName ? 'hidden md:block' : ''} border-2 border-primary text-primary hover:bg-primary/5 rounded-lg px-6 py-2 text-sm font-bold transition-all`}
+              >
+                {userName ? 'Đặt mâm ngay' : 'Đăng nhập'}
+              </button>
             </div>
           </div>
         </header>
       )}
 
       {/* Mobile Menu Drawer */}
-      <div 
+      <div
         className={`fixed inset-0 z-[100] transition-visibility duration-300 ${isMobileMenuOpen ? 'visible' : 'invisible'}`}
       >
-        {/* Backdrop */}
-        <div 
+        <div
           className={`absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity duration-300 ${isMobileMenuOpen ? 'opacity-100' : 'opacity-0'}`}
           onClick={() => setIsMobileMenuOpen(false)}
         />
-        
-        {/* Drawer Content */}
-        <div 
+
+        <div
           className={`absolute inset-y-0 left-0 w-[85%] max-w-sm bg-white shadow-2xl transition-transform duration-300 ease-out flex flex-col ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
         >
           <div className="p-6 border-b border-gray-100 flex items-center justify-between bg-ritual-bg/30">
             <h2 className="text-xl font-display font-black text-primary italic">VIET RITUAL</h2>
-            <button 
+            <button
               onClick={() => setIsMobileMenuOpen(false)}
               className="p-2 text-slate-400 hover:text-primary"
             >
@@ -1679,7 +988,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
 
           <div className="flex-1 overflow-y-auto py-6">
             <div className="px-6 space-y-6">
-              {/* User Section in Mobile Menu */}
               {userName ? (
                 <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10">
                   <div className="flex items-center gap-4 mb-4">
@@ -1692,13 +1000,13 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <button 
+                    <button
                       onClick={() => { onNavigate('/profile'); setIsMobileMenuOpen(false); }}
                       className="text-[10px] font-black uppercase tracking-wider text-primary bg-white border border-primary/20 py-2 rounded-lg text-center"
                     >
                       Hồ sơ
                     </button>
-                    <button 
+                    <button
                       onClick={handleLogoutClick}
                       className="text-[10px] font-black uppercase tracking-wider text-red-600 bg-white border border-red-100 py-2 rounded-lg text-center"
                     >
@@ -1707,7 +1015,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                   </div>
                 </div>
               ) : (
-                <button 
+                <button
                   onClick={() => { onNavigate('/auth'); setIsMobileMenuOpen(false); }}
                   className="w-full bg-primary text-white py-4 rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-primary/20"
                 >
@@ -1715,7 +1023,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                 </button>
               )}
 
-              {/* Navigation Links */}
               <div className="space-y-1">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 pl-2">Khám phá</p>
                 {getNavItems().map((item) => (
@@ -1755,24 +1062,23 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                 ))}
               </div>
 
-              {/* Utility Links */}
               <div className="space-y-1 pt-4 border-t border-gray-100">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 pl-2">Cá nhân</p>
-                <button 
+                <button
                   onClick={() => { onNavigate('/cart'); setIsMobileMenuOpen(false); }}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 font-bold text-sm hover:bg-slate-50"
                 >
                   <span className="material-symbols-outlined text-xl">shopping_cart</span>
                   <span>Giỏ hàng ({cartCount})</span>
                 </button>
-                <button 
+                <button
                   onClick={() => { setIsWalletDropdownOpen(true); setIsMobileMenuOpen(false); }}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 font-bold text-sm hover:bg-slate-50"
                 >
                   <span className="material-symbols-outlined text-xl">account_balance_wallet</span>
                   <span>Ví của tôi</span>
                 </button>
-                <button 
+                <button
                   onClick={() => { onNavigate('/profile/orders'); setIsMobileMenuOpen(false); }}
                   className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 font-bold text-sm hover:bg-slate-50"
                 >
@@ -1782,7 +1088,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
               </div>
             </div>
           </div>
-          
+
           <div className="p-8 border-t border-gray-100">
             <div className="flex items-center gap-3 text-primary font-black mb-1">
               <span className="material-symbols-outlined text-xl">call</span>
@@ -1794,70 +1100,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
       </div>
 
       <main className="flex-grow">
-        {(isStaff || isVendor) && isDashboardRoute ? (
-          <div className="bg-white py-12">
-            <div className="w-full mx-auto px-6 md:px-10 lg:px-12 xl:px-16">
-              <div className="flex flex-col lg:flex-row gap-10 items-start">
-                <aside className="w-full lg:w-80 flex-shrink-0 lg:sticky lg:top-[120px] z-30">
-                  <div className="bg-white rounded-[2.5rem] p-4 border border-gold/10 shadow-xl backdrop-blur-sm bg-white/90">
-                    <div className="px-6 py-8 mb-4 border-b border-gold/5 text-center lg:text-left">
-                      <h1 className="text-2xl font-display font-black text-primary tracking-tight">
-                        {isStaff ? 'Nhân Viên' : 'Nhà Cung Cấp'}
-                      </h1>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">
-                        {isStaff ? 'Hệ thống nhân viên' : 'Kênh người bán'}
-                      </p>
-                    </div>
-                    <div className="flex flex-col gap-1">
-                      {getSidebarItems().map((item) => (
-                        <button
-                          key={item.id}
-                          onClick={() => onNavigate(item.path)}
-                          className={`flex items-center w-full px-6 py-4 rounded-3xl font-bold text-sm uppercase transition-all tracking-wider ${activeRoute === item.path || (item.path === '/staff/dashboard' && activeRoute === '/staff-dashboard')
-                            ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-[1.02]'
-                            : 'text-slate-500 hover:bg-ritual-bg hover:text-primary'
-                            }`}
-                        >
-                          <span className="material-symbols-outlined mr-4 text-xl">{item.icon}</span>
-                          {item.label}
-                        </button>
-                      ))}
-                      
-                      {isVendor && (
-                        <div className="mt-4 pt-4 border-t border-gold/5">
-                          <button
-                            onClick={() => onNavigate('/')}
-                            className="flex items-center w-full px-6 py-4 rounded-3xl font-bold text-sm uppercase transition-all tracking-wider text-slate-500 hover:bg-primary/5 hover:text-primary"
-                          >
-                            <span className="material-symbols-outlined mr-4 text-xl">home</span>
-                            Về trang khách hàng
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="mt-8 p-6 bg-ritual-bg/50 rounded-[2rem] border border-gold/5">
-                      <p className="text-[10px] font-black text-gold uppercase tracking-[0.2em] mb-2">Trạng thái làm việc</p>
-                      <p className="text-xs text-slate-500 font-medium leading-relaxed">
-                        {isStaff
-                          ? 'Đảm bảo quy trình phê duyệt đúng quy định của nền tảng.'
-                          : 'Cung cấp sản phẩm và dịch vụ mâm cúng tinh tế nhất.'}
-                      </p>
-                    </div>
-                  </div>
-                </aside>
-                <div className="flex-1 w-full overflow-hidden">
-                  {children}
-                </div>
-              </div>
-            </div>
-          </div>
-        ) : (
-          children
-        )}
+        {children}
       </main>
 
-      {/* Footer - Hidden during first-time setup */}
       {!hideHeader && (
         <footer className="bg-white border-t border-gray-200 pt-16 pb-8">
           <div className="max-w-7xl mx-auto px-6 md:px-10">
@@ -1889,14 +1134,6 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, user
                   <p>contact@ritual.vn</p>
                 </div>
               </div>
-              {/* <div className="bg-gray-50 p-6 rounded-2xl border border-gray-200">
-                <h5 className="font-bold text-primary mb-2 text-sm uppercase">Tư vấn miễn phí</h5>
-                <p className="text-xs text-gray-600 mb-4">Để lại số điện thoại để chuyên gia gọi lại ngay.</p>
-                <div className="flex gap-2">
-                  <input type="text" placeholder="Số điện thoại" className="flex-1 bg-white border border-gray-300 rounded-lg text-xs px-2 py-1" />
-                  <button className="bg-primary text-white px-3 py-1 rounded-lg text-xs font-bold">Gửi</button>
-                </div>
-              </div> */}
             </div>
             <div className="pt-8 border-t border-gray-200 text-center">
               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-widest">© 2026 Modern Ritual Offering  Service. Thành tâm - Tín trực.</p>
