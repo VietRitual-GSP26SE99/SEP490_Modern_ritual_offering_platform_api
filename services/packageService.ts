@@ -6,6 +6,43 @@ import { getAuthToken } from './auth';
 const API_BASE_URL = '/api'; // Use proxy instead of direct URL
 
 class PackageService {
+  private extractBackendErrorMessage(errText: string): string | null {
+    const raw = String(errText || '').trim();
+    if (!raw) return null;
+
+    try {
+      const errObj: any = JSON.parse(raw);
+
+      const directMessage = errObj?.message || errObj?.title || errObj?.detail;
+      if (typeof directMessage === 'string' && directMessage.trim()) return directMessage;
+
+      const errorMessages = errObj?.errorMessages;
+      if (Array.isArray(errorMessages) && errorMessages.length > 0) return String(errorMessages[0]);
+
+      const errorsAny = errObj?.errors ?? errObj?.Errors;
+
+      // { errors: ["..."] }
+      if (Array.isArray(errorsAny) && errorsAny.length > 0) return String(errorsAny[0]);
+
+      // { errors: { field: ["..."] } } (ASP.NET style)
+      if (errorsAny && typeof errorsAny === 'object') {
+        const firstKey = Object.keys(errorsAny)[0];
+        const firstVal = (errorsAny as any)[firstKey];
+        if (Array.isArray(firstVal) && firstVal.length > 0) return String(firstVal[0]);
+        if (typeof firstVal === 'string' && firstVal.trim()) return String(firstVal);
+      }
+
+      // { result: { ... }, isSuccess: false, errorMessages: [...] }
+      const nestedMsg = errObj?.result?.message || errObj?.result?.title || errObj?.result?.detail;
+      if (typeof nestedMsg === 'string' && nestedMsg.trim()) return nestedMsg;
+      const nestedErrors = errObj?.result?.errors;
+      if (Array.isArray(nestedErrors) && nestedErrors.length > 0) return String(nestedErrors[0]);
+
+      return null;
+    } catch {
+      return null;
+    }
+  }
   /**
    * Lấy danh sách packages theo trạng thái từ endpoint by-status
    * @param status - Draft | Pending | Approved | Rejected | ''
@@ -629,7 +666,14 @@ class PackageService {
       packageImageUrls: string[];
       primaryImageIndex: number;
       action: string;
-      variants: { variantName: string; description: string; price: number }[];
+      variants: {
+        variantName: string;
+        description: string;
+        price: number;
+        imageUrl?: string;
+        variantImageUrls?: string[];
+        primaryVariantImageIndex?: number;
+      }[];
     }
   ): Promise<any> {
     const token = getAuthToken();
@@ -644,23 +688,9 @@ class PackageService {
     });
     if (!response.ok) {
       const errText = await response.text();
-      try {
-        const errObj = JSON.parse(errText);
-        // Handle common backend error formats
-        if (errObj.errorMessages && Array.isArray(errObj.errorMessages) && errObj.errorMessages.length > 0) {
-          throw new Error(errObj.errorMessages[0]);
-        }
-        if (errObj.errors && typeof errObj.errors === 'object') {
-          const firstError = Object.values(errObj.errors)[0];
-          if (Array.isArray(firstError) && firstError.length > 0) throw new Error(firstError[0] as string);
-        }
-        if (errObj.message) throw new Error(errObj.message);
-        // Handle the specific format in screenshot: {"statusCode":"BadRequest", "errors": ["..."]}
-        if (Array.isArray(errObj.errors) && errObj.errors.length > 0) throw new Error(errObj.errors[0]);
-      } catch (e) {
-        if (e instanceof Error && e.name === 'Error' && e.message !== 'Unexpected token') throw e;
-      }
-      throw new Error(errText || `HTTP error! status: ${response.status}`);
+      console.error('updatePackage failed', { status: response.status, url: response.url, payload, errText });
+      const extracted = this.extractBackendErrorMessage(errText);
+      throw new Error(extracted || errText || `HTTP error! status: ${response.status}`);
     }
     const data: any = await response.json().catch(() => ({}));
     return data;
@@ -676,7 +706,14 @@ class PackageService {
     packageImageUrls: string[];
     primaryImageIndex: number;
     action: string;
-    variants: { variantName: string; description: string; price: number }[];
+    variants: {
+      variantName: string;
+      description: string;
+      price: number;
+      imageUrl?: string;
+      variantImageUrls?: string[];
+      primaryVariantImageIndex?: number;
+    }[];
   }): Promise<any> {
     const token = getAuthToken();
     const response = await fetch(`${API_BASE_URL}/packages`, {
@@ -690,23 +727,9 @@ class PackageService {
     });
     if (!response.ok) {
       const errText = await response.text();
-      try {
-        const errObj = JSON.parse(errText);
-        // Handle common backend error formats
-        if (errObj.errorMessages && Array.isArray(errObj.errorMessages) && errObj.errorMessages.length > 0) {
-          throw new Error(errObj.errorMessages[0]);
-        }
-        if (errObj.errors && typeof errObj.errors === 'object') {
-          const firstError = Object.values(errObj.errors)[0];
-          if (Array.isArray(firstError) && firstError.length > 0) throw new Error(firstError[0] as string);
-        }
-        if (errObj.message) throw new Error(errObj.message);
-        // Handle the specific format in screenshot: {"statusCode":"BadRequest", "errors": ["..."]}
-        if (Array.isArray(errObj.errors) && errObj.errors.length > 0) throw new Error(errObj.errors[0]);
-      } catch (e) {
-        if (e instanceof Error && e.name === 'Error' && e.message !== 'Unexpected token') throw e;
-      }
-      throw new Error(errText || `HTTP error! status: ${response.status}`);
+      console.error('createPackage failed', { status: response.status, url: response.url, payload, errText });
+      const extracted = this.extractBackendErrorMessage(errText);
+      throw new Error(extracted || errText || `HTTP error! status: ${response.status}`);
     }
     const data: any = await response.json().catch(() => ({}));
     return data;
@@ -716,10 +739,26 @@ class PackageService {
    * Upload nhiều ảnh package, trả về danh sách URL ảnh - POST /api/packages/upload-images
    */
   async uploadPackageImages(files: File[]): Promise<string[]> {
-    const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB 
+    return this.uploadImagesToEndpoint(files, `${API_BASE_URL}/packages/upload-images`);
+  }
+
+  /**
+   * Upload nhiều ảnh cho biến thể gói - POST /api/packages/upload-variant-images
+   * Nếu endpoint này lỗi (thường gặp 500/404 tuỳ backend), fallback sang upload-images để vẫn lấy được URL.
+   */
+  async uploadVariantImages(files: File[]): Promise<string[]> {
+    try {
+      return await this.uploadImagesToEndpoint(files, `${API_BASE_URL}/packages/upload-variant-images`);
+    } catch {
+      return await this.uploadImagesToEndpoint(files, `${API_BASE_URL}/packages/upload-images`);
+    }
+  }
+
+  private uploadImagesToEndpoint(files: File[], endpointUrl: string): Promise<string[]> {
+    const MAX_FILE_SIZE = 1 * 1024 * 1024; // 1MB
     const isAnyFileLarge = files.some(f => f.size > MAX_FILE_SIZE);
     if (isAnyFileLarge) {
-      throw new Error('Dung lượng ảnh tải lên vượt quá giới hạn 1MB. Vui lòng nén hoặc chọn ảnh nhẹ hơn.');
+      return Promise.reject(new Error('Dung lượng ảnh tải lên vượt quá giới hạn 1MB. Vui lòng nén hoặc chọn ảnh nhẹ hơn.'));
     }
 
     const token = getAuthToken();
@@ -728,7 +767,7 @@ class PackageService {
 
     return new Promise<string[]>((resolve, reject) => {
       const xhr = new XMLHttpRequest();
-      xhr.open('POST', `${API_BASE_URL}/packages/upload-images`, true);
+      xhr.open('POST', endpointUrl, true);
       xhr.setRequestHeader('Accept', 'application/json, text/plain, */*');
       if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`);
 

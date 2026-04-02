@@ -246,6 +246,14 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
   const selectedVariantMeta = Array.isArray(packageMeta?.packageVariants)
     ? packageMeta.packageVariants[selectedVariantIndex]
     : null;
+
+  const variantImages = Array.from(new Set([
+    String(selectedVariantMeta?.imageUrl || '').trim(),
+    ...(Array.isArray(selectedVariantMeta?.variantImages) ? selectedVariantMeta.variantImages : []),
+  ])).filter(Boolean);
+
+  const displayImages = variantImages.length > 0 ? variantImages : productImages;
+
   const selectedVariantDescription =
     selectedVariantMeta?.description ||
     product?.variants?.[selectedVariantIndex]?.description ||
@@ -386,10 +394,10 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
             className="relative aspect-square md:aspect-[4/3] rounded-[2rem] md:rounded-3xl overflow-hidden shadow-2xl bg-white border border-gold/10 cursor-pointer hover:shadow-xl transition-all"
             onClick={() => handleImageClick(currentMainImage)}
           >
-            <img className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" src={productImages[currentMainImage]} alt={product.name} />
+            <img className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" src={displayImages[currentMainImage]} alt={product.name} />
           </div>
           <div className="flex gap-3 overflow-x-auto pb-2 hide-scrollbar">
-            {productImages.map((imgUrl, i) => (
+            {displayImages.map((imgUrl, i) => (
               <div
                 key={i}
                 className={`w-20 h-20 shrink-0 aspect-square rounded-xl md:rounded-2xl overflow-hidden border-2 cursor-pointer transition-all hover:shadow-lg ${currentMainImage === i ? 'border-primary' : 'border-transparent hover:border-primary'}`}
@@ -431,6 +439,13 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                 <span className="text-sm font-bold text-slate-800 italic">Đã bán {product.totalSold}</span>
               )}
             </div>
+
+            {product.description && (
+              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4">
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Mô tả</p>
+                <p className="text-sm font-medium text-slate-600 leading-relaxed">{product.description}</p>
+              </div>
+            )}
           </div>
 
           <div className="p-6 md:p-8 bg-white rounded-[2rem] border border-gold/10 shadow-xl space-y-6 md:space-y-8">
@@ -440,7 +455,10 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                 {product.variants?.map((variant, index) => (
                   <button
                     key={variant.variantId}
-                    onClick={() => setSelectedVariantIndex(index)}
+                    onClick={() => {
+                      setSelectedVariantIndex(index);
+                      setCurrentMainImage(0);
+                    }}
                     className={`p-3 md:p-4 rounded-2xl border-2 text-center transition-all ${selectedVariantIndex === index ? 'border-primary bg-primary/5 shadow-md shadow-primary/5' : 'border-slate-50 hover:border-gold hover:bg-gold/5'}`}
                   >
                     <p className={`text-xs font-bold leading-tight mb-1 ${selectedVariantIndex === index ? 'text-primary' : 'text-slate-700'}`}>{variant.tier}</p>
@@ -774,7 +792,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
 
       {showImageModal && (
         <ImageModal
-          images={productImages}
+          images={displayImages}
           initialIndex={selectedImageIndex}
           isOpen={showImageModal}
           onClose={() => setShowImageModal(false)}

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import toast from '../../services/toast';
 import { packageService } from '../../services/packageService';
 import { CeremonyCategory } from '../../types';
+import ImageModal from '../../components/ImageModal';
 
 interface StaffProductManagementProps {
   onNavigate: (path: string) => void;
@@ -37,6 +38,9 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
   const [selectedStatus, setSelectedStatus] = useState<PackageStatusFilter>('');
   const [viewProductDetails, setViewProductDetails] = useState<any | null>(null);
   const [viewDisplayImageIndex, setViewDisplayImageIndex] = useState<number>(0);
+  const [previewImages, setPreviewImages] = useState<string[]>([]);
+  const [previewIndex, setPreviewIndex] = useState<number>(0);
+  const [previewOpen, setPreviewOpen] = useState<boolean>(false);
   const [rawPackages, setRawPackages] = useState<any[]>([]);
   const [categories, setCategories] = useState<CeremonyCategory[]>([]);
 
@@ -65,6 +69,15 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
     if (!normalized) return fallbackProductImage;
     if (/^https?:\/\//i.test(normalized)) return normalized;
     return fallbackProductImage;
+  };
+
+  const openPreview = (images: string[], index: number = 0) => {
+    const cleaned = (images || []).map((u) => String(u || '').trim()).filter(Boolean);
+    if (cleaned.length === 0) return;
+    const safeIndex = index >= 0 && index < cleaned.length ? index : 0;
+    setPreviewImages(cleaned);
+    setPreviewIndex(safeIndex);
+    setPreviewOpen(true);
   };
 
   const categoryLabelMap: Record<number, string> = {
@@ -507,6 +520,46 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
                           {v.description && (
                             <p className="text-sm text-slate-600 bg-white p-3.5 rounded-xl border border-gray-100 italic leading-relaxed shadow-sm">{v.description}</p>
                           )}
+
+                          {(() => {
+                            const raw = (v as any).variantImages ?? (v as any).variantImageUrls ?? (v as any).imageUrls ?? (v as any).images ?? [];
+                            const rawUrls = Array.isArray(raw)
+                              ? raw.map((it: any) => String((it && typeof it === 'object') ? (it.imageUrl || it.url || '') : it)).filter((u: string) => u.trim())
+                              : [];
+                            const single = String((v as any).imageUrl || '').trim();
+                            const urls = Array.from(new Set([single, ...rawUrls])).filter((u) => String(u || '').trim());
+                            const primary = typeof (v as any).primaryVariantImageIndex === 'number' ? Number((v as any).primaryVariantImageIndex) : 0;
+                            const primaryIdx = primary >= 0 && primary < urls.length ? primary : 0;
+
+                            if (urls.length === 0) return null;
+
+                            return (
+                              <div className="mt-4">
+                                <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-2">Ảnh gói</p>
+                                <div className="grid grid-cols-5 gap-2">
+                                  {urls.map((url: string, i: number) => (
+                                    <div key={url + i} className="relative">
+                                      <button
+                                        type="button"
+                                        className="w-full"
+                                        title="Xem ảnh"
+                                        onClick={() => openPreview(urls, i)}
+                                      >
+                                        <img
+                                          src={toImageSrc(url)}
+                                          className={`w-full h-16 object-cover rounded-xl border ${i === primaryIdx ? 'border-primary shadow-sm' : 'border-gray-200'}`}
+                                          onError={(e) => { (e.target as HTMLImageElement).src = fallbackProductImage; }}
+                                        />
+                                      </button>
+                                      {i === primaryIdx && (
+                                        <div className="absolute top-1 left-1 bg-primary text-white text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">★</div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       ))
                     ) : (
@@ -533,7 +586,15 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
                         <img
                           src={primarySrc}
                           alt={viewProductDetails.packageName}
-                          className="w-full h-full object-cover"
+                          className="w-full h-full object-cover cursor-pointer"
+                          onClick={() => {
+                            const raw = viewProductDetails.imageUrls ?? viewProductDetails.packageImages ?? [];
+                            const urls = Array.isArray(raw)
+                              ? raw.map((it: any) => String((it && typeof it === 'object') ? (it.imageUrl || it.url || '') : it)).filter((u: string) => u.trim())
+                              : [];
+                            const merged = Array.from(new Set([String(primarySrc || '').trim(), ...urls])).filter(Boolean);
+                            openPreview(merged, viewDisplayImageIndex);
+                          }}
                           onError={(e) => { (e.target as HTMLImageElement).onerror = null; (e.target as HTMLImageElement).src = fallbackProductImage; }}
                         />
                       ) : (
@@ -560,7 +621,16 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
                           className={`flex-shrink-0 w-20 h-20 rounded-xl overflow-hidden border-2 transition-all ${viewDisplayImageIndex === idx ? 'border-primary shadow-md scale-105' : 'border-transparent opacity-60 hover:opacity-100 hover:scale-105'
                             }`}
                         >
-                          <img src={url} alt={`thumb-${idx}`} className="w-full h-full object-cover" onError={(e) => { (e.target as HTMLImageElement).src = fallbackProductImage; }} />
+                          <img
+                            src={url}
+                            alt={`thumb-${idx}`}
+                            className="w-full h-full object-cover"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openPreview(viewProductDetails.imageUrls, idx);
+                            }}
+                            onError={(e) => { (e.target as HTMLImageElement).src = fallbackProductImage; }}
+                          />
                         </button>
                       ))}
                     </div>
@@ -595,6 +665,14 @@ const StaffProductManagement: React.FC<StaffProductManagementProps> = ({ onNavig
               </div>
             </div>
           </div>
+
+          <ImageModal
+            isOpen={previewOpen}
+            images={previewImages}
+            initialIndex={previewIndex}
+            altText={viewProductDetails?.packageName || 'Ảnh'}
+            onClose={() => setPreviewOpen(false)}
+          />
         </div>
       )}
 

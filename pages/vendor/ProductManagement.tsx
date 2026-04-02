@@ -44,26 +44,27 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
     categoryId: number;
     packageImageUrls: string[];
     primaryImageIndex: number;
-    variants: { variantName: string; description: string; price: number }[];
+    variants: { variantName: string; description: string; price: number; imageUrls: string[]; primaryImageIndex?: number }[];
   } | null>(null);
 
   const [showAddForm, setShowAddForm] = useState(false);
   const [createSaving, setCreateSaving] = useState(false);
   const [uploadingImages, setUploadingImages] = useState(false);
+  const [uploadingVariantIndex, setUploadingVariantIndex] = useState<number | null>(null);
   const [createForm, setCreateForm] = useState<{
     packageName: string;
     description: string;
     categoryId: number;
     packageImageUrls: string[];
     primaryImageIndex: number;
-    variants: { variantName: string; description: string; price: number }[];
+    variants: { variantName: string; description: string; price: number; imageUrls: string[]; primaryImageIndex?: number }[];
   }>({
     packageName: '',
     description: '',
     categoryId: 1,
     packageImageUrls: [],
     primaryImageIndex: 0,
-    variants: [{ variantName: '', description: '', price: 0 }],
+    variants: [{ variantName: '', description: '', price: 0, imageUrls: [], primaryImageIndex: 0 }],
   });
 
   const [categories, setCategories] = useState<CeremonyCategory[]>([]);
@@ -183,27 +184,70 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
       categoryId: viewProductDetails.categoryId || 1,
       packageImageUrls: imgs.filter(url => url.trim() !== ''),
       primaryImageIndex: primaryIdx,
-      variants: (viewProductDetails.packageVariants || []).map((v: any) => ({
-        variantName: v.variantName || '',
-        description: v.description || '',
-        price: Number(v.price) || 0,
-      })),
+      variants: (viewProductDetails.packageVariants || []).map((v: any) => {
+        const raw = (v as any).imageUrls ?? (v as any).variantImageUrls ?? (v as any).variantImages ?? (v as any).images ?? [];
+        const rawUrls = Array.isArray(raw)
+          ? raw.map((it: any) => String((it && typeof it === 'object') ? (it.imageUrl || it.url || '') : it)).filter((u: string) => u.trim())
+          : [];
+
+        const single = String((v as any).imageUrl || '').trim();
+        const merged = Array.from(new Set([single, ...rawUrls])).filter((u) => String(u || '').trim());
+        const primary = typeof (v as any).primaryVariantImageIndex === 'number' ? Number((v as any).primaryVariantImageIndex) : 0;
+        const safePrimary = primary >= 0 && primary < merged.length ? primary : 0;
+        return {
+          variantName: v.variantName || '',
+          description: v.description || '',
+          price: Number(v.price) || 0,
+          imageUrls: merged,
+          primaryImageIndex: safePrimary,
+        };
+      }),
     });
     setEditProductOpen(true);
   };
 
   const handleSaveEdit = async (action: 'draft' | 'submit') => {
     if (!viewProductDetails || !editForm) return;
+    if (editForm.packageImageUrls.length === 0) {
+      toast.warning('Vui lòng tải ít nhất 1 ảnh sản phẩm!');
+      return;
+    }
     setEditSaving(true);
     try {
+      const normalizedAction = action === 'draft' ? 'Draft' : 'Submit';
+      const safePrimaryIndex = editForm.primaryImageIndex >= 0 && editForm.primaryImageIndex < editForm.packageImageUrls.length
+        ? editForm.primaryImageIndex
+        : 0;
       await packageService.updatePackage(viewProductDetails.packageId || viewProductDetails.id, {
         packageName: editForm.packageName,
         description: editForm.description,
         categoryId: editForm.categoryId,
         packageImageUrls: editForm.packageImageUrls.filter(u => u.trim()),
-        primaryImageIndex: editForm.primaryImageIndex,
-        action: action,
-        variants: editForm.variants,
+        primaryImageIndex: safePrimaryIndex,
+        action: normalizedAction,
+        variants: editForm.variants.map(v => {
+          const base = {
+            variantName: v.variantName,
+            description: v.description,
+            price: v.price,
+          } as {
+            variantName: string;
+            description: string;
+            price: number;
+            imageUrl?: string;
+            variantImageUrls?: string[];
+            primaryVariantImageIndex?: number;
+          };
+
+          const cleaned = (v.imageUrls || []).filter(u => u.trim());
+          const preferredPrimary = typeof v.primaryImageIndex === 'number' ? v.primaryImageIndex : 0;
+          const safePrimary = preferredPrimary >= 0 && preferredPrimary < cleaned.length ? preferredPrimary : 0;
+          base.variantImageUrls = cleaned;
+          base.primaryVariantImageIndex = safePrimary;
+          if (cleaned.length > 0) base.imageUrl = cleaned[safePrimary];
+
+          return base;
+        }),
       });
       toast.success(action === 'draft' ? 'Lưu chỉnh sửa bản nháp thành công!' : 'Đã gửi duyệt thay đổi!');
       // Reload details
@@ -308,24 +352,51 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
       toast.warning('Vui lòng nhập tên sản phẩm!');
       return;
     }
+    if (createForm.packageImageUrls.length === 0) {
+      toast.warning('Vui lòng tải ít nhất 1 ảnh sản phẩm!');
+      return;
+    }
     if (createForm.variants.some(v => !v.variantName.trim() || v.price <= 0)) {
       toast.warning('Vui lòng điền đầy đủ tên và giá cho từng biến thể!');
       return;
     }
     setCreateSaving(true);
     try {
+      const safePrimaryIndex = createForm.primaryImageIndex >= 0 && createForm.primaryImageIndex < createForm.packageImageUrls.length
+        ? createForm.primaryImageIndex
+        : 0;
       await packageService.createPackage({
         packageName: createForm.packageName,
         description: createForm.description,
         categoryId: createForm.categoryId,
         packageImageUrls: createForm.packageImageUrls,
-        primaryImageIndex: createForm.primaryImageIndex,
+        primaryImageIndex: safePrimaryIndex,
         action,
-        variants: createForm.variants,
+        variants: createForm.variants.map(v => {
+          const base = {
+            variantName: v.variantName,
+            description: v.description,
+            price: v.price,
+          } as {
+            variantName: string;
+            description: string;
+            price: number;
+            imageUrl?: string;
+            variantImageUrls?: string[];
+            primaryVariantImageIndex?: number;
+          };
+
+          const cleaned = (v.imageUrls || []).filter(u => u.trim());
+          base.variantImageUrls = cleaned;
+          base.primaryVariantImageIndex = cleaned.length > 0 ? 0 : 0;
+          if (cleaned.length > 0) base.imageUrl = cleaned[0];
+
+          return base;
+        }),
       });
       toast.success(action === 'Draft' ? 'Lưu nháp thành công!' : 'Gửi phê duyệt thành công!');
       setShowAddForm(false);
-      setCreateForm({ packageName: '', description: '', categoryId: 1, packageImageUrls: [], primaryImageIndex: 0, variants: [{ variantName: '', description: '', price: 0 }] });
+      setCreateForm({ packageName: '', description: '', categoryId: 1, packageImageUrls: [], primaryImageIndex: 0, variants: [{ variantName: '', description: '', price: 0, imageUrls: [] }] });
       loadPackages();
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Lỗi khi tạo sản phẩm';
@@ -521,7 +592,7 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
                   <div className="flex items-center justify-between mb-2">
                     <label className="text-xs font-black text-gray-400 uppercase tracking-widest">Biến thể gói <span className="text-red-500">*</span></label>
                     <button
-                      onClick={() => setCreateForm({ ...createForm, variants: [...createForm.variants, { variantName: '', description: '', price: 0 }] })}
+                      onClick={() => setCreateForm({ ...createForm, variants: [...createForm.variants, { variantName: '', description: '', price: 0, imageUrls: [] }] })}
                       className="text-xs font-bold text-primary hover:text-primary/70 transition px-3 py-1 border border-primary/30 rounded-full bg-primary/5"
                     >
                       + Thêm biến thể
@@ -570,6 +641,68 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
                             className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:border-primary focus:outline-none"
                             placeholder="Mô tả gói..."
                           />
+                        </div>
+
+                        {/* Variant Images */}
+                        <div className="mt-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <label className="text-[10px] font-bold text-gray-400 block">Hình ảnh gói</label>
+                            <label className={`text-[10px] font-bold text-white px-3 py-1 rounded-full cursor-pointer transition ${uploadingVariantIndex === idx ? 'bg-gray-400' : 'bg-primary hover:bg-primary/90'}`}>
+                              {uploadingVariantIndex === idx ? ' Đang tải...' : 'Tải ảnh lên'}
+                              <input
+                                type="file"
+                                accept="image/*"
+                                multiple
+                                className="hidden"
+                                disabled={uploadingVariantIndex === idx}
+                                onChange={async (e) => {
+                                  const files = Array.from(e.target.files || []);
+                                  if (!files.length) return;
+                                  setUploadingVariantIndex(idx);
+                                  try {
+                                    const urls = await packageService.uploadVariantImages(files);
+                                    setCreateForm(f => {
+                                      const vars = [...f.variants];
+                                      const current = vars[idx] || { variantName: '', description: '', price: 0, imageUrls: [] };
+                                      vars[idx] = { ...current, imageUrls: [...(current.imageUrls || []), ...urls] };
+                                      return { ...f, variants: vars };
+                                    });
+                                  } catch (err) {
+                                    toast.error('Lỗi upload ảnh biến thể: ' + (err instanceof Error ? err.message : 'Unknown'));
+                                  } finally {
+                                    setUploadingVariantIndex(null);
+                                    e.target.value = '';
+                                  }
+                                }}
+                              />
+                            </label>
+                          </div>
+                          {(v.imageUrls || []).length === 0 ? (
+                            <div className="text-xs text-gray-400 italic bg-gray-50 border border-dashed border-gray-200 rounded-xl px-3 py-2">Chưa có ảnh</div>
+                          ) : (
+                            <div className="grid grid-cols-4 gap-2">
+                              {(v.imageUrls || []).map((url, i) => (
+                                <div key={url + i} className="relative group">
+                                  <img src={toImageSrc(url)} className="w-full h-16 object-cover rounded-xl border border-gray-200" />
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setCreateForm(f => {
+                                        const vars = [...f.variants];
+                                        const current = vars[idx];
+                                        if (!current) return f;
+                                        const nextUrls = (current.imageUrls || []).filter((_, j) => j !== i);
+                                        vars[idx] = { ...current, imageUrls: nextUrls };
+                                        return { ...f, variants: vars };
+                                      });
+                                    }}
+                                    className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-white border border-gray-200 text-gray-500 text-xs font-bold shadow-sm opacity-0 group-hover:opacity-100 transition"
+                                    aria-label="Xóa ảnh"
+                                  >×</button>
+                                </div>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -988,74 +1121,237 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
 
                   {/* Variants Card */}
                   <div className="bg-white rounded-[2rem] border border-gray-200 p-6 shadow-sm">
-                    <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-5 pb-3 border-b border-gray-100 flex items-center gap-2">
-                      <i className="fas fa-layer-group text-primary"></i>
-                      Danh sách gói biến thể ({(viewProductDetails.packageVariants || []).length})
-                    </h3>
+                    <div className="mb-5 pb-3 border-b border-gray-100 flex items-center justify-between gap-3">
+                      <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 flex items-center gap-2">
+                        <i className="fas fa-layer-group text-primary"></i>
+                        Danh sách gói biến thể ({editProductOpen && editForm ? editForm.variants.length : (viewProductDetails.packageVariants || []).length})
+                      </h3>
+                      {editProductOpen && editForm && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setEditForm(f => f ? {
+                              ...f,
+                              variants: [...f.variants, { variantName: '', description: '', price: 0, imageUrls: [], primaryImageIndex: 0 }]
+                            } : f);
+                          }}
+                          className="px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest bg-primary text-white hover:opacity-90 transition"
+                        >
+                          + Thêm gói
+                        </button>
+                      )}
+                    </div>
                     <div className="space-y-4 max-h-[350px] overflow-y-auto pr-2 custom-scrollbar">
-                      {(viewProductDetails.packageVariants && viewProductDetails.packageVariants.length > 0) ? (
-                        viewProductDetails.packageVariants.map((v: any, idx: number) => (
-                          <div key={v.variantId || v.id || idx} className={`rounded-[1.5rem] border p-5 transition-all ${editProductOpen && editForm ? 'border-primary/30 bg-primary/5' : 'border-gray-100 bg-gray-50 hover:bg-white hover:shadow-md hover:border-gray-200'
-                            }`}>
-                            <div className="flex items-start justify-between gap-4 mb-3 border-b border-gray-100 pb-3">
-                              <div className="flex-1">
-                                {editProductOpen && editForm ? (
+                      {(() => {
+                        const isEditing = !!(editProductOpen && editForm);
+                        const variantsForRender: any[] = isEditing ? editForm!.variants : (viewProductDetails.packageVariants || []);
+
+                        if (!variantsForRender || variantsForRender.length === 0) {
+                          return (
+                            <div className="text-center py-8 bg-gray-50 rounded-[1.5rem] border border-dashed border-gray-200">
+                              <p className="text-xl mb-2 opacity-30">📦</p>
+                              <p className="text-slate-500 text-sm font-medium">Sản phẩm này chưa có biến thể nào.</p>
+                            </div>
+                          );
+                        }
+
+                        return variantsForRender.map((v: any, idx: number) => {
+                          const viewV = (viewProductDetails.packageVariants || [])[idx];
+                          const name = isEditing ? (v.variantName || '') : (v.variantName || '');
+                          const price = isEditing ? Number(v.price || 0) : Number(v.price || 0);
+                          const desc = isEditing ? (v.description || '') : (v.description || '');
+                          const imageUrls: string[] = Array.isArray(v.imageUrls) ? v.imageUrls : [];
+                          const primaryIdx: number = typeof v.primaryImageIndex === 'number' ? v.primaryImageIndex : 0;
+
+                          return (
+                            <div key={(isEditing ? `edit-${idx}` : (v.variantId || v.id || idx))} className={`rounded-[1.5rem] border p-5 transition-all ${isEditing ? 'border-primary/30 bg-primary/5' : 'border-gray-100 bg-gray-50 hover:bg-white hover:shadow-md hover:border-gray-200'}`}>
+                              <div className="flex items-start justify-between gap-4 mb-3 border-b border-gray-100 pb-3">
+                                <div className="flex-1 min-w-0">
+                                  {isEditing ? (
+                                    <input
+                                      type="text"
+                                      value={name}
+                                      onChange={e => {
+                                        setEditForm(f => {
+                                          if (!f) return f;
+                                          const vars = [...f.variants];
+                                          vars[idx] = { ...vars[idx], variantName: e.target.value };
+                                          return { ...f, variants: vars };
+                                        });
+                                      }}
+                                      className="w-full px-3 py-2 border-2 border-primary/30 rounded-xl text-sm font-bold text-gray-800 focus:border-primary focus:outline-none bg-white"
+                                      placeholder="Tên gói..."
+                                    />
+                                  ) : (
+                                    <p className="font-bold text-gray-800 text-base group-hover:text-primary transition-colors truncate">{name}</p>
+                                  )}
+                                </div>
+
+                                <div className="text-right flex flex-col items-end shrink-0">
+                                  {isEditing ? (
+                                    <div className="flex items-center gap-1">
+                                      <input
+                                        type="number"
+                                        value={Number.isFinite(price) ? price : 0}
+                                        onChange={e => {
+                                          setEditForm(f => {
+                                            if (!f) return f;
+                                            const vars = [...f.variants];
+                                            vars[idx] = { ...vars[idx], price: Number(e.target.value) };
+                                            return { ...f, variants: vars };
+                                          });
+                                        }}
+                                        className="w-28 px-3 py-2 border-2 border-primary/30 rounded-xl text-sm font-bold text-primary focus:border-primary focus:outline-none bg-white text-right"
+                                      />
+                                      <span className="text-gray-500 text-sm font-bold">đ</span>
+                                    </div>
+                                  ) : (
+                                    <p className="font-black text-primary text-lg">{price.toLocaleString('vi-VN')}đ</p>
+                                  )}
+
+                                  {!isEditing && viewV && (() => {
+                                    const approval = viewProductDetails.approvalStatus || viewProductDetails.packageStatus || viewProductDetails.status || '';
+                                    if (approval === 'Approved') return null;
+                                    return (
+                                      <span className={`inline-block mt-1.5 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${viewV.isActive ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-gray-200 text-gray-600 border border-gray-300'}`}>
+                                        {viewV.isActive ? 'Hoạt động' : 'Tạm ngừng'}
+                                      </span>
+                                    );
+                                  })()}
+
+                                  {isEditing && editForm && editForm.variants.length > 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditForm(f => {
+                                          if (!f) return f;
+                                          const vars = f.variants.filter((_, i) => i !== idx);
+                                          return { ...f, variants: vars };
+                                        });
+                                      }}
+                                      className="mt-2 text-red-500 hover:text-red-600 text-[10px] font-black uppercase tracking-widest"
+                                    >
+                                      Xóa gói
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+
+                              {isEditing ? (
+                                <>
                                   <input
                                     type="text"
-                                    value={editForm.variants[idx]?.variantName ?? v.variantName}
-                                    onChange={e => { const vars = [...editForm.variants]; if (!vars[idx]) vars[idx] = { variantName: v.variantName, description: v.description || '', price: Number(v.price) }; vars[idx] = { ...vars[idx], variantName: e.target.value }; setEditForm({ ...editForm, variants: vars }); }}
-                                    className="w-full px-3 py-2 border-2 border-primary/30 rounded-xl text-sm font-bold text-gray-800 focus:border-primary focus:outline-none bg-white"
+                                    value={desc}
+                                    onChange={e => {
+                                      setEditForm(f => {
+                                        if (!f) return f;
+                                        const vars = [...f.variants];
+                                        vars[idx] = { ...vars[idx], description: e.target.value };
+                                        return { ...f, variants: vars };
+                                      });
+                                    }}
+                                    className="w-full px-3 py-2 border-2 border-primary/30 rounded-xl text-sm text-gray-700 focus:border-primary focus:outline-none bg-white"
+                                    placeholder="Mô tả gói..."
                                   />
-                                ) : (
-                                  <p className="font-bold text-gray-800 text-base group-hover:text-primary transition-colors">{v.variantName}</p>
-                                )}
-                              </div>
-                              <div className="text-right flex flex-col items-end shrink-0">
-                                {editProductOpen && editForm ? (
-                                  <div className="flex items-center gap-1">
-                                    <input
-                                      type="number"
-                                      value={editForm.variants[idx]?.price ?? Number(v.price)}
-                                      onChange={e => { const vars = [...editForm.variants]; if (!vars[idx]) vars[idx] = { variantName: v.variantName, description: v.description || '', price: Number(v.price) }; vars[idx] = { ...vars[idx], price: Number(e.target.value) }; setEditForm({ ...editForm, variants: vars }); }}
-                                      className="w-28 px-3 py-2 border-2 border-primary/30 rounded-xl text-sm font-bold text-primary focus:border-primary focus:outline-none bg-white text-right"
-                                    />
-                                    <span className="text-gray-500 text-sm font-bold">đ</span>
+
+                                  <div className="mt-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Hình ảnh gói</label>
+                                      <label className={`text-[10px] font-bold text-white px-3 py-1 rounded-full cursor-pointer transition ${uploadingVariantIndex === idx ? 'bg-gray-400' : 'bg-primary hover:bg-primary/90'}`}>
+                                        {uploadingVariantIndex === idx ? ' Đang tải...' : 'Tải ảnh lên'}
+                                        <input
+                                          type="file"
+                                          accept="image/*"
+                                          multiple
+                                          className="hidden"
+                                          disabled={uploadingVariantIndex === idx}
+                                          onChange={async (e) => {
+                                            const files = Array.from(e.target.files || []);
+                                            if (!files.length) return;
+                                            setUploadingVariantIndex(idx);
+                                            try {
+                                              const urls = await packageService.uploadVariantImages(files);
+                                              setEditForm(f => {
+                                                if (!f) return f;
+                                                const vars = [...f.variants];
+                                                const current = vars[idx] || { variantName: '', description: '', price: 0, imageUrls: [], primaryImageIndex: 0 };
+                                                const nextUrls = [...(current.imageUrls || []), ...urls];
+                                                vars[idx] = { ...current, imageUrls: nextUrls, primaryImageIndex: typeof current.primaryImageIndex === 'number' ? current.primaryImageIndex : 0 };
+                                                return { ...f, variants: vars };
+                                              });
+                                            } catch (err) {
+                                              toast.error('Lỗi upload ảnh biến thể: ' + (err instanceof Error ? err.message : 'Unknown'));
+                                            } finally {
+                                              setUploadingVariantIndex(null);
+                                              e.target.value = '';
+                                            }
+                                          }}
+                                        />
+                                      </label>
+                                    </div>
+
+                                    {imageUrls.length === 0 ? (
+                                      <div className="text-xs text-gray-400 italic bg-gray-50 border border-dashed border-gray-200 rounded-xl px-3 py-2">Chưa có ảnh</div>
+                                    ) : (
+                                      <div className="grid grid-cols-4 gap-2">
+                                        {imageUrls.map((url, i) => (
+                                          <div key={url + i} className="relative group">
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setEditForm(f => {
+                                                  if (!f) return f;
+                                                  const vars = [...f.variants];
+                                                  const current = vars[idx];
+                                                  if (!current) return f;
+                                                  const safe = i >= 0 && i < (current.imageUrls || []).length ? i : 0;
+                                                  vars[idx] = { ...current, primaryImageIndex: safe };
+                                                  return { ...f, variants: vars };
+                                                });
+                                              }}
+                                              className={`w-full rounded-xl overflow-hidden border-2 transition ${primaryIdx === i ? 'border-primary shadow-md' : 'border-gray-200 hover:border-primary/40'}`}
+                                              title={primaryIdx === i ? 'Ảnh đại diện của gói' : 'Chọn làm ảnh đại diện của gói'}
+                                            >
+                                              <img src={toImageSrc(url)} className="w-full h-16 object-cover" />
+                                            </button>
+                                            {primaryIdx === i && (
+                                              <div className="absolute top-1 left-1 bg-primary text-white text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">★</div>
+                                            )}
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                setEditForm(f => {
+                                                  if (!f) return f;
+                                                  const vars = [...f.variants];
+                                                  const current = vars[idx];
+                                                  if (!current) return f;
+                                                  const nextUrls = (current.imageUrls || []).filter((_, j) => j !== i);
+                                                  const currentPrimary = typeof current.primaryImageIndex === 'number' ? current.primaryImageIndex : 0;
+                                                  const nextPrimary = nextUrls.length === 0 ? 0 : Math.min(currentPrimary, nextUrls.length - 1);
+                                                  vars[idx] = { ...current, imageUrls: nextUrls, primaryImageIndex: nextPrimary };
+                                                  return { ...f, variants: vars };
+                                                });
+                                              }}
+                                              className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-white border border-gray-200 text-gray-500 text-xs font-bold shadow-sm opacity-0 group-hover:opacity-100 transition"
+                                              aria-label="Xóa ảnh"
+                                            >
+                                              ×
+                                            </button>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
                                   </div>
-                                ) : (
-                                  <p className="font-black text-primary text-lg">{Number(v.price).toLocaleString('vi-VN')}đ</p>
-                                )}
-                                {(() => {
-                                  const approval = viewProductDetails.approvalStatus || viewProductDetails.packageStatus || viewProductDetails.status || '';
-                                  if (approval === 'Approved') return null;
-                                  return (
-                                    <span className={`inline-block mt-1.5 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${v.isActive ? 'bg-green-100 text-green-700 border border-green-200' : 'bg-gray-200 text-gray-600 border border-gray-300'}`}>
-                                      {v.isActive ? 'Hoạt động' : 'Tạm ngừng'}
-                                    </span>
-                                  );
-                                })()}
-                              </div>
+                                </>
+                              ) : (
+                                desc && (
+                                  <p className="text-sm text-slate-600 bg-white p-3.5 rounded-xl border border-gray-100 italic leading-relaxed shadow-sm">{desc}</p>
+                                )
+                              )}
                             </div>
-                            {editProductOpen && editForm ? (
-                              <input
-                                type="text"
-                                value={editForm.variants[idx]?.description ?? (v.description || '')}
-                                onChange={e => { const vars = [...editForm.variants]; if (!vars[idx]) vars[idx] = { variantName: v.variantName, description: v.description || '', price: Number(v.price) }; vars[idx] = { ...vars[idx], description: e.target.value }; setEditForm({ ...editForm, variants: vars }); }}
-                                className="w-full px-3 py-2 border-2 border-primary/30 rounded-xl text-sm text-gray-700 focus:border-primary focus:outline-none bg-white"
-                                placeholder="Mô tả biến thể..."
-                              />
-                            ) : (
-                              v.description && (
-                                <p className="text-sm text-slate-600 bg-white p-3.5 rounded-xl border border-gray-100 italic leading-relaxed shadow-sm">{v.description}</p>
-                              )
-                            )}
-                          </div>
-                        ))
-                      ) : (
-                        <div className="text-center py-8 bg-gray-50 rounded-[1.5rem] border border-dashed border-gray-200">
-                          <p className="text-xl mb-2 opacity-30">📦</p>
-                          <p className="text-slate-500 text-sm font-medium">Sản phẩm này chưa có biến thể nào.</p>
-                        </div>
-                      )}
+                          );
+                        });
+                      })()}
                     </div>
                   </div>
                 </div>
