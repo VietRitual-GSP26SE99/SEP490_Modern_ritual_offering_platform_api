@@ -265,7 +265,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
     params.delete('orderCode');
 
     const nextQuery = params.toString();
-    const nextUrl = `${window.location.pathname}${nextQuery ? \`?\${nextQuery}\` : ''}${window.location.hash || ''}`;
+    const nextUrl = `${window.location.pathname}${nextQuery ? `?${nextQuery}` : ''}${window.location.hash || ''}`;
     window.history.replaceState({}, document.title, nextUrl);
 
     isTopupReturnHandled.current = true;

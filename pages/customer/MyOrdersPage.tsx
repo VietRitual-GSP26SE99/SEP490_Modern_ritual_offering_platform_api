@@ -228,13 +228,13 @@ const MyOrdersPage: React.FC = () => {
                                     <div className="space-y-5">
                                         {order.items?.map((item, idx) => (
                                             <div key={idx} className="flex gap-4 items-center group/item">
-                                                <div 
-                                                    className="size-14 md:size-20 rounded-2xl bg-gray-100 border border-gray-100 shrink-0 bg-cover bg-center shadow-sm group-hover/item:scale-105 transition-all cursor-pointer" 
+                                                <div
+                                                    className="size-14 md:size-20 rounded-2xl bg-gray-100 border border-gray-100 shrink-0 bg-cover bg-center shadow-sm group-hover/item:scale-105 transition-all cursor-pointer"
                                                     style={{ backgroundImage: `url("${item.imageUrl || 'https://picsum.photos/200?random=1'}")` }}
                                                     onClick={() => (item as any).packageId && navigate(`/product/${(item as any).packageId}`)}
                                                 />
                                                 <div className="flex-1 min-w-0">
-                                                    <h5 
+                                                    <h5
                                                         className="font-bold text-gray-900 text-sm md:text-base cursor-pointer hover:text-primary transition-colors truncate"
                                                         onClick={() => (item as any).packageId && navigate(`/product/${(item as any).packageId}`)}
                                                     >
@@ -258,17 +258,7 @@ const MyOrdersPage: React.FC = () => {
 
                                 <div className="p-5 md:p-8 pt-0 flex flex-col md:flex-row items-center justify-between gap-6 border-t border-gray-50 mt-2">
                                     <div className="flex flex-col items-center md:items-start w-full md:w-auto">
-                                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tổng thanh toán</span>
-                                        <span className="text-2xl md:text-3xl font-black text-primary font-display flex items-baseline">
-                                            {(() => {
-                                                const total = (order as any).finalAmount
-                                                    || (order as any).totalAmount
-                                                    || order.pricing?.totalAmount
-                                                    || 0;
-                                                return total.toLocaleString('vi-VN');
-                                            })()}
-                                            <span className="text-sm ml-1 underline underline-offset-4">đ</span>
-                                        </span>
+
                                     </div>
                                     <div className="flex gap-3 w-full md:w-auto">
                                         {['PENDING', 'PAID'].includes(order.orderStatus.toUpperCase()) && (
