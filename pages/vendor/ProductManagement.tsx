@@ -1344,9 +1344,44 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
                                   </div>
                                 </>
                               ) : (
-                                desc && (
-                                  <p className="text-sm text-slate-600 bg-white p-3.5 rounded-xl border border-gray-100 italic leading-relaxed shadow-sm">{desc}</p>
-                                )
+                                <>
+                                  {desc && (
+                                    <p className="text-sm text-slate-600 bg-white p-3.5 rounded-xl border border-gray-100 italic leading-relaxed shadow-sm">{desc}</p>
+                                  )}
+
+                                  {(() => {
+                                    const raw = (v as any).variantImages ?? (v as any).variantImageUrls ?? (v as any).imageUrls ?? (v as any).images ?? [];
+                                    const rawUrls = Array.isArray(raw)
+                                      ? raw.map((it: any) => String((it && typeof it === 'object') ? (it.imageUrl || it.url || '') : it)).filter((u: string) => u.trim())
+                                      : [];
+                                    const single = String((v as any).imageUrl || '').trim();
+                                    const urls = Array.from(new Set([single, ...rawUrls])).filter((u) => String(u || '').trim());
+                                    const primary = typeof (v as any).primaryVariantImageIndex === 'number' ? Number((v as any).primaryVariantImageIndex) : 0;
+                                    const primaryIdx = primary >= 0 && primary < urls.length ? primary : 0;
+
+                                    if (urls.length === 0) return null;
+
+                                    return (
+                                      <div className="mt-4">
+                                        <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-2">Ảnh gói</p>
+                                        <div className="grid grid-cols-5 gap-2">
+                                          {urls.map((url: string, i: number) => (
+                                            <div key={url + i} className="relative">
+                                              <img
+                                                src={toImageSrc(url)}
+                                                className={`w-full h-16 object-cover rounded-xl border ${i === primaryIdx ? 'border-primary shadow-sm' : 'border-gray-200'}`}
+                                                onError={(e) => { (e.target as HTMLImageElement).src = fallbackProductImage; }}
+                                              />
+                                              {i === primaryIdx && (
+                                                <div className="absolute top-1 left-1 bg-primary text-white text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">★</div>
+                                              )}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    );
+                                  })()}
+                                </>
                               )}
                             </div>
                           );
