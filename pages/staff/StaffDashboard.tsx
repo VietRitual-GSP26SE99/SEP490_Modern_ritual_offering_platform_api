@@ -29,7 +29,7 @@ const formatDateVi = (value: string | null): string => {
   });
 };
 
-const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout }) => {
+const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate }) => {
   const [recentProducts, setRecentProducts] = useState<ProductDashboardItem[]>([]);
   const [stats, setStats] = useState([
     { label: 'Tổng sản phẩm', value: '0', change: '0' },
@@ -40,11 +40,6 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
   const [pendingVendors, setPendingVendors] = useState<VendorVerification[]>([]);
   const [categories, setCategories] = useState<CeremonyCategory[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // Helper category mapping
-  const mapCategory = (id: number) => {
-    return categories.find(c => Number(c.categoryId) === id)?.name || 'Khác';
-  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -177,116 +172,181 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate, onLogout })
     }
   };
 
+  const staffNavItems = [
+    { label: 'Tổng quan', icon: 'dashboard', path: '/staff/dashboard' },
+    { label: 'Xác minh vendor', icon: 'verified_user', path: '/staff-vendors' },
+    { label: 'Người dùng', icon: 'group', path: '/staff-customers' },
+    { label: 'Sản phẩm', icon: 'inventory_2', path: '/staff-product' },
+    { label: 'Khiếu nại', icon: 'warning', path: '/staff-refunds' },
+    { label: 'Giao dịch', icon: 'payments', path: '/staff-transactions' },
+    { label: 'Banner', icon: 'ad', path: '/staff-banners' },
+    { label: 'Cấu hình hệ thống', icon: 'settings', path: '/staff-settings' },
+  ];
+
+  const pendingProductCount = stats.find((item) => item.label === 'Chờ duyệt')?.value ?? '0';
+
   return (
-    <div className="space-y-12">
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-        {stats.map((stat, index) => (
-          <div key={index} className="bg-white rounded-2xl p-6 border border-gold/10 shadow-sm hover:shadow-lg transition-all">
-            <div className="flex items-start justify-between mb-4">
-              <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold ${stat.change.startsWith('+') && stat.change !== '+0' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
-                {stat.change}
-              </span>
+    <div className="min-h-screen bg-gradient-to-br from-ritual-bg via-white to-gold/5 py-12 px-4 md:px-8">
+      <div className="flex flex-col lg:flex-row gap-10 items-start">
+        <aside className="w-full lg:w-80 flex-shrink-0 lg:sticky lg:top-[120px] z-30">
+          <div className="bg-white rounded-[2.5rem] p-4 border border-gold/10 shadow-xl backdrop-blur-sm bg-white/90">
+            <div className="px-6 py-8 mb-4 border-b border-gold/5">
+              <h1 className="text-2xl font-display font-black text-primary tracking-tight">Bảng điều khiển nhân viên</h1>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Quản lý vận hành</p>
             </div>
-            <h3 className="text-2xl font-black text-primary mb-1">{stat.value}</h3>
-            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{stat.label}</p>
-          </div>
-        ))}
-      </div>
 
-      {/* Content Sections */}
-      <div className="grid grid-cols-1 gap-12">
-        {/* Pending Vendors Section */}
-        <div className="bg-white rounded-[2rem] p-8 border border-gold/10 shadow-sm">
-          <div className="flex justify-between items-center mb-10">
-            <h2 className="text-2xl font-bold text-primary flex items-center gap-2">
-              <span className="material-symbols-outlined">verified_user</span>
-              Hồ sơ Vendor chờ duyệt
-            </h2>
-            <button onClick={() => onNavigate('/staff-vendors')} className="text-xs font-bold text-gold uppercase tracking-widest hover:text-primary underline transition-all">Tất cả hồ sơ</button>
-          </div>
-
-          {loading ? (
-            <div className="py-12 text-center text-slate-500">Đang tải dữ liệu...</div>
-          ) : pendingVendors.length === 0 ? (
-            <div className="py-12 text-center bg-ritual-bg/30 rounded-3xl border border-dashed border-gold/20">
-              <p className="text-slate-500 font-medium">Không có hồ sơ nào chờ duyệt.</p>
+            <div className="flex flex-col gap-1">
+              {staffNavItems.map((item) => (
+                <button
+                  key={item.path}
+                  onClick={() => onNavigate(item.path)}
+                  className={`flex items-center w-full px-6 py-4 rounded-3xl font-bold text-sm uppercase transition-all tracking-wider ${item.path === '/staff/dashboard'
+                    ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-[1.02]'
+                    : 'text-slate-500 hover:bg-ritual-bg hover:text-primary'
+                    }`}
+                >
+                  <span className="material-symbols-outlined mr-4 text-xl">{item.icon}</span>
+                  {item.label}
+                </button>
+              ))}
             </div>
-          ) : (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {pendingVendors.map((vendor) => (
-                <div
-                  key={vendor.profileId}
+          </div>
+        </aside>
+
+        <div className="flex-1 w-full space-y-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
+            {stats.slice(0, 4).map((stat, index) => (
+              <div key={stat.label} className="bg-white rounded-2xl p-6 border border-gold/10 shadow-sm hover:shadow-lg transition-all">
+                <div className="flex items-start justify-between mb-4">
+                  <span className={`px-2 py-0.5 rounded-lg text-[10px] font-bold ${stat.change.startsWith('+') && stat.change !== '+0' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'}`}>
+                    {stat.change}
+                  </span>
+                  <span className="material-symbols-outlined text-primary/70">
+                    {index === 0 ? 'inventory_2' : index === 1 ? 'task_alt' : index === 2 ? 'pending_actions' : 'dangerous'}
+                  </span>
+                </div>
+                <h3 className="text-2xl font-black text-primary mb-1">{stat.value}</h3>
+                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">{stat.label}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+            <div className="xl:col-span-2 bg-white rounded-[2rem] p-8 border border-gold/10 shadow-sm">
+              <div className="flex justify-between items-center mb-8">
+                <h2 className="text-2xl font-bold text-primary flex items-center gap-2">
+                  <span className="material-symbols-outlined">inventory_2</span>
+                  Sản phẩm mới đăng tải
+                </h2>
+                <button onClick={() => onNavigate('/staff-product')} className="text-xs font-bold text-gold uppercase tracking-widest hover:text-primary underline transition-all">Xem tất cả</button>
+              </div>
+
+              {loading ? (
+                <div className="py-12 text-center text-slate-500">Đang tải dữ liệu...</div>
+              ) : recentProducts.length === 0 ? (
+                <div className="py-12 text-center bg-ritual-bg/30 rounded-3xl border border-dashed border-gold/20">
+                  <p className="text-slate-500 font-medium">Chưa có sản phẩm nào.</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {recentProducts.map((product) => (
+                    <div
+                      key={product.id}
+                      className="flex items-center justify-between p-6 bg-ritual-bg/30 rounded-2xl border border-gold/10 hover:border-primary transition-all cursor-pointer group"
+                      onClick={() => onNavigate('/staff-product')}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-3 mb-2">
+                          <span className="font-bold text-primary group-hover:text-gold transition-colors text-lg truncate">{product.name}</span>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-widest uppercase border ${getStatusColor(product.status)}`}>
+                            {getStatusText(product.status)}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500">
+                          <span className="font-bold text-slate-700">{product.category}</span>
+                          <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
+                          <span>{product.date.split('T')[0]}</span>
+                        </div>
+                      </div>
+                      <div className="text-right whitespace-nowrap ml-6">
+                        <p className="text-xl font-black text-primary">
+                          {product.price.toLocaleString('vi-VN')}₫
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-6">
+              <div className="bg-white rounded-[2rem] border border-gold/10 shadow-sm p-8 text-center hover:shadow-lg transition-all">
+                <span className="material-symbols-outlined text-5xl text-gold mb-4 block">verified_user</span>
+                <h3 className="font-bold text-primary mb-2">Xác minh nhà cung cấp</h3>
+                <p className="text-xs text-slate-500 mb-4">{pendingVendors.length} chờ xử lý</p>
+                <button
                   onClick={() => onNavigate('/staff-vendors')}
-                  className="flex items-center gap-4 p-5 bg-ritual-bg/30 rounded-2xl border border-gold/10 hover:border-primary transition-all cursor-pointer group"
+                  className="w-full border-2 border-primary text-primary py-2 rounded-lg font-bold text-sm uppercase hover:bg-primary/5 transition-all"
                 >
-                  <div className="w-14 h-14 rounded-xl overflow-hidden bg-white shadow-sm flex-shrink-0 border border-gold/5">
-                    {vendor.shopAvatarUrl ? (
-                      <img src={vendor.shopAvatarUrl} alt={vendor.shopName} className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center text-2xl font-serif text-gold">V</div>
-                    )}
-                  </div>
-                  <div className="min-w-0">
-                    <h3 className="font-bold text-primary truncate group-hover:text-gold transition-colors">{vendor.shopName}</h3>
-                    <p className="text-xs text-slate-500 truncate">{vendor.fullName}</p>
-                    <p className="text-[9px] font-bold text-gold/60 uppercase tracking-widest mt-2">{formatDateVi(vendor.createdAt)}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                  Xem ngay
+                </button>
+              </div>
 
-        {/* Recent Products */}
-        {/* <div className="bg-white rounded-[2rem] p-8 border border-gold/10 shadow-sm">
-          <div className="flex justify-between items-center mb-10">
-            <h2 className="text-2xl font-bold text-primary flex items-center gap-2">
-              <span className="material-symbols-outlined">inventory_2</span>
-              Sản phẩm mới đăng tải
-            </h2>
-            <button onClick={() => onNavigate('/staff-product')} className="text-xs font-bold text-gold uppercase tracking-widest hover:text-primary underline transition-all">Xem tất cả</button>
+              <div className="bg-white rounded-[2rem] border border-gold/10 shadow-sm p-8 text-center hover:shadow-lg transition-all">
+                <span className="material-symbols-outlined text-5xl text-gold mb-4 block">pending_actions</span>
+                <h3 className="font-bold text-primary mb-2">Sản phẩm chờ duyệt</h3>
+                <p className="text-xs text-slate-500 mb-4">{pendingProductCount} sản phẩm</p>
+                <button
+                  onClick={() => onNavigate('/staff-product')}
+                  className="w-full border-2 border-primary text-primary py-2 rounded-lg font-bold text-sm uppercase hover:bg-primary/5 transition-all"
+                >
+                  Xem ngay
+                </button>
+              </div>
+            </div>
           </div>
 
-          {loading ? (
-            <div className="py-12 text-center text-slate-500">Đang tải dữ liệu...</div>
-          ) : recentProducts.length === 0 ? (
-            <div className="py-12 text-center bg-ritual-bg/30 rounded-3xl border border-dashed border-gold/20">
-              <p className="text-slate-500 font-medium">Chưa có sản phẩm nào.</p>
+          <div className="bg-white rounded-[2rem] p-8 border border-gold/10 shadow-sm">
+            <div className="flex justify-between items-center mb-8">
+              <h2 className="text-2xl font-bold text-primary flex items-center gap-2">
+                <span className="material-symbols-outlined">storefront</span>
+                Hồ sơ Vendor chờ duyệt
+              </h2>
+              <button onClick={() => onNavigate('/staff-vendors')} className="text-xs font-bold text-gold uppercase tracking-widest hover:text-primary underline transition-all">Tất cả hồ sơ</button>
             </div>
-          ) : (
-            <div className="space-y-4">
-              {recentProducts.map((product) => (
-                <div
-                  key={product.id}
-                  className="flex items-center justify-between p-6 bg-ritual-bg/30 rounded-2xl border border-gold/10 hover:border-primary transition-all cursor-pointer group"
-                  onClick={() => onNavigate('/staff-product')}
-                >
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-2">
-                      <span className="font-bold text-primary group-hover:text-gold transition-colors text-lg">{product.name}</span>
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold tracking-widest uppercase border ${getStatusColor(product.status)}`}>
-                        {getStatusText(product.status)}
-                      </span>
+
+            {loading ? (
+              <div className="py-12 text-center text-slate-500">Đang tải dữ liệu...</div>
+            ) : pendingVendors.length === 0 ? (
+              <div className="py-12 text-center bg-ritual-bg/30 rounded-3xl border border-dashed border-gold/20">
+                <p className="text-slate-500 font-medium">Không có hồ sơ nào chờ duyệt.</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {pendingVendors.map((vendor) => (
+                  <div
+                    key={vendor.profileId}
+                    onClick={() => onNavigate('/staff-vendors')}
+                    className="flex items-center gap-4 p-5 bg-ritual-bg/30 rounded-2xl border border-gold/10 hover:border-primary transition-all cursor-pointer group"
+                  >
+                    <div className="w-14 h-14 rounded-xl overflow-hidden bg-white shadow-sm flex-shrink-0 border border-gold/5">
+                      {vendor.shopAvatarUrl ? (
+                        <img src={vendor.shopAvatarUrl} alt={vendor.shopName} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-2xl font-serif text-gold">V</div>
+                      )}
                     </div>
-                    <div className="flex items-center gap-4 text-xs text-slate-500">
-                      <span className="font-bold text-slate-700">{product.category}</span>
-                      <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                      <span>Vendor: {product.vendorName.substring(0, 8)}</span>
-                      <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
-                      <span>{product.date.split('T')[0]}</span>
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-primary truncate group-hover:text-gold transition-colors">{vendor.shopName}</h3>
+                      <p className="text-xs text-slate-500 truncate">{vendor.fullName}</p>
+                      <p className="text-[9px] font-bold text-gold/60 uppercase tracking-widest mt-2">{formatDateVi(vendor.createdAt)}</p>
                     </div>
                   </div>
-                  <div className="text-right whitespace-nowrap ml-6">
-                    <p className="text-xl font-black text-primary">
-                      {product.price.toLocaleString('vi-VN')}₫
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div> */}
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );
