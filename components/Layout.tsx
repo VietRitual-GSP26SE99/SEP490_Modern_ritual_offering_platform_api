@@ -24,6 +24,7 @@ interface LayoutProps {
   children: React.ReactNode;
   activeRoute: string;
   onNavigate: (path: string) => void;
+  userRole?: string;
   onLogout?: () => void;
   hideHeader?: boolean;
 }
@@ -488,6 +489,21 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
   };
 
   const availableBalance = getWalletAmount(walletInfo, 'balance');
+  const currentUser = getCurrentUser();
+  const normalizedRoles = Array.from(
+    new Set(
+      [
+        ...(Array.isArray(currentUser?.roles) ? currentUser.roles : []),
+        currentUser?.role || '',
+      ]
+        .filter((role): role is string => typeof role === 'string' && role.trim().length > 0)
+        .map((role) => role.toLowerCase())
+    )
+  );
+  const hasVendorRole = normalizedRoles.includes('vendor');
+  const hasCustomerRole = normalizedRoles.includes('customer');
+  const canSwitchRole = hasVendorRole && hasCustomerRole;
+  const isVendorArea = activeRoute.startsWith('/vendor/');
 
   return (
     <div className="min-h-screen flex flex-col font-sans">
@@ -504,7 +520,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
               </button>
               <div
                 className="cursor-pointer"
-                onClick={() => onNavigate('/')}
+                onClick={() => onNavigate(isVendorArea ? '/vendor/dashboard' : '/')}
               >
                 <div className="w-[240px] h-[72px] md:w-[288px] md:h-[84px] lg:w-[312px] lg:h-[96px] -ml-16">
                   <img
@@ -514,55 +530,64 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
                   />
                 </div>
               </div>
-              <nav className="hidden lg:flex items-center gap-8">
-                {getNavItems().map((item) => (
-                  <div
-                    key={item.label}
-                    className="relative group"
-                    onMouseEnter={() => item.submenu && setOpenDropdown(item.label)}
-                    onMouseLeave={() => setOpenDropdown(null)}
-                  >
-                    <button
-                      onClick={() => item.path && handleMainNavClick(item.path)}
-                      className={`text-sm font-semibold transition-colors border-b-2 py-1 flex items-center gap-1 ${item.path === activeRoute ? 'text-primary border-primary' : 'text-slate-600 border-transparent hover:text-primary hover:border-primary'
-                        }`}
+              {isVendorArea ? (
+                <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-black uppercase tracking-[0.2em]">
+                  <span className="material-symbols-outlined text-base">storefront</span>
+                  Trang ban hang
+                </div>
+              ) : (
+                <nav className="hidden lg:flex items-center gap-8">
+                  {getNavItems().map((item) => (
+                    <div
+                      key={item.label}
+                      className="relative group"
+                      onMouseEnter={() => item.submenu && setOpenDropdown(item.label)}
+                      onMouseLeave={() => setOpenDropdown(null)}
                     >
-                      {item.label}
-                      {item.submenu && <span className="text-xs">▼</span>}
-                    </button>
+                      <button
+                        onClick={() => item.path && handleMainNavClick(item.path)}
+                        className={`text-sm font-semibold transition-colors border-b-2 py-1 flex items-center gap-1 ${item.path === activeRoute ? 'text-primary border-primary' : 'text-slate-600 border-transparent hover:text-primary hover:border-primary'
+                          }`}
+                      >
+                        {item.label}
+                        {item.submenu && <span className="text-xs">▼</span>}
+                      </button>
 
-                    {item.submenu && (
-                      <div className={`absolute left-0 top-full pt-2 z-50 transition-all duration-200 ${openDropdown === item.label ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible pointer-events-none -translate-y-2'}`}>
-                        <div className={`bg-white border border-gray-100 shadow-xl rounded-2xl overflow-hidden ${item.submenu.length > 5 ? 'w-[600px] p-6' : 'w-56 p-2'}`}>
-                          <div className={`${item.submenu.length > 5 ? 'grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2' : 'flex flex-col'}`}>
-                            {item.submenu.map((submenuItem, idx) => (
-                              <button
-                                key={`${submenuItem.path}-${idx}`}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onNavigate(submenuItem.path);
-                                  setOpenDropdown(null);
-                                }}
-                                className={`w-full text-left text-sm text-slate-600 hover:bg-primary/5 hover:text-primary transition-colors rounded-xl font-medium ${item.submenu.length > 5 ? 'py-2 px-3 flex items-center gap-2' : 'py-3 px-4 mb-1 last:mb-0'}`}
-                              >
-                                {item.submenu && item.submenu.length > 5 && idx === 0 && (
-                                  <span className="material-symbols-outlined text-primary text-base">apps</span>
-                                )}
-                                {submenuItem.label}
-                              </button>
-                            ))}
+                      {item.submenu && (
+                        <div className={`absolute left-0 top-full pt-2 z-50 transition-all duration-200 ${openDropdown === item.label ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible pointer-events-none -translate-y-2'}`}>
+                          <div className={`bg-white border border-gray-100 shadow-xl rounded-2xl overflow-hidden ${item.submenu.length > 5 ? 'w-[600px] p-6' : 'w-56 p-2'}`}>
+                            <div className={`${item.submenu.length > 5 ? 'grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2' : 'flex flex-col'}`}>
+                              {item.submenu.map((submenuItem, idx) => (
+                                <button
+                                  key={`${submenuItem.path}-${idx}`}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    onNavigate(submenuItem.path);
+                                    setOpenDropdown(null);
+                                  }}
+                                  className={`w-full text-left text-sm text-slate-600 hover:bg-primary/5 hover:text-primary transition-colors rounded-xl font-medium ${item.submenu.length > 5 ? 'py-2 px-3 flex items-center gap-2' : 'py-3 px-4 mb-1 last:mb-0'}`}
+                                >
+                                  {item.submenu && item.submenu.length > 5 && idx === 0 && (
+                                    <span className="material-symbols-outlined text-primary text-base">apps</span>
+                                  )}
+                                  {submenuItem.label}
+                                </button>
+                              ))}
+                            </div>
                           </div>
                         </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </nav>
+                      )}
+                    </div>
+                  ))}
+                </nav>
+              )}
             </div>
             <div className="flex items-center gap-4">
-              <div className="hidden md:flex items-center gap-2 text-primary font-bold">
+              {!isVendorArea && (
+                <div className="hidden md:flex items-center gap-2 text-primary font-bold">
                 <span className="text-sm">1900 8888</span>
-              </div>
+                </div>
+              )}
 
               {userName && (
                 <div
@@ -707,7 +732,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
                 </div>
               )}
 
-              {(userName || onLogout) && (
+              {(userName || onLogout) && !isVendorArea && (
                 <div
                   className="relative"
                   onMouseEnter={() => {
@@ -869,6 +894,20 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
                         </svg>
                         Đơn hàng của tôi
                       </button>
+                      {canSwitchRole && (
+                        <button
+                          onClick={() => {
+                            onNavigate(isVendorArea ? '/' : '/vendor/dashboard');
+                            setIsAccountDropdownOpen(false);
+                          }}
+                          className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-3"
+                        >
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M3 5a2 2 0 012-2h14a2 2 0 012 2v2H3V5zm0 4h18v10a2 2 0 01-2 2H5a2 2 0 01-2-2V9zm4 3v2h10v-2H7z" />
+                          </svg>
+                          {isVendorArea ? 'Trang mua hàng' : 'Trang bán hàng'}
+                        </button>
+                      )}
                       <button
                         onClick={() => {
                           onNavigate('/wallet/transactions');
@@ -900,65 +939,79 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
                 </div>
               )}
 
-              {/* Cart with Dropdown */}
-              <div
-                className="relative"
-                onMouseEnter={() => {
-                  if (window.innerWidth >= 768) {
-                    if (!getCurrentUser()) return;
-                    if (cartDropdownTimeout.current) clearTimeout(cartDropdownTimeout.current);
-                    setIsCartDropdownOpen(true);
-                  }
-                }}
-                onMouseLeave={() => {
-                  if (window.innerWidth >= 768) {
-                    cartDropdownTimeout.current = setTimeout(() => {
-                      setIsCartDropdownOpen(false);
-                    }, 200);
-                  }
-                }}
-                ref={cartRef}
-              >
+              {userName && canSwitchRole && (
                 <button
-                  onClick={() => {
-                    if (window.innerWidth < 768) {
-                      setIsCartDropdownOpen(prev => !prev);
-                    } else {
-                      handleNavigateToCart();
+                  onClick={() => onNavigate(isVendorArea ? '/' : '/vendor/dashboard')}
+                  className="hidden md:flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-primary font-bold text-sm hover:border-primary transition-all"
+                >
+                  <span className="material-symbols-outlined text-[18px]">storefront</span>
+                  {isVendorArea ? 'Trang mua hàng' : 'Trang bán hàng'}
+                </button>
+              )}
+
+              {/* Cart with Dropdown */}
+              {!isVendorArea && (
+                <div
+                  className="relative"
+                  onMouseEnter={() => {
+                    if (window.innerWidth >= 768) {
+                      if (!getCurrentUser()) return;
+                      if (cartDropdownTimeout.current) clearTimeout(cartDropdownTimeout.current);
+                      setIsCartDropdownOpen(true);
                     }
                   }}
-                  className="relative flex items-center justify-center w-10 h-10 md:w-auto md:h-auto md:px-4 md:py-2 rounded-lg border border-gray-300 text-primary font-bold text-sm hover:border-primary transition-all"
-                  title="Giỏ hàng"
+                  onMouseLeave={() => {
+                    if (window.innerWidth >= 768) {
+                      cartDropdownTimeout.current = setTimeout(() => {
+                        setIsCartDropdownOpen(false);
+                      }, 200);
+                    }
+                  }}
+                  ref={cartRef}
                 >
-                  <svg
-                    className="w-5 h-5"
-                    viewBox="0 0 24 24"
-                    fill="currentColor"
-                    xmlns="http://www.w3.org/2000/svg"
+                  <button
+                    onClick={() => {
+                      if (window.innerWidth < 768) {
+                        setIsCartDropdownOpen(prev => !prev);
+                      } else {
+                        handleNavigateToCart();
+                      }
+                    }}
+                    className="relative flex items-center justify-center w-10 h-10 md:w-auto md:h-auto md:px-4 md:py-2 rounded-lg border border-gray-300 text-primary font-bold text-sm hover:border-primary transition-all"
+                    title="Giỏ hàng"
                   >
-                    <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z" />
-                  </svg>
-                  {cartCount > 0 && (
-                    <span className="absolute -top-2 -right-2 bg-primary text-white text-[10px] font-black rounded-full w-5 h-5 flex items-center justify-center">
-                      {cartCount > 99 ? '99+' : cartCount}
-                    </span>
-                  )}
-                </button>
-                <CartDropdown
-                  isOpen={isCartDropdownOpen}
-                  onClose={() => setIsCartDropdownOpen(false)}
-                  onNavigateToCart={handleNavigateToCart}
-                  onNavigateToShop={() => onNavigate('/shop')}
-                />
-              </div>
+                    <svg
+                      className="w-5 h-5"
+                      viewBox="0 0 24 24"
+                      fill="currentColor"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z" />
+                    </svg>
+                    {cartCount > 0 && (
+                      <span className="absolute -top-2 -right-2 bg-primary text-white text-[10px] font-black rounded-full w-5 h-5 flex items-center justify-center">
+                        {cartCount > 99 ? '99+' : cartCount}
+                      </span>
+                    )}
+                  </button>
+                  <CartDropdown
+                    isOpen={isCartDropdownOpen}
+                    onClose={() => setIsCartDropdownOpen(false)}
+                    onNavigateToCart={handleNavigateToCart}
+                    onNavigateToShop={() => onNavigate('/shop')}
+                  />
+                </div>
+              )}
 
               {/* Call to Action Button */}
-              <button
-                onClick={() => onNavigate(userName ? '/shop' : '/auth')}
-                className={`${userName ? 'hidden md:block' : ''} border-2 border-primary text-primary hover:bg-primary/5 rounded-lg px-6 py-2 text-sm font-bold transition-all`}
-              >
-                {userName ? 'Đặt mâm ngay' : 'Đăng nhập'}
-              </button>
+              {!userName && (
+                <button
+                  onClick={() => onNavigate('/auth')}
+                  className="border-2 border-primary text-primary hover:bg-primary/5 rounded-lg px-6 py-2 text-sm font-bold transition-all"
+                >
+                  Đăng nhập
+                </button>
+              )}
             </div>
           </div>
         </header>
@@ -1012,6 +1065,17 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
                     >
                       Đăng xuất
                     </button>
+                    {canSwitchRole && (
+                      <button
+                        onClick={() => {
+                          onNavigate(isVendorArea ? '/' : '/vendor/dashboard');
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className="col-span-2 text-[10px] font-black uppercase tracking-wider text-primary bg-white border border-primary/20 py-2 rounded-lg text-center"
+                      >
+                        {isVendorArea ? 'Qua trang mua hàng' : 'Qua trang bán hàng'}
+                      </button>
+                    )}
                   </div>
                 </div>
               ) : (

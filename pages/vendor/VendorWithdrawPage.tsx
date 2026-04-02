@@ -98,7 +98,7 @@ const VendorWithdrawPage: React.FC<VendorWithdrawPageProps> = ({ onNavigate }) =
   };
 
   return (
-    <div className="bg-slate-50 min-h-screen py-12 px-4 md:px-8 font-sans">
+    <div className="min-h-screen py-12 px-4 md:px-8 font-sans">
       <div className="max-w-[1650px] mx-auto">
         
         {/* Header Section */}

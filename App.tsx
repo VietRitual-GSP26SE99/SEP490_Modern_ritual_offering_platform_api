@@ -130,6 +130,109 @@ const AppContent: React.FC<{
     );
   };
 
+  const StaffPageFrame: React.FC<{
+    activeRoute: string;
+    children: React.ReactNode;
+  }> = ({ activeRoute, children }) => {
+    const navItems = [
+      { label: 'Tổng quan', icon: 'dashboard', path: '/staff/dashboard' },
+      { label: 'Xác minh vendor', icon: 'verified_user', path: '/staff-vendors' },
+      { label: 'Người dùng', icon: 'group', path: '/staff-customers' },
+      { label: 'Sản phẩm', icon: 'inventory_2', path: '/staff-product' },
+      { label: 'Khiếu nại', icon: 'warning', path: '/staff-refunds' },
+      { label: 'Giao dịch', icon: 'payments', path: '/staff-transactions' },
+      { label: 'Banner', icon: 'ad', path: '/staff-banners' },
+      { label: 'Cấu hình hệ thống', icon: 'settings', path: '/staff-settings' },
+    ];
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-ritual-bg via-white to-gold/5 py-12 px-4 md:px-8">
+        <div className="flex flex-col lg:flex-row gap-10 items-start">
+          <aside className="w-full lg:w-80 flex-shrink-0 lg:sticky lg:top-[120px] z-30">
+            <div className="bg-white rounded-[2.5rem] p-4 border border-gold/10 shadow-xl backdrop-blur-sm bg-white/90">
+              <div className="px-6 py-8 mb-4 border-b border-gold/5">
+                <h1 className="text-2xl font-display font-black text-primary tracking-tight">Bảng điều khiển nhân viên</h1>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Quản lý vận hành</p>
+              </div>
+              <div className="flex flex-col gap-1">
+                {navItems.map((item) => (
+                  <button
+                    key={item.path}
+                    onClick={() => handleNavigate(item.path)}
+                    className={`flex items-center w-full px-6 py-4 rounded-3xl font-bold text-sm uppercase transition-all tracking-wider ${activeRoute === item.path
+                        ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-[1.02]'
+                        : 'text-slate-500 hover:bg-ritual-bg hover:text-primary'
+                      }`}
+                  >
+                    <span className="material-symbols-outlined mr-4 text-xl">{item.icon}</span>
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </aside>
+
+          <div className="flex-1 w-full">
+            {children}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  const VendorPageFrame: React.FC<{
+    activeRoute: string;
+    children: React.ReactNode;
+  }> = ({ activeRoute, children }) => {
+    const navItems = [
+      { label: 'Tổng quan', icon: 'dashboard', path: '/vendor/dashboard' },
+      { label: 'Trang cửa hàng', icon: 'storefront', path: '/vendor/shop' },
+      { label: 'Sản phẩm', icon: 'inventory_2', path: '/vendor/products' },
+      { label: 'Đơn hàng', icon: 'receipt_long', path: '/vendor/orders' },
+      { label: 'Thống kê', icon: 'analytics', path: '/vendor/analytics' },
+      { label: 'Giao hàng', icon: 'local_shipping', path: '/vendor/shipping' },
+      { label: 'Khuyến mãi', icon: 'sell', path: '/vendor/discounts' },
+      { label: 'Giao dịch', icon: 'payments', path: '/vendor/transactions' },
+      { label: 'Biểu ngữ', icon: 'ad', path: '/vendor/banners' },
+      { label: 'Rút tiền', icon: 'account_balance_wallet', path: '/vendor/withdraw' },
+      { label: 'Cài đặt', icon: 'settings', path: '/vendor/settings' },
+    ];
+
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-ritual-bg via-white to-gold/5 py-12 px-4 md:px-8">
+        <div className="flex flex-col lg:flex-row gap-10 items-start">
+          <aside className="w-full lg:w-80 flex-shrink-0 lg:sticky lg:top-[120px] z-30">
+            <div className="bg-white rounded-[2.5rem] p-4 border border-gold/10 shadow-xl backdrop-blur-sm bg-white/90">
+              <div className="px-6 py-8 mb-4 border-b border-gold/5">
+                <h1 className="text-2xl font-display font-black text-primary tracking-tight">Bảng điều khiển vendor</h1>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Quản lý gian hàng</p>
+              </div>
+              <div className="flex flex-col gap-1 max-h-[65vh] overflow-y-auto pr-1">
+                {navItems.map((item) => (
+                  <button
+                    key={item.path}
+                    onClick={() => handleNavigate(item.path)}
+                    className={`flex items-center w-full px-6 py-4 rounded-3xl font-bold text-sm uppercase transition-all tracking-wider ${activeRoute === item.path
+                        ? 'bg-primary text-white shadow-lg shadow-primary/20 scale-[1.02]'
+                        : 'text-slate-500 hover:bg-ritual-bg hover:text-primary'
+                      }`}
+                  >
+                    <span className="material-symbols-outlined mr-4 text-xl">{item.icon}</span>
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </aside>
+
+          <div className="flex-1 w-full">
+            {children}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <Routes>
       {/* Auth Route - không có Layout */}
@@ -155,27 +258,27 @@ const AppContent: React.FC<{
       <Route path="/about" element={<Layout activeRoute="/about" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><AboutUsPage onNavigate={handleNavigate} /></Layout>} />
 
       {/* Vendor Routes */}
-      <Route path="/vendor/dashboard" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/dashboard" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorDashboard onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
-      <Route path="/vendor/shop" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/shop" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorShop onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
-      <Route path="/vendor/products" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/products" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><ProductManagement onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
-      <Route path="/vendor/orders" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/orders" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><OrderManagement onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
-      <Route path="/vendor/analytics" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/analytics" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorAnalytics onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
-      <Route path="/vendor/settings" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/settings" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorSettings onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
-      <Route path="/vendor/shipping" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/shipping" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><ShippingConfigPage onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
-      <Route path="/vendor/discounts" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/discounts" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><DiscountPolicyManagement onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
-      <Route path="/vendor/transactions" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/transactions" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorTransactionPage onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
-      <Route path="/vendor/banners" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/banners" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorBannerManagement /></Layout> : <Navigate to="/auth" />} />
-      <Route path="/vendor/withdraw" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/withdraw" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorWithdrawPage onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
+      <Route path="/vendor/dashboard" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/dashboard" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorPageFrame activeRoute="/vendor/dashboard"><VendorDashboard onNavigate={handleNavigate} /></VendorPageFrame></Layout> : <Navigate to="/auth" />} />
+      <Route path="/vendor/shop" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/shop" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorPageFrame activeRoute="/vendor/shop"><VendorShop onNavigate={handleNavigate} /></VendorPageFrame></Layout> : <Navigate to="/auth" />} />
+      <Route path="/vendor/products" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/products" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorPageFrame activeRoute="/vendor/products"><ProductManagement onNavigate={handleNavigate} /></VendorPageFrame></Layout> : <Navigate to="/auth" />} />
+      <Route path="/vendor/orders" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/orders" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorPageFrame activeRoute="/vendor/orders"><OrderManagement onNavigate={handleNavigate} /></VendorPageFrame></Layout> : <Navigate to="/auth" />} />
+      <Route path="/vendor/analytics" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/analytics" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorPageFrame activeRoute="/vendor/analytics"><VendorAnalytics onNavigate={handleNavigate} /></VendorPageFrame></Layout> : <Navigate to="/auth" />} />
+      <Route path="/vendor/settings" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/settings" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorPageFrame activeRoute="/vendor/settings"><VendorSettings onNavigate={handleNavigate} /></VendorPageFrame></Layout> : <Navigate to="/auth" />} />
+      <Route path="/vendor/shipping" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/shipping" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorPageFrame activeRoute="/vendor/shipping"><ShippingConfigPage onNavigate={handleNavigate} /></VendorPageFrame></Layout> : <Navigate to="/auth" />} />
+      <Route path="/vendor/discounts" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/discounts" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorPageFrame activeRoute="/vendor/discounts"><DiscountPolicyManagement onNavigate={handleNavigate} /></VendorPageFrame></Layout> : <Navigate to="/auth" />} />
+      <Route path="/vendor/transactions" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/transactions" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorPageFrame activeRoute="/vendor/transactions"><VendorTransactionPage onNavigate={handleNavigate} /></VendorPageFrame></Layout> : <Navigate to="/auth" />} />
+      <Route path="/vendor/banners" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/banners" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorPageFrame activeRoute="/vendor/banners"><VendorBannerManagement /></VendorPageFrame></Layout> : <Navigate to="/auth" />} />
+      <Route path="/vendor/withdraw" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/withdraw" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorPageFrame activeRoute="/vendor/withdraw"><VendorWithdrawPage onNavigate={handleNavigate} /></VendorPageFrame></Layout> : <Navigate to="/auth" />} />
 
       {/* Staff Routes */}
       <Route path="/staff/dashboard" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff/dashboard" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><StaffDashboard onNavigate={handleNavigate} onLogout={onLogout} /></Layout> : <Navigate to="/auth" />} />
-      <Route path="/staff-customers" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-customers" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><CustomerManagement onNavigate={handleNavigate} onLogout={onLogout} /></Layout> : <Navigate to="/auth" />} />
-      <Route path="/staff-product" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-product" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><StaffProductManagement onNavigate={handleNavigate} onLogout={onLogout} /></Layout> : <Navigate to="/auth" />} />
-      <Route path="/staff-settings" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-settings" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><SystemSettings onNavigate={handleNavigate} onLogout={onLogout} /></Layout> : <Navigate to="/auth" />} />
-      <Route path="/staff-refunds" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-refunds" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><RefundManagement onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
-      <Route path="/staff-vendors" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-vendors" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><VendorVerificationPage onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
-      <Route path="/staff-transactions" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-transactions" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><TransactionManagement onNavigate={handleNavigate} userRole="staff" /></Layout> : <Navigate to="/auth" />} />
-      <Route path="/staff-banners" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-banners" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><BannerManagement /></Layout> : <Navigate to="/auth" />} />
+      <Route path="/staff-customers" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-customers" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><StaffPageFrame activeRoute="/staff-customers"><CustomerManagement onNavigate={handleNavigate} onLogout={onLogout} /></StaffPageFrame></Layout> : <Navigate to="/auth" />} />
+      <Route path="/staff-product" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-product" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><StaffPageFrame activeRoute="/staff-product"><StaffProductManagement onNavigate={handleNavigate} onLogout={onLogout} /></StaffPageFrame></Layout> : <Navigate to="/auth" />} />
+      <Route path="/staff-settings" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-settings" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><StaffPageFrame activeRoute="/staff-settings"><SystemSettings onNavigate={handleNavigate} onLogout={onLogout} /></StaffPageFrame></Layout> : <Navigate to="/auth" />} />
+      <Route path="/staff-refunds" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-refunds" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><StaffPageFrame activeRoute="/staff-refunds"><RefundManagement onNavigate={handleNavigate} /></StaffPageFrame></Layout> : <Navigate to="/auth" />} />
+      <Route path="/staff-vendors" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-vendors" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><StaffPageFrame activeRoute="/staff-vendors"><VendorVerificationPage onNavigate={handleNavigate} /></StaffPageFrame></Layout> : <Navigate to="/auth" />} />
+      <Route path="/staff-transactions" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-transactions" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><StaffPageFrame activeRoute="/staff-transactions"><TransactionManagement onNavigate={handleNavigate} userRole="staff" /></StaffPageFrame></Layout> : <Navigate to="/auth" />} />
+      <Route path="/staff-banners" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-banners" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><StaffPageFrame activeRoute="/staff-banners"><BannerManagement /></StaffPageFrame></Layout> : <Navigate to="/auth" />} />
 
       {/* Admin Routes */}
       <Route path="/admin/dashboard" element={isAuthenticated && userRole === 'admin' ? <Layout activeRoute="/admin/dashboard" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><AdminDashboard onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />
