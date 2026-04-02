@@ -763,6 +763,16 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                                 {item.decorationNote && (
                                   <p className="text-xs text-amber-600 mt-0.5 italic">{item.decorationNote}</p>
                                 )}
+                                {item.isRequestRefund && (
+                                  <div className="mt-1 flex">
+                                    <span className="px-1.5 py-0.5 bg-orange-50 text-orange-600 rounded text-[9px] font-black uppercase tracking-tighter border border-orange-100 flex items-center gap-1">
+                                      <svg className="w-2 h-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="4">
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3" />
+                                      </svg>
+                                      Khách hoàn tiền
+                                    </span>
+                                  </div>
+                                )}
                               </div>
                               <div className="text-right flex-shrink-0">
                                 <p className="font-bold text-primary text-base">{formatVnd(item.lineTotal)}</p>

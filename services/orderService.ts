@@ -13,6 +13,7 @@ export interface OrderItem {
     decorationNote?: string;
     packageId?: string | number;
     imageUrl?: string | null;
+    isRequestRefund?: boolean;
     // Fields from API response
     totalAmount?: number;
     subTotal?: number;
@@ -101,6 +102,7 @@ export interface VendorOrderItem {
     lineTotal: number;
     decorationNote?: string;
     imageUrl?: string;
+    isRequestRefund?: boolean;
 }
 
 export interface VendorOrder {
@@ -175,6 +177,7 @@ interface VendorOrdersApiItem {
         packageId?: string | number;
         productId?: string | number;
         imageUrl?: string | null;
+        isRequestRefund?: boolean;
     }>;
     preparationProofImages?: string[];
 }
@@ -230,6 +233,7 @@ interface OrderDetailsApiItem {
         packageId?: string | number;
         productId?: string | number;
         imageUrl?: string | null;
+        isRequestRefund?: boolean;
     }>;
     pricing?: {
         totalQuantity?: number;
@@ -343,7 +347,7 @@ class OrderService {
             if (isSuccess && data.result) {
                 const payload = data.result;
                 const rawItems = Array.isArray(payload) ? payload : (payload.items || []);
-                
+
                 const orders = rawItems.map((raw: any) => {
                     const items = Array.isArray(raw.items)
                         ? raw.items.map((item: any) => {
@@ -379,6 +383,7 @@ class OrderService {
                                     item.productImageUrl ||
                                     item.productImageURL ||
                                     null,
+                                isRequestRefund: !!item.isRequestRefund,
                             };
                         })
                         : [];
@@ -423,7 +428,7 @@ class OrderService {
                     if (itemsMissingImage.length > 0) {
                         const packages = await packageService.getAllPackages(1, 100);
                         const packageImageMap = new Map<string, string>();
-                        
+
                         packages.forEach(pkg => {
                             const pid = String(pkg.packageId || (pkg as any).id || (pkg as any).PackageId);
                             const img = pkg.packageAvatarUrl || (pkg as any).imageUrl || (pkg as any).avatarUrl || (pkg as any).packageImage;
@@ -507,6 +512,7 @@ class OrderService {
                                 (item as any).productImageUrl ||
                                 (item as any).productImageURL ||
                                 null,
+                            isRequestRefund: !!item.isRequestRefund,
                         };
                     })
                     : [];
@@ -687,7 +693,7 @@ class OrderService {
             if (isSuccess && data?.result) {
                 const payload = data.result;
                 const rawItems = Array.isArray(payload) ? payload : (payload.items || []);
-                
+
                 const mappedOrders: VendorOrder[] = rawItems.map((raw: VendorOrdersApiItem) => {
                     const items = Array.isArray(raw.items)
                         ? raw.items.map((item) => {
@@ -705,6 +711,7 @@ class OrderService {
                                 lineTotal,
                                 decorationNote: item.decorationNote || '',
                                 imageUrl: item.imageUrl || (item as any).packageAvatarUrl || (item as any).packageImageUrl || (item as any).productImageUrl || '',
+                                isRequestRefund: !!item.isRequestRefund,
                             };
                         })
                         : [];
@@ -713,7 +720,7 @@ class OrderService {
                     const shippingFee = Number(raw.shippingFee) || 0;
                     const finalAmountFromApi = Number(raw.finalAmount);
                     const totalAmount = Number.isFinite(finalAmountFromApi) ? finalAmountFromApi : (subTotal + shippingFee);
-                    
+
                     const commissionRate = this.normalizeCommissionRate(raw.commissionRate);
                     const platformFee = Number(raw.platformFee) || (totalAmount * commissionRate);
                     const vendorNetAmount = Number(raw.vendorNetAmount) || (totalAmount - platformFee);
@@ -812,7 +819,7 @@ class OrderService {
             const normalizedReason = typeof reason === 'string' ? reason.trim() : '';
             const response = await fetch(`${API_BASE_URL}/orders/${orderId}/cancel`, {
                 method: 'PUT',
-                headers: this.getHeaders(),
+                headers: this.getHeaders('PUT'),
                 body: JSON.stringify({ cancelReason: normalizedReason || 'Không có lý do' }),
             });
 

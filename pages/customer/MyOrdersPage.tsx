@@ -199,14 +199,23 @@ const MyOrdersPage: React.FC = () => {
 
                                 <div className="p-5 md:p-8">
                                     <div className="flex items-center gap-3 mb-5 pb-5 border-b border-dashed border-gray-100">
-                                        <div className="size-8 rounded-full bg-orange-100 flex items-center justify-center text-primary shrink-0">
+                                        <div 
+                                            className={`size-8 rounded-full bg-orange-100 flex items-center justify-center text-primary shrink-0 transition-transform active:scale-90 ${(() => {
+                                                const vId = String(order.vendor?.profileId || (order as any).vendorProfileId || (order as any).vendorId || '').trim();
+                                                return vId ? 'cursor-pointer hover:bg-orange-200' : '';
+                                            })()}`}
+                                            onClick={() => {
+                                                const vId = String(order.vendor?.profileId || (order as any).vendorProfileId || (order as any).vendorId || '').trim();
+                                                vId && navigate(`/vendor/${vId}`);
+                                            }}
+                                        >
                                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                                             </svg>
                                         </div>
                                         <div>
-                                            {(() => {
-                                                const vendorId = String(
+                                                    {(() => {
+                                                const vId = String(
                                                     order.vendor?.profileId
                                                     || (order as any).vendorProfileId
                                                     || (order as any).vendorId
@@ -215,8 +224,8 @@ const MyOrdersPage: React.FC = () => {
                                                 return (
                                                     <button
                                                         type="button"
-                                                        onClick={() => vendorId && navigate(`/vendor/${vendorId}`)}
-                                                        className={`font-bold text-gray-900 text-left ${vendorId ? 'cursor-pointer hover:text-primary' : 'cursor-default'}`}
+                                                        onClick={() => vId && navigate(`/vendor/${vId}`)}
+                                                        className={`font-bold text-gray-900 text-left transition-colors ${vId ? 'cursor-pointer hover:text-primary active:scale-95' : 'cursor-default'}`}
                                                     >
                                                         {order.vendor?.shopName || (order as any).shopName || "Tiệm Cúng Bái"}
                                                     </button>
@@ -245,6 +254,16 @@ const MyOrdersPage: React.FC = () => {
                                                         <span className="size-1 bg-gray-300 rounded-full"></span>
                                                         <p className="text-xs font-bold text-gray-700">x{item.quantity}</p>
                                                     </div>
+                                                    {item.isRequestRefund && (
+                                                        <div className="mt-1 flex">
+                                                            <span className="px-2 py-0.5 bg-orange-50 text-orange-600 rounded-md text-[9px] font-black uppercase tracking-widest border border-orange-100 flex items-center gap-1">
+                                                                <svg className="w-2 h-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                                                                    <path strokeLinecap="round" strokeLinejoin="round" d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3m9 14V5a2 2 0 00-2-2H6a2 2 0 00-2 2v16l4-2 4 2 4-2 4 2z" />
+                                                                </svg>
+                                                                Đang yêu cầu hoàn tiền
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <div className="text-right">
                                                     <p className="font-black text-primary text-sm md:text-lg">

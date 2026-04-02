@@ -246,6 +246,7 @@ const OrderDetailsPage: React.FC = () => {
         order?.vendor?.profileId
         || (order as any)?.vendorProfileId
         || (order as any)?.vendorId
+        || vendorInfo?.profileId
         || ''
     ).trim();
 
@@ -613,7 +614,10 @@ const OrderDetailsPage: React.FC = () => {
 
                             <div className="flex items-center justify-between mb-6 gap-4">
                                 <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-3">
-                                    <span className="w-6 h-6 rounded-lg bg-orange-100 text-primary flex items-center justify-center">
+                                    <span 
+                                        className={`w-6 h-6 rounded-lg bg-orange-100 text-primary flex items-center justify-center transition-transform active:scale-90 ${vendorProfileId ? 'cursor-pointer hover:bg-orange-200' : ''}`}
+                                        onClick={() => vendorProfileId && navigate(`/vendor/${vendorProfileId}`)}
+                                    >
                                         <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
                                             <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                                         </svg>
@@ -622,7 +626,10 @@ const OrderDetailsPage: React.FC = () => {
                                 </h3>
 
                                 {(vendorInfo?.shopAvatarUrl || vendorInfo?.avatarUrl) && (
-                                    <div className="w-16 h-16 rounded-2xl overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0 shadow-sm">
+                                    <div 
+                                        className={`w-16 h-16 rounded-2xl overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0 shadow-sm transition-transform active:scale-95 ${vendorProfileId ? 'cursor-pointer hover:shadow-md' : ''}`}
+                                        onClick={() => vendorProfileId && navigate(`/vendor/${vendorProfileId}`)}
+                                    >
                                         <img
                                             src={vendorInfo.shopAvatarUrl || vendorInfo.avatarUrl || ''}
                                             alt={vendorInfo.shopName || 'Shop avatar'}
@@ -689,11 +696,21 @@ const OrderDetailsPage: React.FC = () => {
                                                     {item.packageName}
                                                 </h4>
                                                 <p className="text-xs text-gray-500 mt-1">Gói: <span className="text-gray-700 font-medium">{item.variantName}</span></p>
+                                                {item.isRequestRefund && (
+                                                    <div className="mt-2 flex">
+                                                        <span className="px-2 py-0.5 bg-orange-50 text-orange-600 rounded-md text-[9px] font-black uppercase tracking-widest border border-orange-100 flex items-center gap-1">
+                                                            <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3m9 14V5a2 2 0 00-2-2H6a2 2 0 00-2 2v16l4-2 4 2 4-2 4 2z" />
+                                                            </svg>
+                                                            Đang yêu cầu hoàn tiền
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </div>
                                             <div className="pt-1 text-right">
                                                 <p className="font-bold text-primary">{(item.lineTotal || (item.price || (item as any).unitPrice || 0) * item.quantity).toLocaleString('vi-VN')}đ</p>
 
-                                                {order.orderStatus.toUpperCase() === 'COMPLETED' && (
+                                                {order.orderStatus.toUpperCase() === 'COMPLETED' && !item.isRequestRefund && (
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
