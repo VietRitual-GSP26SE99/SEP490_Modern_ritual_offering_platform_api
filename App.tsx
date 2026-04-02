@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, useNavigate, Navigate, useSearchParams } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useNavigate, Navigate, useSearchParams, useLocation } from 'react-router-dom';
 import Layout from './components/Layout';
 import { getCurrentUser, getProfile, isAuthenticated as checkAuth } from './services/auth';
 
@@ -64,6 +64,7 @@ const AppContent: React.FC<{
   onRoleChange: (role: UserRole) => void;
 }> = ({ userRole, isAuthenticated, onLogout, onRoleChange }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const currentUser = getCurrentUser();
   const normalizedRoles = (currentUser?.roles || [])
     .filter((role): role is string => typeof role === 'string')
@@ -74,6 +75,25 @@ const AppContent: React.FC<{
     isAuthenticated &&
     hasCustomerRole &&
     localStorage.getItem(PROFILE_SETUP_REQUIRED_KEY) === 'true';
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (location.pathname !== '/') return;
+
+    if (userRole === 'staff') {
+      navigate('/staff/dashboard', { replace: true });
+      return;
+    }
+
+    if (userRole === 'admin') {
+      navigate('/admin/dashboard', { replace: true });
+      return;
+    }
+
+    if (userRole === 'vendor') {
+      navigate('/vendor/dashboard', { replace: true });
+    }
+  }, [isAuthenticated, userRole, location.pathname, navigate]);
 
   const handleLogin = (role: UserRole, firstTimeLogin?: boolean) => {
     onRoleChange(role);

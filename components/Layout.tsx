@@ -29,7 +29,7 @@ interface LayoutProps {
   hideHeader?: boolean;
 }
 
-const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLogout, hideHeader = false }) => {
+const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLogout, userRole, hideHeader = false }) => {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const [cartCount, setCartCount] = useState<number>(0);
   const [isCartDropdownOpen, setIsCartDropdownOpen] = useState<boolean>(false);
@@ -502,8 +502,28 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
   );
   const hasVendorRole = normalizedRoles.includes('vendor');
   const hasCustomerRole = normalizedRoles.includes('customer');
+  const normalizedUserRole = (userRole || '').trim().toLowerCase();
+  const isStaffContext =
+    normalizedRoles.includes('staff') ||
+    normalizedUserRole === 'staff' ||
+    activeRoute.startsWith('/staff');
+  const isBackofficeRole =
+    isStaffContext ||
+    normalizedRoles.includes('admin') ||
+    normalizedUserRole === 'admin' ||
+    activeRoute.startsWith('/admin');
+  const hasStaffRole = normalizedRoles.includes('staff');
+  const hasAdminRole = normalizedRoles.includes('admin');
   const canSwitchRole = hasVendorRole && hasCustomerRole;
   const isVendorArea = activeRoute.startsWith('/vendor/');
+  const isRestrictedAccountMenu = isBackofficeRole || isVendorArea;
+
+  const getLogoRedirectPath = (): string => {
+    if (isVendorArea || hasVendorRole) return '/vendor/dashboard';
+    if (activeRoute.startsWith('/staff') || hasStaffRole) return '/staff/dashboard';
+    if (activeRoute.startsWith('/admin') || hasAdminRole) return '/admin/dashboard';
+    return '/';
+  };
 
   return (
     <div className="min-h-screen flex flex-col font-sans">
@@ -520,7 +540,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
               </button>
               <div
                 className="cursor-pointer"
-                onClick={() => onNavigate(isVendorArea ? '/vendor/dashboard' : '/')}
+                onClick={() => onNavigate(getLogoRedirectPath())}
               >
                 <div className="w-[240px] h-[72px] md:w-[288px] md:h-[84px] lg:w-[312px] lg:h-[96px] -ml-16">
                   <img
@@ -535,7 +555,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
                   <span className="material-symbols-outlined text-base">storefront</span>
                   Trang ban hang
                 </div>
-              ) : (
+              ) : !isBackofficeRole && (
                 <nav className="hidden lg:flex items-center gap-8">
                   {getNavItems().map((item) => (
                     <div
@@ -583,7 +603,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
               )}
             </div>
             <div className="flex items-center gap-4">
-              {!isVendorArea && (
+              {!isVendorArea && !isBackofficeRole && (
                 <div className="hidden md:flex items-center gap-2 text-primary font-bold">
                 <span className="text-sm">1900 8888</span>
                 </div>
@@ -732,7 +752,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
                 </div>
               )}
 
-              {(userName || onLogout) && !isVendorArea && (
+              {(userName || onLogout) && !isVendorArea && !isStaffContext && (
                 <div
                   className="relative"
                   onMouseEnter={() => {
@@ -845,7 +865,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
                 >
                   <button
                     onClick={() => {
-                      if (window.innerWidth < 768) {
+                      if (isRestrictedAccountMenu) {
+                        setIsAccountDropdownOpen(prev => !prev);
+                      } else if (window.innerWidth < 768) {
                         setIsAccountDropdownOpen(prev => !prev);
                       } else {
                         onNavigate('/profile');
@@ -870,31 +892,35 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
                         }
                       }}
                     >
-                      <button
-                        onClick={() => {
-                          onNavigate('/profile');
-                          setIsAccountDropdownOpen(false);
-                        }}
-                        className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-3"
-                      >
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
-                        </svg>
-                        Hồ sơ cá nhân
-                      </button>
-                      <button
-                        onClick={() => {
-                          onNavigate('/profile/orders');
-                          setIsAccountDropdownOpen(false);
-                        }}
-                        className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-3"
-                      >
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M13 12h7v1.5h-7zm0-2.5h7V11h-7zm0 5h7V16h-7zM21 4H3c-1.1 0-2 .9-2 2v13c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 15h-9V6h9v13z" />
-                        </svg>
-                        Đơn hàng của tôi
-                      </button>
-                      {canSwitchRole && (
+                      {!isRestrictedAccountMenu && (
+                        <button
+                          onClick={() => {
+                            onNavigate('/profile');
+                            setIsAccountDropdownOpen(false);
+                          }}
+                          className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-3"
+                        >
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z" />
+                          </svg>
+                          Hồ sơ cá nhân
+                        </button>
+                      )}
+                      {!isRestrictedAccountMenu && (
+                        <button
+                          onClick={() => {
+                            onNavigate('/profile/orders');
+                            setIsAccountDropdownOpen(false);
+                          }}
+                          className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-3"
+                        >
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M13 12h7v1.5h-7zm0-2.5h7V11h-7zm0 5h7V16h-7zM21 4H3c-1.1 0-2 .9-2 2v13c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 15h-9V6h9v13z" />
+                          </svg>
+                          Đơn hàng của tôi
+                        </button>
+                      )}
+                      {!isRestrictedAccountMenu && canSwitchRole && (
                         <button
                           onClick={() => {
                             onNavigate(isVendorArea ? '/' : '/vendor/dashboard');
@@ -908,18 +934,20 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
                           {isVendorArea ? 'Trang mua hàng' : 'Trang bán hàng'}
                         </button>
                       )}
-                      <button
-                        onClick={() => {
-                          onNavigate('/wallet/transactions');
-                          setIsAccountDropdownOpen(false);
-                        }}
-                        className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-3"
-                      >
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
-                          <path d="M5 4h14a2 2 0 012 2v2H3V6a2 2 0 012-2zm-2 7h18v7a2 2 0 01-2 2H5a2 2 0 01-2-2v-7zm9 2a3 3 0 100 6 3 3 0 000-6z" />
-                        </svg>
-                        Lịch sử giao dịch
-                      </button>
+                      {!isRestrictedAccountMenu && (
+                        <button
+                          onClick={() => {
+                            onNavigate('/wallet/transactions');
+                            setIsAccountDropdownOpen(false);
+                          }}
+                          className="w-full px-4 py-3 text-left text-sm text-slate-700 hover:bg-slate-50 transition-colors flex items-center gap-3"
+                        >
+                          <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M5 4h14a2 2 0 012 2v2H3V6a2 2 0 012-2zm-2 7h18v7a2 2 0 01-2 2H5a2 2 0 01-2-2v-7zm9 2a3 3 0 100 6 3 3 0 000-6z" />
+                          </svg>
+                          Lịch sử giao dịch
+                        </button>
+                      )}
                       {onLogout && (
                         <button
                           onClick={async () => {
@@ -950,7 +978,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
               )}
 
               {/* Cart with Dropdown */}
-              {!isVendorArea && (
+              {!isVendorArea && !isBackofficeRole && (
                 <div
                   className="relative"
                   onMouseEnter={() => {
@@ -1087,69 +1115,73 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
                 </button>
               )}
 
-              <div className="space-y-1">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 pl-2">Khám phá</p>
-                {getNavItems().map((item) => (
-                  <div key={item.label} className="space-y-1">
-                    <button
-                      onClick={() => {
-                        if (!item.submenu) {
-                          item.path && onNavigate(item.path);
-                          setIsMobileMenuOpen(false);
-                        } else {
-                          setOpenDropdown(openDropdown === item.label ? null : item.label);
-                        }
-                      }}
-                      className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold text-sm transition-colors ${activeRoute === item.path ? 'bg-primary text-white' : 'text-slate-600 hover:bg-slate-50'}`}
-                    >
-                      <span>{item.label}</span>
-                      {item.submenu && (
-                        <span className={`material-symbols-outlined text-lg transition-transform ${openDropdown === item.label ? 'rotate-180' : ''}`}>
-                          expand_more
-                        </span>
+              {!isBackofficeRole && (
+                <div className="space-y-1">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 pl-2">Khám phá</p>
+                  {getNavItems().map((item) => (
+                    <div key={item.label} className="space-y-1">
+                      <button
+                        onClick={() => {
+                          if (!item.submenu) {
+                            item.path && onNavigate(item.path);
+                            setIsMobileMenuOpen(false);
+                          } else {
+                            setOpenDropdown(openDropdown === item.label ? null : item.label);
+                          }
+                        }}
+                        className={`w-full flex items-center justify-between px-4 py-3 rounded-xl font-bold text-sm transition-colors ${activeRoute === item.path ? 'bg-primary text-white' : 'text-slate-600 hover:bg-slate-50'}`}
+                      >
+                        <span>{item.label}</span>
+                        {item.submenu && (
+                          <span className={`material-symbols-outlined text-lg transition-transform ${openDropdown === item.label ? 'rotate-180' : ''}`}>
+                            expand_more
+                          </span>
+                        )}
+                      </button>
+                      {item.submenu && openDropdown === item.label && (
+                        <div className="pl-4 space-y-1 mt-1 font-medium bg-slate-50/50 rounded-2xl py-2">
+                          {item.submenu.map((sub, idx) => (
+                            <button
+                              key={idx}
+                              onClick={() => { onNavigate(sub.path); setIsMobileMenuOpen(false); }}
+                              className="w-full text-left px-4 py-2.5 text-xs text-slate-500 hover:text-primary transition-colors"
+                            >
+                              - {sub.label}
+                            </button>
+                          ))}
+                        </div>
                       )}
-                    </button>
-                    {item.submenu && openDropdown === item.label && (
-                      <div className="pl-4 space-y-1 mt-1 font-medium bg-slate-50/50 rounded-2xl py-2">
-                        {item.submenu.map((sub, idx) => (
-                          <button
-                            key={idx}
-                            onClick={() => { onNavigate(sub.path); setIsMobileMenuOpen(false); }}
-                            className="w-full text-left px-4 py-2.5 text-xs text-slate-500 hover:text-primary transition-colors"
-                          >
-                            - {sub.label}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
-              <div className="space-y-1 pt-4 border-t border-gray-100">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 pl-2">Cá nhân</p>
-                <button
-                  onClick={() => { onNavigate('/cart'); setIsMobileMenuOpen(false); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 font-bold text-sm hover:bg-slate-50"
-                >
-                  <span className="material-symbols-outlined text-xl">shopping_cart</span>
-                  <span>Giỏ hàng ({cartCount})</span>
-                </button>
-                <button
-                  onClick={() => { setIsWalletDropdownOpen(true); setIsMobileMenuOpen(false); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 font-bold text-sm hover:bg-slate-50"
-                >
-                  <span className="material-symbols-outlined text-xl">account_balance_wallet</span>
-                  <span>Ví của tôi</span>
-                </button>
-                <button
-                  onClick={() => { onNavigate('/profile/orders'); setIsMobileMenuOpen(false); }}
-                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 font-bold text-sm hover:bg-slate-50"
-                >
-                  <span className="material-symbols-outlined text-xl">list_alt</span>
-                  <span>Đơn hàng của tôi</span>
-                </button>
-              </div>
+              {!isBackofficeRole && (
+                <div className="space-y-1 pt-4 border-t border-gray-100">
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4 pl-2">Cá nhân</p>
+                  <button
+                    onClick={() => { onNavigate('/cart'); setIsMobileMenuOpen(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 font-bold text-sm hover:bg-slate-50"
+                  >
+                    <span className="material-symbols-outlined text-xl">shopping_cart</span>
+                    <span>Giỏ hàng ({cartCount})</span>
+                  </button>
+                  <button
+                    onClick={() => { setIsWalletDropdownOpen(true); setIsMobileMenuOpen(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 font-bold text-sm hover:bg-slate-50"
+                  >
+                    <span className="material-symbols-outlined text-xl">account_balance_wallet</span>
+                    <span>Ví của tôi</span>
+                  </button>
+                  <button
+                    onClick={() => { onNavigate('/profile/orders'); setIsMobileMenuOpen(false); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-xl text-slate-600 font-bold text-sm hover:bg-slate-50"
+                  >
+                    <span className="material-symbols-outlined text-xl">list_alt</span>
+                    <span>Đơn hàng của tôi</span>
+                  </button>
+                </div>
+              )}
             </div>
           </div>
 
