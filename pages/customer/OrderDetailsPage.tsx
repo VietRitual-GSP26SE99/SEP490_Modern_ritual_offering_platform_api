@@ -246,7 +246,6 @@ const OrderDetailsPage: React.FC = () => {
         order?.vendor?.profileId
         || (order as any)?.vendorProfileId
         || (order as any)?.vendorId
-        || vendorInfo?.profileId
         || ''
     ).trim();
 
@@ -349,42 +348,50 @@ const OrderDetailsPage: React.FC = () => {
                 </div>
 
                 {/* Status Banner */}
-                <div className={`p-5 md:p-8 rounded-[2rem] border mb-8 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl ${getStatusStyle(order.orderStatus)}`}>
-                  <div className="text-center sm:text-left">
-                    <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-1.5">Trạng thái đơn hàng</p>
-                    <h2 className="text-2xl md:text-3xl font-black italic font-display">{getStatusText(order.orderStatus)}</h2>
-                  </div>
-                    <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                <div className={`p-6 rounded-[2rem] border mb-6 flex items-center justify-between ${getStatusStyle(order.orderStatus)}`}>
+                    <div>
+                        <p className="text-xs font-bold uppercase tracking-widest opacity-80 mb-1">Trạng thái hiện tại</p>
+                        <h2 className="text-2xl font-black">{getStatusText(order.orderStatus)}</h2>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-3">
                         {['PENDING', 'PAID'].includes(order.orderStatus.toUpperCase()) && (
                             <button
                                 onClick={handleCancelOrder}
                                 disabled={cancelling}
-                                className={`w-full sm:w-auto px-8 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest transition bg-white/20 hover:bg-white/30 border border-white/30 text-current backdrop-blur-md active:scale-95 ${cancelling ? 'opacity-50 cursor-not-allowed' : ''}`}
+                                className={`px-6 py-2 rounded-xl font-bold text-sm transition bg-white text-red-600 border border-red-200 hover:bg-red-50 ${cancelling ? 'opacity-50 cursor-not-allowed' : ''}`}
                             >
-                                {cancelling ? 'Đang xử lý...' : 'Hủy đơn hàng'}
+                                {cancelling ? 'Đang hủy...' : 'Hủy đơn hàng'}
                             </button>
                         )}
+                        {/* {['PAID', 'PROCESSING', 'DELIVERING'].includes(order.orderStatus.toUpperCase()) && (
+                            <button
+                                onClick={() => navigate(`/tracking?orderId=${order.orderId}`)}
+                                className="bg-white/90 backdrop-blur-sm text-current px-6 py-2 rounded-xl font-bold text-sm shadow-sm hover:bg-white transition"
+                            >
+                                Theo dõi ngay
+                            </button>
+                        )} */}
                         {order.orderStatus.toUpperCase() === 'DELIVERED' && (
                             <>
                                 <button
                                     onClick={() => {
                                         if (!canRequestRefund) {
-                                            toast.error('Hết thời hạn yêu cầu hoàn tiền (2 giờ).');
+                                            toast.error('Thời gian yêu cầu hoàn tiền (2 giờ sau khi giao hàng) đã hết.');
                                             return;
                                         }
                                         setIsRefundModalOpen(true);
                                     }}
                                     disabled={!canRequestRefund}
-                                    className="w-full sm:w-auto px-8 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest transition bg-white/20 hover:bg-white/30 border border-white/30 text-current backdrop-blur-md active:scale-95 disabled:opacity-50"
+                                    className="bg-white text-orange-600 border border-orange-200 px-6 py-2 rounded-xl font-bold text-sm shadow-sm hover:bg-orange-50 transition"
                                 >
-                                    Hoàn tiền
+                                    Yêu cầu hoàn tiền
                                 </button>
                                 <button
                                     onClick={handleCompleteOrder}
                                     disabled={completing}
-                                    className="w-full sm:w-auto px-8 py-3.5 rounded-2xl font-black text-xs uppercase tracking-widest transition shadow-2xl bg-slate-900 text-white hover:bg-slate-800 active:scale-95 shadow-black/20"
+                                    className="bg-green-600 text-white px-6 py-2 rounded-xl font-bold text-sm shadow-sm hover:bg-green-700 transition disabled:opacity-50"
                                 >
-                                    {completing ? 'Đang gửi...' : 'Xác nhận hoàn thành'}
+                                    {completing ? 'Đang xử lý...' : 'Hoàn thành đơn'}
                                 </button>
                             </>
                         )}
@@ -410,10 +417,10 @@ const OrderDetailsPage: React.FC = () => {
                         </button> */}
                     </div>
 
-                    <div className="relative pt-2 pb-6">
-                        <div className="absolute top-7 left-0 w-full h-1 bg-slate-100 rounded-full" />
+                    <div className="relative">
+                        <div className="absolute top-5 left-0 w-full h-1 bg-slate-100 rounded-full" />
                         <div
-                            className="absolute top-7 left-0 h-1 bg-primary rounded-full transition-all duration-700 shadow-[0_0_10px_rgba(234,88,12,0.5)]"
+                            className="absolute top-5 left-0 h-1 bg-primary rounded-full transition-all duration-500"
                             style={{ width: `${(trackingStepIndex / 3) * 100}%` }}
                         />
 
@@ -426,23 +433,24 @@ const OrderDetailsPage: React.FC = () => {
                                 return (
                                     <div
                                         key={step.label}
-                                        className={`relative z-10 flex flex-col items-center text-center w-16 md:w-32 ${isUpcoming ? 'opacity-30' : ''}`}
+                                        className={`relative z-10 flex flex-col items-center text-center w-24 md:w-32 ${isUpcoming ? 'opacity-40' : ''}`}
                                     >
                                         <div
-                                            className={`size-10 md:size-14 rounded-2xl flex items-center justify-center mb-3 ring-8 ring-white text-sm font-black shadow-lg transition-all duration-500 scale-90 ${
+                                            className={`size-10 md:size-12 rounded-full flex items-center justify-center mb-3 ring-4 ring-white text-sm font-bold shadow-sm ${
                                                 isActive
-                                                    ? 'bg-primary text-white scale-110 shadow-primary/20'
+                                                    ? 'bg-primary text-white animate-pulse'
                                                     : isCompleted
                                                         ? 'bg-primary text-white'
-                                                        : 'bg-slate-100 text-slate-400'
+                                                        : 'bg-slate-200 text-slate-500'
                                             }`}
                                         >
-                                            {isCompleted ? (
-                                                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" /></svg>
-                                            ) : index + 1}
+                                            {index + 1}
                                         </div>
-                                        <span className={`text-[10px] md:text-xs font-black uppercase tracking-tighter md:tracking-widest ${isActive ? 'text-primary' : 'text-slate-500'}`}>
+                                        <span className={`text-xs md:text-sm font-semibold ${isActive ? 'text-primary' : 'text-slate-900'}`}>
                                             {step.label}
+                                        </span>
+                                        <span className="hidden md:block text-[10px] text-slate-400 mt-1 max-w-[120px]">
+                                            {step.description}
                                         </span>
                                     </div>
                                 );
@@ -603,33 +611,27 @@ const OrderDetailsPage: React.FC = () => {
                     <div className="md:col-span-2 space-y-6">
 
                         {/* Store details */}
-                        <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-gray-200 shadow-sm relative overflow-hidden group">
+                        <div className="bg-white p-8 rounded-[2rem] border border-gray-200 shadow-sm relative overflow-hidden group">
                             {!(vendorInfo?.shopAvatarUrl || vendorInfo?.avatarUrl) && (
                                 <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none">
-                                    <svg className="w-16 h-16 md:w-24 md:h-24" fill="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24">
                                         <path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                                     </svg>
                                 </div>
                             )}
 
-                            <div className="flex items-center justify-between mb-6 gap-4">
-                                <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest flex items-center gap-3">
-                                    <span 
-                                        className={`w-6 h-6 rounded-lg bg-orange-100 text-primary flex items-center justify-center transition-transform active:scale-90 ${vendorProfileId ? 'cursor-pointer hover:bg-orange-200' : ''}`}
-                                        onClick={() => vendorProfileId && navigate(`/vendor/${vendorProfileId}`)}
-                                    >
-                                        <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
-                                            <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                            <div className="flex items-center justify-between mb-4 gap-4">
+                                <h3 className="text-lg font-bold text-gray-900 flex items-center gap-3">
+                                    <span className="w-8 h-8 rounded-full bg-orange-100 text-primary flex items-center justify-center">
+                                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                                         </svg>
                                     </span>
-                                    Cung cấp bởi
+                                    Người cung cấp
                                 </h3>
 
                                 {(vendorInfo?.shopAvatarUrl || vendorInfo?.avatarUrl) && (
-                                    <div 
-                                        className={`w-16 h-16 rounded-2xl overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0 shadow-sm transition-transform active:scale-95 ${vendorProfileId ? 'cursor-pointer hover:shadow-md' : ''}`}
-                                        onClick={() => vendorProfileId && navigate(`/vendor/${vendorProfileId}`)}
-                                    >
+                                    <div className="w-20 h-20 rounded-3xl overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0 shadow-sm">
                                         <img
                                             src={vendorInfo.shopAvatarUrl || vendorInfo.avatarUrl || ''}
                                             alt={vendorInfo.shopName || 'Shop avatar'}
@@ -654,14 +656,14 @@ const OrderDetailsPage: React.FC = () => {
                         </div>
 
                         {/* Application items */}
-                        <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-gray-200 shadow-sm">
-                            <h3 className="text-sm font-black text-slate-400 uppercase tracking-widest mb-6 flex items-center gap-2 border-b border-gray-50 pb-4">
-                                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
-                                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                        <div className="bg-white p-8 rounded-[2rem] border border-gray-200 shadow-sm">
+                            <h3 className="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2 border-b border-gray-100 pb-4">
+                                <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
                                 </svg>
-                                Gói lễ đã chọn
+                                Danh sách gói lễ
                             </h3>
-                            <div className="space-y-8">
+                            <div className="space-y-6">
                                 {order.items?.map((item, idx) => {
                                     const goToDetail = () => {
                                         console.log('📦 Order Item Debug:', item);
@@ -696,21 +698,11 @@ const OrderDetailsPage: React.FC = () => {
                                                     {item.packageName}
                                                 </h4>
                                                 <p className="text-xs text-gray-500 mt-1">Gói: <span className="text-gray-700 font-medium">{item.variantName}</span></p>
-                                                {item.isRequestRefund && (
-                                                    <div className="mt-2 flex">
-                                                        <span className="px-2 py-0.5 bg-orange-50 text-orange-600 rounded-md text-[9px] font-black uppercase tracking-widest border border-orange-100 flex items-center gap-1">
-                                                            <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
-                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3m9 14V5a2 2 0 00-2-2H6a2 2 0 00-2 2v16l4-2 4 2 4-2 4 2z" />
-                                                            </svg>
-                                                            Đang yêu cầu hoàn tiền
-                                                        </span>
-                                                    </div>
-                                                )}
                                             </div>
                                             <div className="pt-1 text-right">
                                                 <p className="font-bold text-primary">{(item.lineTotal || (item.price || (item as any).unitPrice || 0) * item.quantity).toLocaleString('vi-VN')}đ</p>
 
-                                                {order.orderStatus.toUpperCase() === 'COMPLETED' && !item.isRequestRefund && (
+                                                {order.orderStatus.toUpperCase() === 'COMPLETED' && (
                                                     <button
                                                         onClick={(e) => {
                                                             e.stopPropagation();
