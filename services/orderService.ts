@@ -1,4 +1,5 @@
 import { getAuthToken } from './auth';
+import { packageService } from './packageService';
 const API_BASE_URL = '/api';
 
 export interface OrderItem {
@@ -262,6 +263,22 @@ interface OrderDetailsApiItem {
     updatedAt?: string | null;
     cancelReason?: string | null;
     refundAmount?: number;
+    // Flat fields commonly seen in API responses
+    customerProfileId?: string;
+    customerId?: string;
+    customerName?: string;
+    customerEmail?: string;
+    customerPhone?: string;
+    vendorId?: string;
+    shopName?: string;
+    vendorName?: string;
+    vendorEmail?: string;
+    vendorPhone?: string;
+    vendorAddress?: string;
+    deliveryDate?: string;
+    deliveryTime?: string;
+    deliveryAddress?: string;
+    shippingDistanceKm?: number;
 }
 
 class OrderService {
@@ -322,20 +339,24 @@ class OrderService {
             }
 
             const data = await response.json();
-            if (data.isSuccess && Array.isArray(data.result)) {
-                return data.result.map((raw: any) => {
+            const isSuccess = data.isSuccess || data.statusCode === 'OK';
+            if (isSuccess && data.result) {
+                const payload = data.result;
+                const rawItems = Array.isArray(payload) ? payload : (payload.items || []);
+                
+                const orders = rawItems.map((raw: any) => {
                     const items = Array.isArray(raw.items)
                         ? raw.items.map((item: any) => {
                             const quantity = Number(item.quantity) || 0;
-                            const lineTotal = Number(item.lineTotal) || 0;
-                            const unitPrice = Number(item.unitPrice ?? item.price) || (quantity > 0 ? lineTotal / quantity : 0);
+                            const unitPrice = Number(item.unitPrice ?? item.price) || 0;
+                            const lineTotal = Number(item.lineTotal) || (unitPrice * quantity) || 0;
                             return {
                                 itemId: item.itemId || item.orderItemId || item.id || `item-${Math.random().toString(36).slice(2, 10)}`,
                                 variantId: item.variantId ?? '',
                                 variantName: item.variantName || 'N/A',
                                 packageName: item.packageName || 'N/A',
                                 quantity,
-                                price: unitPrice,
+                                price: unitPrice || (quantity > 0 ? lineTotal / quantity : 0),
                                 lineTotal,
                                 decorationNote: item.decorationNote || '',
                                 packageId:
@@ -350,6 +371,9 @@ class OrderService {
                                 imageUrl:
                                     item.imageUrl ||
                                     item.imageURL ||
+                                    item.packageAvatarUrl ||
+                                    item.packageAvatar ||
+                                    item.avatarUrl ||
                                     item.packageImageUrl ||
                                     item.packageImageURL ||
                                     item.productImageUrl ||
@@ -361,15 +385,64 @@ class OrderService {
 
                     return {
                         ...raw,
+                        orderId: raw.orderId || '',
+                        orderStatus: raw.orderStatus || 'Pending',
                         items,
-                        // Ensure pricing is accessible
+                        customer: raw.customer || {
+                            profileId: raw.customerProfileId || raw.customerId || '',
+                            fullName: raw.customerName || 'Khách hàng',
+                            phoneNumber: raw.customerPhone || '',
+                            email: raw.customerEmail || '',
+                        },
+                        vendor: raw.vendor || {
+                            profileId: raw.vendorId || '',
+                            shopName: raw.shopName || raw.vendorName || 'Tiệm Cúng Bái',
+                            phoneNumber: raw.vendorPhone || '',
+                            address: raw.vendorAddress || '',
+                        },
+                        delivery: raw.delivery || {
+                            deliveryDate: raw.deliveryDate || '',
+                            deliveryTime: raw.deliveryTime || '',
+                            deliveryAddress: raw.deliveryAddress || 'N/A',
+                            shippingDistanceKm: Number(raw.shippingDistanceKm) || 0,
+                        },
                         pricing: raw.pricing || {
                             subTotal: raw.subTotal || 0,
                             shippingFee: raw.shippingFee || 0,
                             totalAmount: raw.totalAmount || raw.finalAmount || 0,
-                        }
+                            finalAmount: raw.finalAmount || raw.totalAmount || 0,
+                        },
+                        createdAt: raw.createdAt || new Date().toISOString(),
                     } as Order;
                 });
+
+                // Map images from packages if missing (backend often omits images in order history)
+                try {
+                    const allItems = orders.flatMap(o => o.items);
+                    const itemsMissingImage = allItems.filter(it => !it.imageUrl);
+                    if (itemsMissingImage.length > 0) {
+                        const packages = await packageService.getAllPackages(1, 100);
+                        const packageImageMap = new Map<string, string>();
+                        
+                        packages.forEach(pkg => {
+                            const pid = String(pkg.packageId || (pkg as any).id || (pkg as any).PackageId);
+                            const img = pkg.packageAvatarUrl || (pkg as any).imageUrl || (pkg as any).avatarUrl || (pkg as any).packageImage;
+                            if (pid && img) packageImageMap.set(pid, img);
+                        });
+
+                        orders.forEach(o => {
+                            o.items.forEach(it => {
+                                if (!it.imageUrl && it.packageId) {
+                                    it.imageUrl = packageImageMap.get(String(it.packageId)) || null;
+                                }
+                            });
+                        });
+                    }
+                } catch (err) {
+                    console.warn("Failed to map package images for My Orders:", err);
+                }
+
+                return orders;
             }
             return [];
         } catch (error) {
@@ -426,6 +499,9 @@ class OrderService {
                             imageUrl:
                                 item.imageUrl ||
                                 (item as any).imageURL ||
+                                (item as any).packageAvatarUrl ||
+                                (item as any).packageAvatar ||
+                                (item as any).avatarUrl ||
                                 (item as any).packageImageUrl ||
                                 (item as any).packageImageURL ||
                                 (item as any).productImageUrl ||
@@ -490,30 +566,30 @@ class OrderService {
                     }))
                     : [];
 
-                return {
+                const order: Order = {
                     orderId: raw.orderId || orderId,
                     orderStatus: raw.orderStatus || 'Pending',
                     trackingLists,
                     customer: {
-                        profileId: raw.customer?.profileId || raw.customer?.customerId || '',
-                        customerId: raw.customer?.customerId || raw.customer?.profileId || '',
-                        fullName: raw.customer?.fullName || raw.customer?.customerName || 'Khách hàng',
-                        email: raw.customer?.email || '',
-                        phoneNumber: raw.customer?.phoneNumber || raw.customer?.customerPhone || '',
+                        profileId: raw.customer?.profileId || raw.customerProfileId || raw.customerId || '',
+                        customerId: raw.customer?.customerId || raw.customerProfileId || raw.customerId || '',
+                        fullName: raw.customer?.fullName || raw.customerName || 'Khách hàng',
+                        email: raw.customer?.email || raw.customerEmail || '',
+                        phoneNumber: raw.customer?.phoneNumber || raw.customerPhone || '',
                         avatarUrl: raw.customer?.avatarUrl || (raw as any).customerAvatar || '',
                     },
                     vendor: {
-                        profileId: raw.vendor?.profileId || raw.vendor?.vendorId || null,
-                        shopName: raw.vendor?.shopName || 'Shop',
-                        email: raw.vendor?.email || '',
-                        phoneNumber: raw.vendor?.phoneNumber || '',
-                        address: raw.vendor?.address || '',
+                        profileId: raw.vendor?.profileId || raw.vendorId || null,
+                        shopName: raw.vendor?.shopName || raw.shopName || raw.vendorName || 'Shop',
+                        email: raw.vendor?.email || raw.vendorEmail || '',
+                        phoneNumber: raw.vendor?.phoneNumber || raw.vendorPhone || '',
+                        address: raw.vendor?.address || raw.vendorAddress || '',
                     },
                     delivery: {
-                        deliveryDate: raw.delivery?.deliveryDate || '',
-                        deliveryTime: raw.delivery?.deliveryTime || '',
-                        deliveryAddress: raw.delivery?.deliveryAddress || 'N/A',
-                        shippingDistanceKm: Number(raw.delivery?.shippingDistanceKm) || 0,
+                        deliveryDate: raw.delivery?.deliveryDate || raw.deliveryDate || '',
+                        deliveryTime: raw.delivery?.deliveryTime || raw.deliveryTime || '',
+                        deliveryAddress: raw.delivery?.deliveryAddress || raw.deliveryAddress || 'N/A',
+                        shippingDistanceKm: Number(raw.delivery?.shippingDistanceKm || raw.shippingDistanceKm) || 0,
                         deliveryProofImageUrl,
                         deliveryProofImages,
                         preparationProofImages,
@@ -560,6 +636,31 @@ class OrderService {
                     cancelReason: raw.cancelReason || null,
                     refundAmount: Number(raw.refundAmount) || 0,
                 };
+
+                // Map images from packages for individual order detail
+                try {
+                    const missingImages = order.items.filter(it => !it.imageUrl);
+                    if (missingImages.length > 0) {
+                        const packageIds = [...new Set(missingImages.map(it => it.packageId).filter(pid => pid))];
+                        for (const pid of packageIds) {
+                            const pkg = await packageService.getPackageById(String(pid));
+                            if (pkg) {
+                                const img = pkg.packageAvatarUrl || (pkg as any).imageUrl || (pkg as any).avatarUrl;
+                                if (img) {
+                                    order.items.forEach(it => {
+                                        if (String(it.packageId) === String(pid) && !it.imageUrl) {
+                                            it.imageUrl = img;
+                                        }
+                                    });
+                                }
+                            }
+                        }
+                    }
+                } catch (err) {
+                    console.warn("Failed to map package images for Order Detail:", err);
+                }
+
+                return order;
             }
             return null;
         } catch (error) {
