@@ -4,6 +4,7 @@ import toast from '../../services/toast';
 import { packageService } from '../../services/packageService';
 import { getCurrentUser } from '../../services/auth';
 import { CeremonyCategory } from '../../types';
+import ImageModal from '../../components/ImageModal';
 
 interface ProductManagementProps {
   onNavigate: (path: string) => void;
@@ -68,6 +69,11 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
   });
 
   const [categories, setCategories] = useState<CeremonyCategory[]>([]);
+
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [imageModalImages, setImageModalImages] = useState<string[]>([]);
+  const [imageModalInitialIndex, setImageModalInitialIndex] = useState(0);
+  const [imageModalAltText, setImageModalAltText] = useState('');
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -879,7 +885,7 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
                               Chi Tiết
                             </button>
 
-                            <button
+                            {/* <button
                               className="px-3 py-2 text-red-600 border border-red-300 hover:bg-red-100 rounded-lg transition-colors text-sm font-semibold"
                               title="Xóa"
                               onClick={async () => {
@@ -896,7 +902,7 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
                               }}
                             >
                               Xóa
-                            </button>
+                            </button> */}
                           </div>
                         </td>
                       </tr>
@@ -1341,6 +1347,7 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
                                         ))}
                                       </div>
                                     )}
+
                                   </div>
                                 </>
                               ) : (
@@ -1367,11 +1374,23 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
                                         <div className="grid grid-cols-5 gap-2">
                                           {urls.map((url: string, i: number) => (
                                             <div key={url + i} className="relative">
-                                              <img
-                                                src={toImageSrc(url)}
-                                                className={`w-full h-16 object-cover rounded-xl border ${i === primaryIdx ? 'border-primary shadow-sm' : 'border-gray-200'}`}
-                                                onError={(e) => { (e.target as HTMLImageElement).src = fallbackProductImage; }}
-                                              />
+                                              <button
+                                                type="button"
+                                                className="block w-full"
+                                                onClick={() => {
+                                                  setImageModalImages(urls.map((u) => toImageSrc(u)));
+                                                  setImageModalInitialIndex(i);
+                                                  setImageModalAltText(`Ảnh gói - ${name || 'Biến thể'}`);
+                                                  setIsImageModalOpen(true);
+                                                }}
+                                                aria-label="Xem ảnh gói"
+                                              >
+                                                <img
+                                                  src={toImageSrc(url)}
+                                                  className={`w-full h-16 object-cover rounded-xl border transition ${i === primaryIdx ? 'border-primary shadow-sm' : 'border-gray-200 hover:border-primary/40'}`}
+                                                  onError={(e) => { (e.target as HTMLImageElement).src = fallbackProductImage; }}
+                                                />
+                                              </button>
                                               {i === primaryIdx && (
                                                 <div className="absolute top-1 left-1 bg-primary text-white text-[8px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest">★</div>
                                               )}
@@ -1563,6 +1582,15 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
             </div>
           </div>
         )}
+
+        <ImageModal
+          isOpen={isImageModalOpen}
+          images={imageModalImages}
+          initialIndex={imageModalInitialIndex}
+          imageSrc={imageModalImages[imageModalInitialIndex] || ''}
+          altText={imageModalAltText}
+          onClose={() => setIsImageModalOpen(false)}
+        />
 
       </div>
     </div>

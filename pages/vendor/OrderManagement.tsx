@@ -163,6 +163,26 @@ const getInitials = (name: string) => {
   return (parts[0].charAt(0) + parts[parts.length - 1].charAt(0)).toUpperCase();
 };
 
+const fallbackProductImage = `data:image/svg+xml;utf8,${encodeURIComponent(
+  `<svg xmlns="http://www.w3.org/2000/svg" width="88" height="88" viewBox="0 0 88 88">
+      <rect width="88" height="88" rx="14" fill="#F1F5F9"/>
+      <rect x="18" y="18" width="52" height="52" rx="10" fill="#E2E8F0"/>
+      <text x="44" y="52" text-anchor="middle" font-size="20" font-family="Arial, sans-serif" fill="#64748B">SP</text>
+    </svg>`
+)}`;
+
+const toImageSrc = (value?: string | null): string => {
+  const normalized = String(value || '').trim();
+  if (!hasMeaningfulText(normalized)) return fallbackProductImage;
+  if (/^https?:\/\//i.test(normalized)) return normalized;
+  if (/^data:image\//i.test(normalized)) return normalized;
+  if (/^blob:/i.test(normalized)) return normalized;
+  if (normalized.startsWith('//')) return normalized;
+  if (normalized.startsWith('/') || normalized.startsWith('./') || normalized.startsWith('../')) return normalized;
+  // If API returns a relative path like "uploads/...", make it root-relative.
+  return `/${normalized}`;
+};
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNavigate }) => {
@@ -171,9 +191,13 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
   const fromDateInputRef = useRef<HTMLInputElement | null>(null);
   const toDateInputRef = useRef<HTMLInputElement | null>(null);
 
+  type EnrichedOrderData = Partial<VendorOrder> & {
+    itemImageByItemId?: Record<string, string | null | undefined>;
+  };
+
   // ── orders state ────────────────────────────────────────────────────────────
   const [orders, setOrders] = useState<VendorOrder[]>([]);
-  const [enrichedData, setEnrichedData] = useState<Record<string, Partial<VendorOrder>>>({});
+  const [enrichedData, setEnrichedData] = useState<Record<string, EnrichedOrderData>>({});
   const [vendorShopName, setVendorShopName] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -335,14 +359,21 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
         ordersToEnrich.map(o => orderService.getOrderDetails(o.orderId))
       );
 
-      const newEnrichments: Record<string, Partial<VendorOrder>> = { ...enrichedData };
+      const newEnrichments: Record<string, EnrichedOrderData> = { ...enrichedData };
       results.forEach((res, index) => {
         if (res.status === 'fulfilled' && res.value) {
           const orderId = ordersToEnrich[index].orderId;
+
+          const itemImageByItemId: Record<string, string | null> = {};
+          (res.value.items || []).forEach((it) => {
+            itemImageByItemId[String(it.itemId)] = it.imageUrl || null;
+          });
+
           newEnrichments[orderId] = {
             customerName: res.value.customer?.fullName || res.value.customerName,
             customerAvatar: res.value.customerAvatar || (res.value.customer as any)?.avatarUrl || '',
-            customerPhone: res.value.customerPhone || res.value.customer?.phoneNumber
+            customerPhone: res.value.customerPhone || res.value.customer?.phoneNumber,
+            itemImageByItemId,
           };
         }
       });
@@ -690,6 +721,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
               ) : (
                 paginatedOrders.map(order => {
                   const cfg = getStatusBadge(order.orderStatus);
+                  const enrichment = enrichedData[order.orderId] || {};
                   return (
                     <div key={order.orderId} className="bg-white rounded-[2rem] border border-gray-200 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300">
 
@@ -754,8 +786,17 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                         <div className="space-y-4">
                           {(order.items || []).map(item => (
                             <div key={item.itemId} className="flex gap-4 items-center">
-                              <div className="size-16 rounded-xl bg-gray-100 border border-gray-200 flex-shrink-0 bg-cover bg-center"
-                                style={{ backgroundImage: `url("${item.imageUrl || 'https://picsum.photos/100?random=2'}")` }} />
+                              <div className="size-16 rounded-xl bg-gray-100 border border-gray-200 flex-shrink-0 overflow-hidden">
+                                <img
+                                  src={toImageSrc(enrichment.itemImageByItemId?.[String(item.itemId)] ?? item.imageUrl)}
+                                  alt={item.packageName}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => {
+                                    const img = e.currentTarget;
+                                    if (img.src !== fallbackProductImage) img.src = fallbackProductImage;
+                                  }}
+                                />
+                              </div>
                               <div className="flex-1 min-w-0">
                                 <h5 className="font-bold text-gray-800 text-base">{item.packageName}</h5>
                                 <p className="text-sm text-slate-500 mt-0.5">Gói: {item.variantName}</p>
@@ -907,11 +948,24 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                 <div>
                   <h2 className="text-2xl font-black text-gray-900">Chi tiết đơn hàng</h2>
                   <div className="flex items-center gap-2 mt-0.5">
-                    <p className="text-sm text-gray-500">
-                      {hasMeaningfulText(selectedOrder.customer?.fullName) && `Khách: ${selectedOrder.customer.fullName}`}
-                    </p>
-                    {selectedOrder.customer?.phoneNumber && <span className="text-gray-300">|</span>}
-                    <p className="text-sm text-gray-500">{selectedOrder.customer?.phoneNumber}</p>
+                    {(() => {
+                      const displayCustomerName =
+                        (hasMeaningfulText(selectedOrder.customer?.fullName) ? selectedOrder.customer?.fullName : '')
+                        || (hasMeaningfulText(selectedOrder.customerName) ? selectedOrder.customerName : '')
+                        || 'Khách hàng';
+
+                      const displayCustomerPhone =
+                        (hasMeaningfulText(selectedOrder.customer?.phoneNumber) ? selectedOrder.customer?.phoneNumber : '')
+                        || (hasMeaningfulText(selectedOrder.customerPhone) ? selectedOrder.customerPhone : '');
+
+                      return (
+                        <>
+                          <p className="text-sm text-gray-500">Khách: {displayCustomerName}</p>
+                          {hasMeaningfulText(displayCustomerPhone) && <span className="text-gray-300">|</span>}
+                          <p className="text-sm text-gray-500">{displayCustomerPhone}</p>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -933,8 +987,17 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                   <div className="space-y-3 max-h-[260px] overflow-y-auto pr-1">
                     {(selectedOrder.items || []).map(item => (
                       <div key={item.itemId} className="flex gap-3 items-center">
-                        <div className="size-12 rounded-xl bg-gray-100 border border-gray-200 flex-shrink-0 bg-cover bg-center"
-                          style={{ backgroundImage: `url("${item.imageUrl || 'https://picsum.photos/100?random=3'}")` }} />
+                        <div className="size-12 rounded-xl bg-gray-100 border border-gray-200 flex-shrink-0 overflow-hidden">
+                          <img
+                            src={toImageSrc(item.imageUrl)}
+                            alt={item.packageName}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              const img = e.currentTarget;
+                              if (img.src !== fallbackProductImage) img.src = fallbackProductImage;
+                            }}
+                          />
+                        </div>
                         <div className="flex-1 min-w-0">
                           <p className="font-bold text-gray-800 truncate">{item.packageName}</p>
                           <p className="text-sm text-slate-500">{item.variantName} × {item.quantity}</p>
@@ -1063,6 +1126,13 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                       <p className="text-xs text-slate-500 text-right px-4 py-2 bg-white">Thanh toán lúc: {formatDateTimeVi(selectedOrder.payment.paidAt)}</p>
                     )}
                   </div>
+
+                  {hasMeaningfulText(selectedOrder.cancelReason) && (
+                    <div className="mt-3 p-3 bg-red-50 rounded-xl border border-red-100">
+                      <p className="text-xs text-red-500 font-semibold uppercase tracking-wide mb-1">Lý do hủy</p>
+                      <p className="text-sm text-gray-700">{selectedOrder.cancelReason}</p>
+                    </div>
+                  )}
                 </div>
 
               </div>
@@ -1139,12 +1209,20 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                       {/* <div className={`size-8 rounded-full ${getAvatarColor(selectedOrder.customer?.fullName || 'C')} flex items-center justify-center text-white text-xs font-bold`}>
                          {getInitials(selectedOrder.customer?.fullName || 'C')}
                        </div> */}
-                      <span className="font-semibold text-gray-800 text-right">{selectedOrder.customer?.fullName || 'N/A'}</span>
+                      <span className="font-semibold text-gray-800 text-right">
+                        {(hasMeaningfulText(selectedOrder.customer?.fullName) ? selectedOrder.customer?.fullName : '')
+                          || (hasMeaningfulText(selectedOrder.customerName) ? selectedOrder.customerName : '')
+                          || 'N/A'}
+                      </span>
                     </div>
                   </div>
                   <div className="flex justify-between gap-3 px-4 py-2.5 bg-white">
                     <span className="text-gray-500">Số điện thoại</span>
-                    <span className="font-semibold text-gray-800 text-right">{selectedOrder.customer?.phoneNumber || 'N/A'}</span>
+                    <span className="font-semibold text-gray-800 text-right">
+                      {(hasMeaningfulText(selectedOrder.customer?.phoneNumber) ? selectedOrder.customer?.phoneNumber : '')
+                        || (hasMeaningfulText(selectedOrder.customerPhone) ? selectedOrder.customerPhone : '')
+                        || 'N/A'}
+                    </span>
                   </div>
                   <div className="flex justify-between gap-3 px-4 py-2.5 bg-white">
                     <span className="text-gray-500">Hoa hồng</span>
@@ -1159,14 +1237,23 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                     <span className="font-semibold text-green-600">{formatVnd(selectedOrder.vendorPricingDetails?.vendorNetAmount)}</span>
                   </div>
                   <div className="flex justify-between gap-3 px-4 py-2.5 bg-white">
-                    <span className="text-gray-500">Đã trả cho nhà bán</span>
+                    {/* <span className="text-gray-500">Đã trả cho nhà bán</span>
                     <span className={`font-bold ${selectedOrder.vendorPricingDetails?.isPaidToVendor ? 'text-green-600' : 'text-amber-600'}`}>
                       {selectedOrder.vendorPricingDetails?.isPaidToVendor ? 'Đã trả' : 'Chưa trả'}
-                    </span>
+                    </span> */}
                   </div>
-                  <div className="flex justify-between gap-3 px-4 py-2.5 bg-white">
+                  {/* <div className="flex justify-between gap-3 px-4 py-2.5 bg-white">
                     <span className="text-gray-500">Ngày trả</span>
                     <span className="font-semibold text-gray-800 text-right">{selectedOrder.vendorPricingDetails?.paidToVendorDate ? formatDateTimeVi(selectedOrder.vendorPricingDetails.paidToVendorDate) : 'N/A'}</span>
+                  </div> */}
+
+                  <div className="flex justify-between gap-3 px-4 py-2.5 bg-white">
+                    <span className="text-gray-500">Mã giao dịch</span>
+                    <span className="font-semibold text-gray-800 text-right">
+                      {hasMeaningfulText(selectedOrder.vendorPricingDetails?.transactionId)
+                        ? selectedOrder.vendorPricingDetails?.transactionId
+                        : (hasMeaningfulText(selectedOrder.payment?.transactionId) ? selectedOrder.payment?.transactionId : 'N/A')}
+                    </span>
                   </div>
                 </div>
               </div>

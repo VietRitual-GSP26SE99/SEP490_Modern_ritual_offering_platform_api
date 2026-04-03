@@ -582,7 +582,7 @@ const OrderDetailsPage: React.FC = () => {
                             <div>
                                 <p className="text-xs font-bold uppercase tracking-widest text-orange-500">Hoàn tiền bị từ chối</p>
                                 <p className="text-sm text-gray-700 mt-1">Bạn muốn khiếu nại lên quản trị không?</p>
-                                {refundInfo.adminNote && (
+                                {refundInfo?.adminNote && (
                                     <p className="text-xs text-gray-500 mt-1">Ghi chú: {refundInfo.adminNote}</p>
                                 )}
                             </div>

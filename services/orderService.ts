@@ -348,8 +348,8 @@ class OrderService {
                 const payload = data.result;
                 const rawItems = Array.isArray(payload) ? payload : (payload.items || []);
 
-                const orders = rawItems.map((raw: any) => {
-                    const items = Array.isArray(raw.items)
+                const orders: Order[] = rawItems.map((raw: any) => {
+                    const items: OrderItem[] = Array.isArray(raw.items)
                         ? raw.items.map((item: any) => {
                             const quantity = Number(item.quantity) || 0;
                             const unitPrice = Number(item.unitPrice ?? item.price) || 0;
@@ -572,6 +572,27 @@ class OrderService {
                     }))
                     : [];
 
+                const customerName =
+                    raw.customerName
+                    || (raw as any).CustomerName
+                    || raw.customer?.fullName
+                    || (raw.customer as any)?.customerName
+                    || 'Khách hàng';
+
+                const customerPhone =
+                    raw.customerPhone
+                    || (raw as any).CustomerPhone
+                    || raw.customer?.phoneNumber
+                    || (raw.customer as any)?.customerPhone
+                    || '';
+
+                const customerEmail =
+                    raw.customerEmail
+                    || (raw as any).CustomerEmail
+                    || raw.customer?.email
+                    || (raw.customer as any)?.customerEmail
+                    || '';
+
                 const order: Order = {
                     orderId: raw.orderId || orderId,
                     orderStatus: raw.orderStatus || 'Pending',
@@ -579,11 +600,14 @@ class OrderService {
                     customer: {
                         profileId: raw.customer?.profileId || raw.customerProfileId || raw.customerId || '',
                         customerId: raw.customer?.customerId || raw.customerProfileId || raw.customerId || '',
-                        fullName: raw.customer?.fullName || raw.customerName || 'Khách hàng',
-                        email: raw.customer?.email || raw.customerEmail || '',
-                        phoneNumber: raw.customer?.phoneNumber || raw.customerPhone || '',
+                        fullName: customerName,
+                        email: customerEmail,
+                        phoneNumber: customerPhone,
                         avatarUrl: raw.customer?.avatarUrl || (raw as any).customerAvatar || '',
                     },
+                    customerName,
+                    customerPhone,
+                    customerAvatar: raw.customer?.avatarUrl || (raw as any).customerAvatar || '',
                     vendor: {
                         profileId: raw.vendor?.profileId || raw.vendorId || null,
                         shopName: raw.vendor?.shopName || raw.shopName || raw.vendorName || 'Shop',

@@ -552,8 +552,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
               </div>
               {isVendorArea ? (
                 <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-black uppercase tracking-[0.2em]">
-                  <span className="material-symbols-outlined text-base">storefront</span>
-                  Trang ban hang
+                  {/* <span className="material-symbols-outlined text-base">storefront</span>
+                  Trang ban hang */}
                 </div>
               ) : !isBackofficeRole && (
                 <nav className="hidden lg:flex items-center gap-8">

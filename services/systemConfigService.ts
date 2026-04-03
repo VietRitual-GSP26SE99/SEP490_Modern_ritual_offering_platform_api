@@ -35,13 +35,54 @@ class SystemConfigService {
 
   async getAllConfigs(group?: string): Promise<ApiResponse<SystemConfig[]>> {
     try {
+      const normalizedGroup = typeof group === 'string' ? group.trim() : undefined;
+
+      // Backend currently errors when `group` is missing/empty (null predicate / validation).
+      // To support "Tất cả các nhóm" on FE, we fetch known groups and merge results.
+      if (!normalizedGroup) {
+        const groups = ['Financial', 'Operational', 'Policy', 'Contact'];
+        const responses = await Promise.all(groups.map((g) => this.getAllConfigs(g)));
+
+        const successResponses = responses.filter((r) => r?.isSuccess && Array.isArray(r.result));
+        const merged: SystemConfig[] = [];
+        const seenKeys = new Set<string>();
+
+        for (const res of successResponses) {
+          for (const cfg of res.result) {
+            const key = String(cfg?.configKey || '').trim();
+            if (!key || seenKeys.has(key)) continue;
+            seenKeys.add(key);
+            merged.push(cfg);
+          }
+        }
+
+        const errorMessages = responses
+          .filter((r) => !r?.isSuccess)
+          .flatMap((r) => r?.errorMessages || [])
+          .filter(Boolean);
+
+        if (merged.length > 0) {
+          return {
+            isSuccess: true,
+            statusCode: '200',
+            errorMessages: errorMessages.length ? errorMessages : undefined,
+            result: merged,
+          } as ApiResponse<SystemConfig[]>;
+        }
+
+        return {
+          isSuccess: false,
+          statusCode: '400',
+          errorMessages: errorMessages.length ? errorMessages : ['Không thể tải cấu hình hệ thống'],
+          result: null as any,
+        };
+      }
+
       const params = new URLSearchParams({
         PageNumber: '1',
         PageSize: '100'
       });
-      if (group) {
-        params.append('Group', group);
-      }
+      params.append('group', normalizedGroup);
       const url = `${API_BASE_URL}/system-configs?${params.toString()}`;
       
       const response = await fetch(url, {

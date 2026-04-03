@@ -46,16 +46,21 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
       const rememberedRaw = localStorage.getItem(REMEMBER_LOGIN_KEY);
       if (!rememberedRaw) return;
 
+      // We only remember the email. Never persist passwords to localStorage.
+      // (Migrate older data that might include a password.)
       const remembered = JSON.parse(rememberedRaw) as { email?: string; password?: string };
       const email = String(remembered.email || '').trim();
-      const password = String(remembered.password || '');
-      if (!email || !password) return;
+      if (!email) return;
+
+      if (remembered.password) {
+        localStorage.setItem(REMEMBER_LOGIN_KEY, JSON.stringify({ email }));
+      }
 
       setRememberLogin(true);
       setFormData((prev) => ({
         ...prev,
         email,
-        password,
+        password: '',
       }));
     } catch (e) {
       localStorage.removeItem(REMEMBER_LOGIN_KEY);
@@ -79,10 +84,10 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
     if (rememberLogin) {
       try {
         const rememberedRaw = localStorage.getItem(REMEMBER_LOGIN_KEY);
-        const remembered = rememberedRaw ? JSON.parse(rememberedRaw) as { email?: string; password?: string } : null;
-        if (remembered?.email && remembered?.password) {
+        const remembered = rememberedRaw ? JSON.parse(rememberedRaw) as { email?: string } : null;
+        if (remembered?.email) {
           next.email = String(remembered.email);
-          next.password = String(remembered.password);
+          next.password = '';
         }
       } catch {
         // Ignore parse errors and fall back to blank login form.
@@ -190,7 +195,6 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
         if (rememberLogin) {
           localStorage.setItem(REMEMBER_LOGIN_KEY, JSON.stringify({
             email: formData.email,
-            password: formData.password,
           }));
         } else {
           localStorage.removeItem(REMEMBER_LOGIN_KEY);
@@ -377,7 +381,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
             </div>
 
             {/* Registration Form */}
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-5" autoComplete="off">
               {/* Error Display */}
               {error && (
                 <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 flex items-start gap-3 animate-shake">
@@ -393,7 +397,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
 
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                  <span>Tên đầy đủ</span>
+                  <span>Tên Người Dùng</span>
                 </label>
                 <input
                   type="text"
@@ -417,11 +421,12 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
                   onChange={handleInputChange}
                   placeholder="example@email.com"
                   required
+                  autoComplete="email"
                   className="w-full px-5 py-4 border-2 border-gray-200 rounded-xl focus:border-gray-900 focus:ring-4 focus:ring-gray-100 focus:outline-none bg-white transition-all shadow-sm hover:shadow-md"
                 />
               </div>
 
-              <div className="space-y-2">
+              {/* <div className="space-y-2">
                 <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
                   <span>Số điện thoại</span>
                 </label>
@@ -434,7 +439,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
                   required
                   className="w-full px-5 py-4 border-2 border-gray-200 rounded-xl focus:border-gray-900 focus:ring-4 focus:ring-gray-100 focus:outline-none bg-white transition-all shadow-sm hover:shadow-md"
                 />
-              </div>
+              </div> */}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -450,6 +455,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
                       placeholder="••••••••"
                       required
                       minLength={6}
+                      autoComplete="new-password"
                       className="w-full px-5 py-4 pr-12 border-2 border-gray-200 rounded-xl focus:border-gray-900 focus:ring-4 focus:ring-gray-100 focus:outline-none bg-white transition-all shadow-sm hover:shadow-md"
                     />
                     <button
@@ -487,6 +493,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
                       onChange={handleInputChange}
                       placeholder="••••••••"
                       required
+                      autoComplete="new-password"
                       className="w-full px-5 py-4 pr-12 border-2 border-gray-200 rounded-xl focus:border-gray-900 focus:ring-4 focus:ring-gray-100 focus:outline-none bg-white transition-all shadow-sm hover:shadow-md"
                     />
                     <button
@@ -703,7 +710,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
           </div>
 
           {/* Login Form */}
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4" autoComplete="on">
             {/* Error Display */}
             {error && (
               <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 flex items-start gap-3">
@@ -726,6 +733,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
                 onChange={handleInputChange}
                 placeholder="example@email.com"
                 required
+                autoComplete="username"
                 className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg focus:border-gray-900 focus:ring-4 focus:ring-gray-900/10 focus:outline-none bg-white/50 backdrop-blur-sm transition-all duration-300 shadow-sm hover:shadow-md hover:border-gray-400 hover:bg-white"
               />
             </div>
@@ -740,6 +748,7 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
                   onChange={handleInputChange}
                   placeholder="••••••••"
                   required
+                  autoComplete="current-password"
                   className="w-full px-4 py-3 pr-12 border-2 border-gray-200 rounded-lg focus:border-gray-900 focus:ring-4 focus:ring-gray-900/10 focus:outline-none bg-white/50 backdrop-blur-sm transition-all duration-300 shadow-sm hover:shadow-md hover:border-gray-400 hover:bg-white"
                 />
                 <button
