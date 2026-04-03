@@ -19,8 +19,32 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
   const validTabs = ['overview', 'vendors', 'users', 'orders', 'disputes', 'content', 'withdrawals', 'transactions', 'audit', 'systemConfigs'];
   const activeTab = (searchParams.get('tab') && validTabs.includes(searchParams.get('tab')!) ? searchParams.get('tab') : 'overview') as any;
 
+  const getConfigGroupLabel = (group?: string): string => {
+    switch (group) {
+      case 'Financial':
+        return 'Tài chính';
+      case 'Operational':
+        return 'Vận hành';
+      case 'Policy':
+        return 'Chính sách';
+      case 'Contact':
+        return 'Liên hệ';
+      default:
+        return group || 'Không xác định';
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab !== 'systemConfigs') return;
+    if (!searchParams.has('group')) return;
+
+    const nextParams = new URLSearchParams();
+    nextParams.set('tab', 'systemConfigs');
+    setSearchParams(nextParams, { replace: true });
+  }, [activeTab, searchParams, setSearchParams]);
+
   const setActiveTab = (tab: string) => {
-    setSearchParams({ tab });
+    setSearchParams({ tab }, { replace: true });
   };
   const [withdrawalRequests, setWithdrawalRequests] = useState<WithdrawalListItem[]>([]);
   const [isLoadingWithdrawals, setIsLoadingWithdrawals] = useState(false);
@@ -552,10 +576,10 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
               <div class="space-y-1.5">
                 <label class="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-wider">Kiểu dữ liệu</label>
                 <select id="swal-type" class="w-full px-5 py-4 rounded-2xl bg-slate-50 border-2 border-transparent focus:border-primary/30 focus:bg-white outline-none transition-all text-sm font-bold text-slate-700 shadow-sm">
-                  <option value="string">Chuỗi (String)</option>
-                  <option value="int">Số nguyên (Integer)</option>
-                  <option value="decimal">Số thập phân (Decimal)</option>
-                  <option value="bool">Đúng/Sai (Boolean)</option>
+                  <option value="string">Chuỗi</option>
+                  <option value="int">Số nguyên</option>
+                  <option value="decimal">Số thập phân</option>
+                  <option value="bool">Đúng/Sai</option>
                 </select>
               </div>
             </div>
@@ -567,7 +591,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
               </div>
               <div class="space-y-1.5">
                 <label class="text-[10px] font-black text-slate-400 uppercase ml-2 tracking-wider">Nhóm</label>
-                <input id="swal-group" class="w-full px-5 py-4 rounded-2xl bg-slate-50 border-2 border-transparent focus:border-primary/30 focus:bg-white outline-none transition-all text-sm font-bold text-slate-700 shadow-sm" placeholder="Ví dụ: Financial, Policy">
+                <input id="swal-group" class="w-full px-5 py-4 rounded-2xl bg-slate-50 border-2 border-transparent focus:border-primary/30 focus:bg-white outline-none transition-all text-sm font-bold text-slate-700 shadow-sm" placeholder="Ví dụ: Tài chính, Chính sách">
               </div>
             </div>
 
@@ -590,7 +614,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
         const description = (document.getElementById('swal-desc') as HTMLTextAreaElement).value;
 
         if (!configKey || !configValue || !group) {
-          Swal.showValidationMessage('Vui lòng nhập Key, Value và Group');
+          Swal.showValidationMessage('Vui lòng nhập khóa cấu hình, giá trị và nhóm');
           return false;
         }
 
@@ -2035,17 +2059,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
 
                 <div className="p-8 bg-ritual-bg/50 border-b border-gold/10 flex flex-wrap gap-4">
                   <div className="flex-1 min-w-[200px]">
-                    <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Lọc theo nhóm (Group)</label>
+                    <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Lọc theo nhóm</label>
                     <select
                       value={configGroupFilter}
                       onChange={(e) => setConfigGroupFilter(e.target.value)}
                       className="w-full px-4 py-2 rounded-lg border border-gold/10 bg-white"
                     >
-                      <option value="">Tất cả các nhóm</option>
-                      <option value="Financial">Tài chính (Financial)</option>
-                      <option value="Operational">Vận hành (Operational)</option>
-                      <option value="Policy">Chính sách (Policy)</option>
-                      <option value="Contact">Liên hệ (Contact)</option>
+                      <option value="">Tất cả nhóm</option>
+                      <option value="Financial">Tài chính</option>
+                      <option value="Operational">Vận hành</option>
+                      <option value="Policy">Chính sách</option>
+                      <option value="Contact">Liên hệ</option>
                     </select>
                   </div>
                 </div>
@@ -2084,10 +2108,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
                             </td>
                             <td className="px-6 py-4">
                               <span className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-600 text-[10px] font-bold uppercase">
-                                {config.group === 'Financial' ? 'Tài chính' :
-                                  config.group === 'Operational' ? 'Vận hành' :
-                                    config.group === 'Policy' ? 'Chính sách' :
-                                      config.group === 'Contact' ? 'Liên hệ' : config.group}
+                                {getConfigGroupLabel(config.group)}
                               </span>
                             </td>
                             <td className="px-6 py-4 text-slate-500 text-sm max-w-xs truncate" title={config.description}>

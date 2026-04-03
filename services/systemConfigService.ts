@@ -2,6 +2,16 @@ import { ApiResponse } from '../types';
 
 const API_BASE_URL = '/api';
 
+interface PaginatedSystemConfigResult {
+  items: SystemConfig[];
+  pageNumber: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+}
+
 export interface SystemConfig {
   configKey: string;
   configValue: string;
@@ -36,60 +46,49 @@ class SystemConfigService {
   async getAllConfigs(group?: string): Promise<ApiResponse<SystemConfig[]>> {
     try {
       const normalizedGroup = typeof group === 'string' ? group.trim() : undefined;
+      const pageSize = 10;
 
-      // Backend currently errors when `group` is missing/empty (null predicate / validation).
-      // To support "Tất cả các nhóm" on FE, we fetch known groups and merge results.
-      if (!normalizedGroup) {
-        const groups = ['Financial', 'Operational', 'Policy', 'Contact'];
-        const responses = await Promise.all(groups.map((g) => this.getAllConfigs(g)));
+      const fetchPage = async (pageNumber: number): Promise<ApiResponse<PaginatedSystemConfigResult>> => {
+        const params = new URLSearchParams({
+          PageNumber: String(pageNumber),
+          PageSize: String(pageSize),
+        });
 
-        const successResponses = responses.filter((r) => r?.isSuccess && Array.isArray(r.result));
-        const merged: SystemConfig[] = [];
-        const seenKeys = new Set<string>();
-
-        for (const res of successResponses) {
-          for (const cfg of res.result) {
-            const key = String(cfg?.configKey || '').trim();
-            if (!key || seenKeys.has(key)) continue;
-            seenKeys.add(key);
-            merged.push(cfg);
-          }
+        if (normalizedGroup) {
+          params.append('group', normalizedGroup);
         }
 
-        const errorMessages = responses
-          .filter((r) => !r?.isSuccess)
-          .flatMap((r) => r?.errorMessages || [])
-          .filter(Boolean);
+        const response = await fetch(`${API_BASE_URL}/system-configs?${params.toString()}`, {
+          method: 'GET',
+          headers: this.getHeaders(),
+        });
 
-        if (merged.length > 0) {
-          return {
-            isSuccess: true,
-            statusCode: '200',
-            errorMessages: errorMessages.length ? errorMessages : undefined,
-            result: merged,
-          } as ApiResponse<SystemConfig[]>;
-        }
+        return await response.json();
+      };
 
-        return {
-          isSuccess: false,
-          statusCode: '400',
-          errorMessages: errorMessages.length ? errorMessages : ['Không thể tải cấu hình hệ thống'],
-          result: null as any,
-        };
+      const firstResponse = await fetchPage(1);
+      if (!firstResponse.isSuccess) {
+        return firstResponse as unknown as ApiResponse<SystemConfig[]>;
       }
 
-      const params = new URLSearchParams({
-        PageNumber: '1',
-        PageSize: '100'
-      });
-      params.append('group', normalizedGroup);
-      const url = `${API_BASE_URL}/system-configs?${params.toString()}`;
-      
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: this.getHeaders(),
-      });
-      return await response.json();
+      const firstResult = firstResponse.result;
+      const items = Array.isArray(firstResult?.items) ? [...firstResult.items] : [];
+      const totalPages = Math.max(1, Number(firstResult?.totalPages || 1));
+
+      for (let pageNumber = 2; pageNumber <= totalPages; pageNumber += 1) {
+        const pageResponse = await fetchPage(pageNumber);
+        if (!pageResponse.isSuccess) {
+          return pageResponse as unknown as ApiResponse<SystemConfig[]>;
+        }
+
+        const pageItems = Array.isArray(pageResponse.result?.items) ? pageResponse.result.items : [];
+        items.push(...pageItems);
+      }
+
+      return {
+        ...firstResponse,
+        result: items,
+      } as ApiResponse<SystemConfig[]>;
     } catch (error) {
       console.error('❌ Failed to get system configs:', error);
       return { isSuccess: false, statusCode: '500', errorMessages: ['Lỗi kết nối hệ thống'], result: null as any };
