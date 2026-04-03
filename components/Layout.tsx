@@ -69,9 +69,51 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
   const cartRef = useRef<HTMLDivElement>(null);
   const isTopupReturnHandled = useRef(false);
 
+  const isVendorNotification = (item: NotificationItem): boolean => {
+    const t = (item.title || '').toLowerCase();
+    const m = (item.message || '').toLowerCase();
+    const type = String(item.type || '').toLowerCase();
+
+    if (type === 'orderplaced') return true;
+    if (
+      t.includes('người mua') || m.includes('người mua') ||
+      t.includes('có đơn hàng mới') || m.includes('có đơn hàng mới') ||
+      t.includes('vừa đặt') || m.includes('vừa đặt') ||
+      t.includes('doanh thu') || m.includes('doanh thu') ||
+      t.includes('rút tiền') || m.includes('rút tiền') ||
+      t.includes('quyết toán') || m.includes('quyết toán') ||
+      t.includes('đánh giá') || m.includes('đánh giá') ||
+      (t.includes('sản phẩm') && (t.includes('duyệt') || t.includes('từ chối') || t.includes('mới'))) ||
+      (m.includes('sản phẩm') && (m.includes('duyệt') || m.includes('từ chối') || m.includes('mới'))) ||
+      (item.redirectUrl || '').includes('/vendor/')
+    ) {
+      return true;
+    }
+
+    return false;
+  };
+
+  const isVendorAreaCurrent = activeRoute.startsWith('/vendor/');
+  const currentRoles = getCurrentUser()?.roles;
+  const hasVendorRoleNow = userRole === 'vendor' || (Array.isArray(currentRoles) && currentRoles.includes('vendor'));
+
+  const filteredNotifications = React.useMemo(() => {
+    if (hasVendorRoleNow) {
+      return notifications.filter(item => isVendorAreaCurrent ? isVendorNotification(item) : !isVendorNotification(item));
+    }
+    return notifications;
+  }, [notifications, isVendorAreaCurrent, hasVendorRoleNow]);
+
+  const displayUnreadCount = filteredNotifications.filter(n => !n.isRead).length;
+
   const markAllNotificationsAsRead = () => {
-    setNotifications((prev) => prev.map((item) => ({ ...item, isRead: true })));
-    setUnreadNotificationCount(0);
+    setNotifications((prev) => prev.map((item) => {
+      if (filteredNotifications.some(fn => fn.notificationId === item.notificationId)) {
+        return { ...item, isRead: true };
+      }
+      return item;
+    }));
+    setUnreadNotificationCount(prev => Math.max(0, prev - displayUnreadCount));
   };
 
   const loadNotifications = async () => {
@@ -89,14 +131,100 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
 
   const resolveNotificationRedirectPath = (item: NotificationItem): string => {
     const rawUrl = item.redirectUrl;
+    const rawTarget = item.target;
     const title = (item.title || '').toLowerCase();
     const message = (item.message || '').toLowerCase();
+
+    const currentUser = getCurrentUser();
+    const normalizedRoles = Array.from(
+      new Set(
+        [
+          ...(Array.isArray(currentUser?.roles) ? currentUser.roles : []),
+          currentUser?.role || '',
+        ]
+          .filter((role): role is string => typeof role === 'string' && role.trim().length > 0)
+          .map((role) => role.toLowerCase())
+      )
+    );
+
+    const hasVendorRole = normalizedRoles.includes('vendor');
+    const hasCustomerRole = normalizedRoles.includes('customer');
+
+    const extractOrderId = (text: string): string | null => {
+      const raw = String(text || '');
+      // Common formats:
+      // - "#6f06d1dc"
+      // - "Đơn hàng 6f06d1dc" / "Đơn hàng #6f06d1dc"
+      // - UUIDs: "d3610b22-e872-485b-c46f-08de9179d13a"
+      const patterns: RegExp[] = [
+        /#\s*([0-9a-f-]{6,64})/i,
+        /đơn\s*hàng\s*#?\s*([0-9a-f-]{6,64})/i,
+        /order\s*#?\s*([0-9a-f-]{6,64})/i,
+      ];
+
+      for (const re of patterns) {
+        const m = raw.match(re);
+        if (m?.[1]) return m[1];
+      }
+
+      return null;
+    };
+
+    const normalizedUserRole = (userRole || '').trim().toLowerCase();
+    const isVendorArea = activeRoute.startsWith('/vendor/') || normalizedUserRole === 'vendor';
+    const isVendorContext = isVendorArea || hasVendorRole;
+    const isOrderNotification = title.includes('đơn hàng') || message.includes('đơn hàng') || String(item.type || '').toLowerCase().includes('order');
+    // Use the actual notification heuristic to decide its scope
+    const isStaffContext = activeRoute.startsWith('/staff/') || normalizedUserRole === 'staff' || normalizedRoles.includes('staff');
+    const isAdminContext = activeRoute.startsWith('/admin/') || normalizedUserRole === 'admin' || normalizedRoles.includes('admin');
+
+    if (isVendorContext && isOrderNotification) {
+      const directOrderId = extractOrderId(`${rawUrl || ''} ${rawTarget || ''} ${item.title || ''} ${item.message || ''}`);
+      if (directOrderId) {
+        return `/vendor/orders?tab=orders&orderId=${encodeURIComponent(directOrderId)}`;
+      }
+      return '/vendor/orders?tab=orders';
+    }
 
     if (title.includes('quyết toán') || title.includes('ví') || message.includes('quyết toán')) {
       return '/wallet/transactions';
     }
 
-    if (!rawUrl) return '';
+    // Vendor/product notifications (no redirectUrl from backend yet)
+    if (isVendorContext && (title.includes('sản phẩm') || message.includes('sản phẩm')) && (title.includes('được duyệt') || message.includes('được duyệt'))) {
+      return '/vendor/products';
+    }
+
+    const tryOrderRouteFromText = (text: string): string => {
+      const orderId = extractOrderId(text);
+      if (!orderId) return '';
+
+      if (isVendorContext) return `/vendor/orders?tab=orders&orderId=${encodeURIComponent(orderId)}`;
+      if (isStaffContext) return '/staff/dashboard';
+      if (isAdminContext) return '/admin/dashboard';
+      return `/profile/orders/${encodeURIComponent(orderId)}`;
+    };
+
+    // Fallback: if backend didn't send redirectUrl, try deriving from target/message/title
+    if (!rawUrl) {
+      // Prefer explicit target (if backend sets it)
+      if (typeof rawTarget === 'string' && rawTarget.trim()) {
+        const fromTarget = tryOrderRouteFromText(rawTarget);
+        if (fromTarget) return fromTarget;
+      }
+
+      const fromMessage = tryOrderRouteFromText(item.message || '');
+      if (fromMessage) return fromMessage;
+
+      const fromTitle = tryOrderRouteFromText(item.title || '');
+      if (fromTitle) return fromTitle;
+
+      // If it's an order notification but we can't parse the id, still take vendor/customer to the proper orders page.
+      if (isOrderNotification && isVendorContext) return '/vendor/orders?tab=orders';
+      if (isOrderNotification && !isVendorContext) return '/profile/orders';
+
+      return '';
+    }
 
     const trimmed = rawUrl.trim();
     if (!trimmed) return '';
@@ -105,10 +233,19 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
       return trimmed;
     }
 
+    // Backend sometimes sends '/orders' (no id). Our app routes are role-scoped.
+    if (/^\/orders\/?(\?.*)?$/i.test(trimmed)) {
+      if (isVendorContext) return '/vendor/orders?tab=orders';
+      if (isStaffContext) return '/staff/dashboard';
+      if (isAdminContext) return '/admin/dashboard';
+      return '/profile/orders';
+    }
+
     const orderMatch = trimmed.match(/^\/orders\/([^/?#]+)/i);
     if (orderMatch) {
       const orderId = orderMatch[1];
-      return `/profile/orders/${orderId}`;
+      if (isVendorContext) return `/vendor/orders?tab=orders&orderId=${encodeURIComponent(orderId)}`;
+      return `/profile/orders/${encodeURIComponent(orderId)}`;
     }
 
     return trimmed;
@@ -575,9 +712,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
 
                       {item.submenu && (
                         <div className={`absolute left-0 top-full pt-2 z-50 transition-all duration-200 ${openDropdown === item.label ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible pointer-events-none -translate-y-2'}`}>
-                          <div className={`bg-white border border-gray-100 shadow-xl rounded-2xl overflow-hidden ${item.submenu.length > 5 ? 'w-[600px] p-6' : 'w-56 p-2'}`}>
-                            <div className={`${item.submenu.length > 5 ? 'grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2' : 'flex flex-col'}`}>
-                              {item.submenu.map((submenuItem, idx) => (
+                          <div className={`bg-white border border-gray-100 shadow-xl rounded-2xl overflow-hidden ${(item.submenu?.length ?? 0) > 5 ? 'w-[600px] p-6' : 'w-56 p-2'}`}>
+                            <div className={`${(item.submenu?.length ?? 0) > 5 ? 'grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2' : 'flex flex-col'}`}>
+                              {(item.submenu || []).map((submenuItem, idx) => (
                                 <button
                                   key={`${submenuItem.path}-${idx}`}
                                   onClick={(e) => {
@@ -585,9 +722,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
                                     onNavigate(submenuItem.path);
                                     setOpenDropdown(null);
                                   }}
-                                  className={`w-full text-left text-sm text-slate-600 hover:bg-primary/5 hover:text-primary transition-colors rounded-xl font-medium ${item.submenu.length > 5 ? 'py-2 px-3 flex items-center gap-2' : 'py-3 px-4 mb-1 last:mb-0'}`}
+                                  className={`w-full text-left text-sm text-slate-600 hover:bg-primary/5 hover:text-primary transition-colors rounded-xl font-medium ${(item.submenu?.length ?? 0) > 5 ? 'py-2 px-3 flex items-center gap-2' : 'py-3 px-4 mb-1 last:mb-0'}`}
                                 >
-                                  {item.submenu && item.submenu.length > 5 && idx === 0 && (
+                                  {(item.submenu?.length ?? 0) > 5 && idx === 0 && (
                                     <span className="material-symbols-outlined text-primary text-base">apps</span>
                                   )}
                                   {submenuItem.label}
@@ -617,7 +754,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
                       clearTimeout(notificationDropdownTimeout.current);
                     }
                     setIsNotificationDropdownOpen(true);
-                    if (notifications.length === 0 && !notificationLoading) {
+                    if (filteredNotifications.length === 0 && !notificationLoading) {
                       loadNotifications();
                     }
                   }}
@@ -632,7 +769,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
                     onClick={() => {
                       const next = !isNotificationDropdownOpen;
                       setIsNotificationDropdownOpen(next);
-                      if (next && notifications.length === 0 && !notificationLoading) {
+                      if (next && filteredNotifications.length === 0 && !notificationLoading) {
                         loadNotifications();
                       }
                     }}
@@ -648,9 +785,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
                       <path d="M12 2C10.3431 2 9 3.34315 9 5V5.34196C6.71873 6.16519 5.125 8.33675 5.125 10.75V15L4 16.75V17.5H20V16.75L18.875 15V10.75C18.875 8.33675 17.2813 6.16519 15 5.34196V5C15 3.34315 13.6569 2 12 2ZM10.75 19C10.75 20.2426 11.7574 21.25 13 21.25C14.2426 21.25 15.25 20.2426 15.25 19H10.75Z" />
                     </svg>
 
-                    {unreadNotificationCount > 0 && (
+                    {displayUnreadCount > 0 && (
                       <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-black rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-0.5">
-                        {unreadNotificationCount > 9 ? '9+' : unreadNotificationCount}
+                        {displayUnreadCount > 9 ? '9+' : displayUnreadCount}
                       </span>
                     )}
                   </button>
@@ -681,15 +818,15 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
                       </div>
 
                       <div className="max-h-80 overflow-y-auto divide-y divide-gray-100 scrollbar-thin scrollbar-thumb-slate-200 scrollbar-track-transparent">
-                        {notificationLoading && notifications.length === 0 && (
+                        {notificationLoading && filteredNotifications.length === 0 && (
                           <div className="px-5 py-6 text-sm text-slate-500">Đang tải thông báo...</div>
                         )}
 
-                        {!notificationLoading && notifications.length === 0 && (
+                        {!notificationLoading && filteredNotifications.length === 0 && (
                           <div className="px-5 py-6 text-sm text-slate-500">Hiện chưa có thông báo nào.</div>
                         )}
 
-                        {notifications.map((item) => (
+                        {filteredNotifications.map((item) => (
                           <div
                             key={String(item.notificationId)}
                             className={`px-5 py-4 flex gap-3 hover:bg-slate-50 transition-colors cursor-pointer ${!item.isRead ? 'bg-amber-50/60' : ''}`}

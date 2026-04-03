@@ -64,21 +64,17 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
         console.log(' Received categories:', apiCategories);
         setCategories(apiCategories);
 
-        // Fetch user default address for distance sorting
-        let userLat: number | null = null;
-        let userLng: number | null = null;
-        if (getCurrentUser()) {
-          try {
-            const addresses = await addressService.getAddresses();
-            const defaultAddr = addresses.find(a => a.isDefault);
-            if (defaultAddr && defaultAddr.latitude && defaultAddr.longitude) {
-              userLat = defaultAddr.latitude;
-              userLng = defaultAddr.longitude;
-            }
-          } catch (e) {
-            console.warn('Could not fetch user address for distance sorting', e);
-          }
-        }
+        // Prefer backend-calculated nearby packages when logged in
+        const nearbyResult = getCurrentUser()
+          ? await packageService.getNearbyPackages(1, 30).catch(() => null)
+          : null;
+
+        const nearbyDistanceByPackageId = new Map<string, number>();
+        (nearbyResult?.items || []).forEach((it) => {
+          const pid = String((it as any).packageId ?? (it as any).id ?? '').trim();
+          const dist = Number((it as any).distanceKm);
+          if (pid && Number.isFinite(dist)) nearbyDistanceByPackageId.set(pid, dist);
+        });
 
         const apiPackages = await packageService.getAllPackages();
         console.log(' Received packages:', apiPackages);
@@ -89,25 +85,7 @@ const ProductListPage: React.FC<{ onNavigate: (route: AppRoute | string) => void
           // Update product categories based on dynamic names if possible
           // This ensures filtering works with the names from API
           const enhancedProducts = await Promise.all(mappedProducts.map(async p => {
-            let distanceKm: number | undefined = undefined;
-
-            if (userLat !== null && userLng !== null && p.vendorId) {
-              try {
-                const vendor = await vendorService.getVendorCached(p.vendorId);
-                if (vendor && vendor.shopLatitude && vendor.shopLongitude) {
-                  const R = 6371; // km
-                  const dLat = (vendor.shopLatitude - userLat) * (Math.PI / 180);
-                  const dLon = (vendor.shopLongitude - userLng) * (Math.PI / 180);
-                  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                    Math.cos(userLat * (Math.PI / 180)) * Math.cos(vendor.shopLatitude * (Math.PI / 180)) *
-                    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-                  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-                  distanceKm = Math.round(R * c * 10) / 10;
-                }
-              } catch (e) {
-                // ignore
-              }
-            }
+            const distanceKm = nearbyDistanceByPackageId.get(String(p.id)) ?? undefined;
 
             let categoryName = p.category as string;
             const apiPkg = apiPackages.find(pkg => String(pkg.packageId) === String(p.id) || String((pkg as any).id) === String(p.id));

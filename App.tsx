@@ -66,9 +66,16 @@ const AppContent: React.FC<{
   const navigate = useNavigate();
   const location = useLocation();
   const currentUser = getCurrentUser();
-  const normalizedRoles = (currentUser?.roles || [])
-    .filter((role): role is string => typeof role === 'string')
-    .map((role) => role.toLowerCase());
+  const normalizedRoles = Array.from(
+    new Set(
+      [
+        ...(Array.isArray(currentUser?.roles) ? currentUser.roles : []),
+        currentUser?.role || '',
+      ]
+        .filter((role): role is string => typeof role === 'string' && role.trim().length > 0)
+        .map((role) => role.toLowerCase())
+    )
+  );
   const hasVendorRole = userRole === 'vendor' || normalizedRoles.includes('vendor');
   const hasCustomerRole = userRole === 'customer' || normalizedRoles.includes('customer');
   const isProfileSetupRequired =

@@ -223,6 +223,70 @@ class PackageService {
   }
 
   /**
+   * Lấy danh sách packages gần nhất (yêu cầu đăng nhập)
+   * GET /api/packages/nearby?PageNumber=&PageSize=
+   */
+  async getNearbyPackages(
+    pageNumber: number = 1,
+    pageSize: number = 10,
+  ): Promise<PaginatedResult<{
+    distanceKm: number;
+    packageId: number;
+    packageName?: string;
+    vendorId?: string;
+    shopName?: string;
+    categoryId?: number;
+    ratingAvg?: number;
+    reviewCount?: number;
+    totalSold?: number;
+    packageAvatarUrl?: string;
+  }> | null> {
+    const token = getAuthToken();
+    if (!token) return null;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/packages/nearby?PageNumber=${pageNumber}&PageSize=${pageSize}`, {
+        method: 'GET',
+        headers: {
+          Accept: 'application/json, text/plain, */*',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errText = await response.text().catch(() => '');
+        const msg = this.extractBackendErrorMessage(errText);
+        throw new Error(msg || `HTTP error! status: ${response.status}`);
+      }
+
+      const data: any = await response.json();
+      const isSuccess = data?.isSuccess || data?.isSucceeded || data?.statusCode === 'OK';
+      if (!isSuccess || !data?.result) return null;
+
+      const result = data.result;
+      if (result && Array.isArray(result.items)) return result as PaginatedResult<any>;
+
+      // Some backends return array directly
+      if (Array.isArray(result)) {
+        return {
+          items: result,
+          pageNumber: 1,
+          pageSize: result.length,
+          totalCount: result.length,
+          totalPages: 1,
+          hasPreviousPage: false,
+          hasNextPage: false,
+        };
+      }
+
+      return null;
+    } catch (error) {
+      console.warn('Failed to fetch nearby packages:', error);
+      return null;
+    }
+  }
+
+  /**
    * Lấy danh sách packages với đầy đủ thông tin phân trang
    * @param pageNumber - Số trang
    * @param pageSize - Số lượng item trên mỗi trang
