@@ -247,7 +247,7 @@ class RefundService {
                 const mapped = list.map((item: any) => this.mapRefundRecord(item));
 
                 return await Promise.all(
-                    mapped.map(async (record) => {
+                    mapped.map(async (record: RefundRecord) => {
                         if (record.items.length > 0) return record;
 
                         const orderItems = await this.fetchOrderItemsByOrderId(record.orderId, record.refundId);
@@ -456,7 +456,17 @@ class RefundService {
             customerId: raw.customerId || raw.customer?.profileId || '',
             customerName: raw.customerName || raw.customer?.fullName || 'Khách hàng',
             customerEmail: raw.customerEmail || raw.customer?.email || '',
-            customerPhone: raw.customerPhone || raw.customer?.phoneNumber || '',
+            customerPhone:
+                raw.customerPhone
+                || raw.CustomerPhone
+                || raw.phoneNumber
+                || raw.PhoneNumber
+                || raw.phone
+                || raw.customer?.phoneNumber
+                || raw.customer?.customerPhone
+                || raw.customer?.phone
+                || raw.customer?.mobile
+                || '',
             reason: raw.reason || '',
             proofImages: Array.isArray(raw.proofImages) ? raw.proofImages : [],
             status: this.normalizeRefundStatus(raw.status),

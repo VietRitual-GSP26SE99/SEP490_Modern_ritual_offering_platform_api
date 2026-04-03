@@ -275,6 +275,9 @@ const OrderDetailsPage: React.FC = () => {
         // Ngược lại, chỉ cho phép tối đa 2h sau khi giao
         return diffHours <= 2;
     })();
+    const hasRefundRequest = Boolean(refundInfo?.refundId);
+    const isRefundRejected = refundInfo?.status === 'Rejected' || (order?.orderStatus || '').toUpperCase() === 'VENDORREJECTED';
+    const refundActionLabel = isRefundRejected ? 'Hoàn tiền bị từ chối' : 'Đã yêu cầu hoàn tiền';
 
     if (loading) {
         return (
@@ -318,6 +321,13 @@ const OrderDetailsPage: React.FC = () => {
 
     const hasPreparationImages = preparationImages.length > 0;
     const hasDeliveryImages = deliveryImages.length > 0;
+    const hasRefundStep = Boolean(refundInfo?.refundId);
+    const refundStepLabel = refundInfo?.status === 'Rejected' ? 'Hoàn tiền bị từ chối' : 'Hoàn tiền';
+    const refundStepDescription = refundInfo?.status === 'Rejected'
+        ? 'Yêu cầu hoàn tiền đã bị từ chối'
+        : refundInfo?.status === 'Approved'
+            ? 'Yêu cầu hoàn tiền đã được duyệt'
+            : 'Đang xử lý yêu cầu hoàn tiền';
 
     const trackingStepIndex = getTrackingStepIndex(order.orderStatus);
     const trackingSteps = [
@@ -325,7 +335,12 @@ const OrderDetailsPage: React.FC = () => {
         { label: 'Chuẩn bị', description: 'Chuẩn bị mâm lễ và vật phẩm' },
         { label: 'Đang giao', description: 'Nhân viên đang di chuyển' },
         { label: 'Hoàn tất', description: 'Hoàn thành phục vụ nghi lễ' },
+        ...(hasRefundStep ? [{ label: refundStepLabel, description: refundStepDescription }] : []),
     ];
+    const displayTrackingStepIndex = hasRefundStep ? trackingSteps.length - 1 : trackingStepIndex;
+    const trackingProgressWidth = trackingSteps.length > 1
+        ? `${(displayTrackingStepIndex / (trackingSteps.length - 1)) * 100}%`
+        : '0%';
 
     return (
         <div className="bg-gray-50 min-h-screen py-10">
@@ -373,19 +388,29 @@ const OrderDetailsPage: React.FC = () => {
                         )} */}
                         {order.orderStatus.toUpperCase() === 'DELIVERED' && (
                             <>
-                                <button
-                                    onClick={() => {
-                                        if (!canRequestRefund) {
-                                            toast.error('Thời gian yêu cầu hoàn tiền (2 giờ sau khi giao hàng) đã hết.');
-                                            return;
-                                        }
-                                        setIsRefundModalOpen(true);
-                                    }}
-                                    disabled={!canRequestRefund}
-                                    className="bg-white text-orange-600 border border-orange-200 px-6 py-2 rounded-xl font-bold text-sm shadow-sm hover:bg-orange-50 transition"
-                                >
-                                    Yêu cầu hoàn tiền
-                                </button>
+                                {hasRefundRequest ? (
+                                    <button
+                                        type="button"
+                                        disabled
+                                        className="bg-orange-50 text-orange-600 border border-orange-200 px-6 py-2 rounded-xl font-bold text-sm shadow-sm cursor-not-allowed"
+                                    >
+                                        {refundActionLabel}
+                                    </button>
+                                ) : (
+                                    <button
+                                        onClick={() => {
+                                            if (!canRequestRefund) {
+                                                toast.error('Thời gian yêu cầu hoàn tiền (2 giờ sau khi giao hàng) đã hết.');
+                                                return;
+                                            }
+                                            setIsRefundModalOpen(true);
+                                        }}
+                                        disabled={!canRequestRefund}
+                                        className="bg-white text-orange-600 border border-orange-200 px-6 py-2 rounded-xl font-bold text-sm shadow-sm hover:bg-orange-50 transition"
+                                    >
+                                        Yêu cầu hoàn tiền
+                                    </button>
+                                )}
                                 <button
                                     onClick={handleCompleteOrder}
                                     disabled={completing}
@@ -421,14 +446,14 @@ const OrderDetailsPage: React.FC = () => {
                         <div className="absolute top-5 left-0 w-full h-1 bg-slate-100 rounded-full" />
                         <div
                             className="absolute top-5 left-0 h-1 bg-primary rounded-full transition-all duration-500"
-                            style={{ width: `${(trackingStepIndex / 3) * 100}%` }}
+                            style={{ width: trackingProgressWidth }}
                         />
 
                         <div className="relative flex justify-between">
                             {trackingSteps.map((step, index) => {
-                                const isActive = index === trackingStepIndex;
-                                const isCompleted = index < trackingStepIndex;
-                                const isUpcoming = index > trackingStepIndex;
+                                const isActive = index === displayTrackingStepIndex;
+                                const isCompleted = index < displayTrackingStepIndex;
+                                const isUpcoming = index > displayTrackingStepIndex;
 
                                 return (
                                     <div

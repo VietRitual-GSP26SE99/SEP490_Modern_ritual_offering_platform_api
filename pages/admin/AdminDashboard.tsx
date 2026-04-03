@@ -1225,7 +1225,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
             </div>
             <div>
               <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Số điện thoại</p>
-              <p class="font-bold text-slate-700">${refund.customerPhone || 'N/A'}</p>
+              <p class="font-bold text-slate-700">${refund.customerPhone || 'Chưa có số điện thoại'}</p>
             </div>
             <div>
               <p class="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Số tiền chờ hoàn</p>

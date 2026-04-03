@@ -112,6 +112,23 @@ class CartService {
   }
 
   private mapCartItem(item: any): CartItemApi {
+    const imageUrl =
+      item.imageUrl
+      || item.packageAvatarUrl
+      || item.packageImageUrl
+      || item.productImageUrl
+      || item.avatarUrl
+      || item.thumbnailUrl
+      || item.image
+      || item.package?.avatarUrl
+      || item.package?.imageUrl
+      || item.package?.image
+      || item.package?.thumbnailUrl
+      || item.product?.imageUrl
+      || item.product?.avatarUrl
+      || item.product?.thumbnailUrl
+      || null;
+
     return {
       cartItemId: item.cartItemId || item.id || 0,
       cartId: item.cartId || 0,
@@ -121,7 +138,7 @@ class CartService {
       price: item.price || 0,
       packageName: item.packageName || item.name || 'Sản phẩm',
       variantName: item.variantName || 'Mặc định',
-      imageUrl: item.imageUrl || item.packageAvatarUrl || item.packageImageUrl || null
+      imageUrl
     };
   }
 

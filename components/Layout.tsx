@@ -177,6 +177,23 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
     // Use the actual notification heuristic to decide its scope
     const isStaffContext = activeRoute.startsWith('/staff/') || normalizedUserRole === 'staff' || normalizedRoles.includes('staff');
     const isAdminContext = activeRoute.startsWith('/admin/') || normalizedUserRole === 'admin' || normalizedRoles.includes('admin');
+    const isRefundNotification =
+      title.includes('hoàn tiền') ||
+      message.includes('hoàn tiền') ||
+      title.includes('khiếu nại') ||
+      message.includes('khiếu nại') ||
+      title.includes('review') ||
+      message.includes('review') ||
+      String(item.type || '').toLowerCase().includes('refund');
+    const isStaffReviewedRefundNotification =
+      (title.includes('staff review') || message.includes('staff review')) &&
+      (title.includes('khiếu nại') || message.includes('khiếu nại') || title.includes('hoàn tiền') || message.includes('hoàn tiền'));
+    const isWithdrawalNotification =
+      title.includes('rút tiền') ||
+      message.includes('rút tiền') ||
+      title.includes('withdraw') ||
+      message.includes('withdraw') ||
+      String(item.type || '').toLowerCase().includes('withdraw');
 
     if (isVendorContext && isOrderNotification) {
       const directOrderId = extractOrderId(`${rawUrl || ''} ${rawTarget || ''} ${item.title || ''} ${item.message || ''}`);
@@ -184,6 +201,40 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
         return `/vendor/orders?tab=orders&orderId=${encodeURIComponent(directOrderId)}`;
       }
       return '/vendor/orders?tab=orders';
+    }
+
+    if (isVendorContext && (
+      title.includes('rút tiền') ||
+      message.includes('rút tiền') ||
+      title.includes('yêu cầu rút') ||
+      message.includes('yêu cầu rút')
+    )) {
+      return '/vendor/withdraw';
+    }
+
+    if (isRefundNotification) {
+      if (isAdminContext) return '/admin/dashboard?tab=disputes';
+      if (isStaffContext) return '/staff-refunds';
+    }
+
+    if (isStaffReviewedRefundNotification) {
+      if (isAdminContext) return '/admin/dashboard?tab=disputes';
+      if (isStaffContext) return '/staff-refunds';
+    }
+
+    if (
+      title.includes('khiếu nại đã được staff review') ||
+      message.includes('khiếu nại đã được staff review') ||
+      title.includes('yêu cầu hoàn tiền đã được staff review') ||
+      message.includes('yêu cầu hoàn tiền đã được staff review')
+    ) {
+      if (isAdminContext) return '/admin/dashboard?tab=disputes';
+      if (isStaffContext) return '/staff-refunds';
+    }
+
+    if (isWithdrawalNotification) {
+      if (isAdminContext) return '/admin/dashboard?tab=withdrawals';
+      if (isStaffContext) return '/staff-transactions';
     }
 
     if (title.includes('quyết toán') || title.includes('ví') || message.includes('quyết toán')) {

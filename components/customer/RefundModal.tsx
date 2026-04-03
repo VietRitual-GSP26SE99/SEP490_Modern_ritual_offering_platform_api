@@ -66,6 +66,7 @@ const RefundModal: React.FC<RefundModalProps> = ({ isOpen, onClose, onSuccess, o
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        if (submitting) return;
         
         if (selectedItems.length === 0) {
             toast.error('Vui lòng chọn ít nhất một sản phẩm để hoàn tiền');
@@ -255,7 +256,7 @@ const RefundModal: React.FC<RefundModalProps> = ({ isOpen, onClose, onSuccess, o
                         Hủy bỏ
                     </button>
                     <button 
-                        onClick={handleSubmit}
+                        type="submit"
                         disabled={submitting}
                         className="flex-[2] py-4 px-6 bg-primary text-white rounded-2xl font-bold hover:shadow-[0_20px_40px_-15px_rgba(249,115,22,0.4)] hover:-translate-y-0.5 active:translate-y-0 transition-all disabled:opacity-50 disabled:translate-y-0"
                     >
