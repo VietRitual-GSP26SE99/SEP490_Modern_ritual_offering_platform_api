@@ -1664,7 +1664,7 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
 
                   {/* Orders and Balance Info */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                    {/* <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
                       <p className="text-xs font-bold text-gray-500 uppercase">Đơn hàng chưa hoàn tất</p>
                       <p className="text-2xl font-black text-slate-800">
                         {(closureStatus?.pendingOrderCount || 0) + (closureStatus?.futureOrderCount || 0)}
@@ -1672,9 +1672,9 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
                       <p className="text-xs text-gray-500 mt-2">
                         ({(closureStatus?.futureOrderCount || 0)} đơn chưa đến ngày, {(closureStatus?.pendingOrderCount || 0)} đơn đang xử lý)
                       </p>
-                    </div>
+                    </div> */}
                     <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-                      <p className="text-xs font-bold text-gray-500 uppercase">Yêu cầu hoàn tiền mở</p>
+                      <p className="text-xs font-bold text-gray-500 uppercase">Yêu cầu hoàn tiền</p>
                       <p className="text-2xl font-black text-slate-800">{closureStatus?.openRefundCount || 0}</p>
                     </div>
                     <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
