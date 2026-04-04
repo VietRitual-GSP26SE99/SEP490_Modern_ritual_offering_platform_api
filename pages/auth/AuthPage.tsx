@@ -16,7 +16,6 @@ interface AuthFormData {
   email: string;
   password: string;
   confirmPassword: string;
-  name: string;
   phone: string;
   userType: UserRole;
   agreeTerms: boolean;
@@ -26,7 +25,6 @@ const createInitialFormData = (): AuthFormData => ({
   email: '',
   password: '',
   confirmPassword: '',
-  name: '',
   phone: '',
   userType: 'customer',
   agreeTerms: false,
@@ -304,8 +302,9 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
 
       try {
         setError(null);
+        const derivedUsername = formData.email.split('@')[0]?.trim() || formData.email.trim();
         const registerData: RegisterRequest = {
-          username: formData.name,
+          username: derivedUsername,
           email: formData.email,
           password: formData.password,
         };
@@ -394,21 +393,6 @@ const AuthPage: React.FC<AuthPageProps> = ({ onNavigate, onLogin }) => {
                   </div>
                 </div>
               )}
-
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
-                  <span>Tên Người Dùng</span>
-                </label>
-                <input
-                  type="text"
-                  name="name"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  placeholder="Nguyễn Văn A"
-                  required
-                  className="w-full px-5 py-4 border-2 border-gray-200 rounded-xl focus:border-gray-900 focus:ring-4 focus:ring-gray-900/10 focus:outline-none bg-white/50 backdrop-blur-sm transition-all duration-300 shadow-sm hover:shadow-md hover:border-gray-400 hover:bg-white"
-                />
-              </div>
 
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-sm font-semibold text-gray-700">
