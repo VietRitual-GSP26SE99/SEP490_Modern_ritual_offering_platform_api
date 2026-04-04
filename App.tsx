@@ -165,7 +165,7 @@ const AppContent: React.FC<{
     const navItems = [
       { label: 'Tổng quan', icon: 'dashboard', path: '/staff/dashboard' },
       { label: 'Xác minh vendor', icon: 'verified_user', path: '/staff-vendors' },
-      { label: 'Người dùng', icon: 'group', path: '/staff-customers' },
+      
       { label: 'Sản phẩm', icon: 'inventory_2', path: '/staff-product' },
       { label: 'Khiếu nại', icon: 'warning', path: '/staff-refunds' },
       { label: 'Giao dịch', icon: 'payments', path: '/staff-transactions' },

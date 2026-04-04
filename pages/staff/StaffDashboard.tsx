@@ -174,7 +174,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate }) => {
 
   const staffNavItems = [
     { label: 'Tổng quan', icon: 'dashboard', path: '/staff/dashboard' },
-    { label: 'Xác minh nhà cung cấp', icon: 'verified_user', path: '/staff-vendors' },
+    { label: 'Xác minh vendor', icon: 'verified_user', path: '/staff-vendors' },
     // { label: 'Người dùng', icon: 'group', path: '/staff-customers' },
     { label: 'Sản phẩm', icon: 'inventory_2', path: '/staff-product' },
     { label: 'Khiếu nại', icon: 'warning', path: '/staff-refunds' },
