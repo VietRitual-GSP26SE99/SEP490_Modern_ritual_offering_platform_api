@@ -1692,7 +1692,7 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
                     <div className={`p-4 rounded-xl border ${closureStatus?.allConditionsMet ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
                       <p className="text-xs font-bold text-gray-500 uppercase">Trạng thái</p>
                       <p className={`text-lg font-black ${closureStatus?.allConditionsMet ? 'text-green-600' : 'text-amber-600'}`}>
-                        {closureStatus?.allConditionsMet ? '✓ Sẵn sàng' : '⏳ Chưa sẵn sàng'}
+                        {closureStatus?.allConditionsMet ? '✓ Sẵn sàng' : ' Chưa sẵn sàng'}
                       </p>
                     </div>
                   </div>
