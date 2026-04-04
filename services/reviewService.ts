@@ -19,7 +19,8 @@ export interface ReviewResponse {
 }
 
 export interface Review {
-    reviewId: string;
+    reviewId: string | number;
+    packageId?: number;
     itemId: string;
     variantId: number;
     variantName: string;
@@ -37,24 +38,32 @@ export interface Review {
 
 class ReviewService {
     private extractReviewArray(data: any): Review[] {
+        if (!data) return [];
+        
         if (Array.isArray(data)) {
             return data as Review[];
         }
 
-        if (Array.isArray(data?.result)) {
-            return data.result as Review[];
+        // Try various path patterns based on known API response structures
+        const items = 
+            data?.result?.items || 
+            data?.Result?.Items || 
+            data?.result?.reviews || 
+            data?.result || 
+            data?.Result ||
+            data?.data || 
+            data?.Data ||
+            data?.items ||
+            data?.Items;
+
+        if (Array.isArray(items)) {
+            return items as Review[];
         }
 
-        if (Array.isArray(data?.result?.reviews)) {
-            return data.result.reviews as Review[];
-        }
-
-        if (Array.isArray(data?.data)) {
-            return data.data as Review[];
-        }
-
-        if (Array.isArray(data?.items)) {
-            return data.items as Review[];
+        // Deep nested checks if needed
+        if (data?.result && typeof data.result === 'object') {
+            if (Array.isArray(data.result.items)) return data.result.items;
+            if (Array.isArray(data.result.data)) return data.result.data;
         }
 
         return [];

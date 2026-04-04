@@ -218,7 +218,15 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
     }
   };
 
-  const reviewsToDisplay = reviews.filter(r => (r.isVisible !== false) || isOwnerVendor);
+  const reviewsToDisplay = reviews.filter(r => {
+    // If user is staff/vendor, show everything
+    if (isOwnerVendor) return true;
+    
+    // Otherwise only show visible reviews
+    // Handle both boolean true/false and cases where field might be missing (default to visible)
+    return r.isVisible === true || r.isVisible === undefined || (r as any).isvisible === true;
+  });
+
   const averageRating = reviewsToDisplay.length > 0
     ? (reviewsToDisplay.reduce((acc, r) => acc + r.rating, 0) / reviewsToDisplay.length).toFixed(1)
     : (product?.rating?.toFixed(1) || '0.0');
@@ -653,6 +661,11 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
               <div className="text-center py-12 bg-white rounded-3xl border border-gold/10">
                 <div className="text-6xl mb-4"></div>
                 <p className="text-slate-500">Chưa có đánh giá nào cho gói lễ này.</p>
+                {reviews.length > 0 && (
+                  <p className="text-[10px] text-slate-300 mt-2 italic">
+                    (Tìm thấy {reviews.length} đánh giá nhưng đều đang ở trạng thái ẩn)
+                  </p>
+                )}
               </div>
             ) : (
               reviewsToDisplay.map((review) => (
@@ -692,7 +705,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                           {isOwnerVendor && (
                             <div className="relative">
                               <button
-                                onClick={() => setActiveReviewMenu(activeReviewMenu === review.reviewId ? null : review.reviewId)}
+                                onClick={() => setActiveReviewMenu(activeReviewMenu === String(review.reviewId) ? null : String(review.reviewId))}
                                 className="p-1.5 hover:bg-slate-100 rounded-full transition-colors text-slate-400 hover:text-slate-600"
                                 title="Quản lý"
                               >
@@ -709,7 +722,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Quản lý đánh giá</p>
                                   </div>
                                   <button
-                                    onClick={() => handleToggleVisibility(review.reviewId, !!review.isVisible)}
+                                    onClick={() => handleToggleVisibility(String(review.reviewId), !!review.isVisible)}
                                     disabled={isTogglingVisibility}
                                     className="w-full px-4 py-3 text-left hover:bg-slate-50 flex items-center gap-3 transition-colors disabled:opacity-50"
                                   >
@@ -743,7 +756,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                       )}
 
                       {/* Vendor Reply Display */}
-                      {review.vendorReply && vendorReplyingTo !== review.reviewId ? (
+                      {review.vendorReply && vendorReplyingTo !== String(review.reviewId) ? (
                         <div className="mt-4 p-4 bg-primary/5 rounded-2xl border-l-4 border-primary relative">
                           <p className="text-xs font-bold text-primary uppercase tracking-widest mb-1">Phản hồi từ shop</p>
                           <p className="text-sm text-slate-600 italic">"{review.vendorReply}"</p>
@@ -756,9 +769,9 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                             </button>
                           )} */}
                         </div>
-                      ) : isOwnerVendor && vendorReplyingTo !== review.reviewId ? (
+                      ) : isOwnerVendor && vendorReplyingTo !== String(review.reviewId) ? (
                         <button
-                          onClick={() => setVendorReplyingTo(review.reviewId)}
+                          onClick={() => setVendorReplyingTo(String(review.reviewId))}
                           className="mt-4 text-[11px] font-black text-primary uppercase tracking-widest hover:bg-primary/5 px-3 py-1.5 rounded-lg border border-primary transition-all"
                         >
                           Phản hồi ngay
@@ -766,7 +779,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                       ) : null}
 
                       {/* Vendor Reply Form */}
-                      {isOwnerVendor && vendorReplyingTo === review.reviewId && (
+                      {isOwnerVendor && vendorReplyingTo === String(review.reviewId) && (
                         <div className="mt-4 space-y-3 bg-slate-50 p-5 rounded-2xl border border-gold/10 animate-in fade-in slide-in-from-top-2">
                           <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest flex items-center gap-2"><span></span> Phản hồi cho khách hàng</p>
                           <textarea
@@ -776,7 +789,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                             className="w-full px-4 py-3 rounded-xl bg-white border border-slate-200 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all text-sm min-h-[80px]"
                           />
                           <div className="flex gap-2">
-                            <button onClick={() => handleVendorReply(review.reviewId)} disabled={isSubmittingReply} className="px-6 py-2 bg-primary text-white font-black rounded-lg hover:bg-primary/90 transition-all disabled:opacity-50 text-[10px] uppercase">Gửi phản hồi</button>
+                            <button onClick={() => handleVendorReply(String(review.reviewId))} disabled={isSubmittingReply} className="px-6 py-2 bg-primary text-white font-black rounded-lg hover:bg-primary/90 transition-all disabled:opacity-50 text-[10px] uppercase">Gửi phản hồi</button>
                             <button onClick={() => { setVendorReplyingTo(null); setVendorReplyText(''); }} disabled={isSubmittingReply} className="px-6 py-2 border border-slate-300 text-slate-500 font-black rounded-lg hover:bg-gray-100 transition-all text-[10px] uppercase">Hủy</button>
                           </div>
                         </div>

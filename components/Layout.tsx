@@ -241,6 +241,15 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
       return '/wallet/transactions';
     }
 
+    // Staff product/vendor notifications
+    if (isStaffContext && (title.includes('sản phẩm') || message.includes('sản phẩm')) && (title.includes('duyệt') || message.includes('duyệt'))) {
+      return '/staff-product';
+    }
+
+    if (isStaffContext && (title.includes('nhà cung cấp') || message.includes('nhà cung cấp') || title.includes('hồ sơ') || message.includes('hồ sơ'))) {
+      return '/staff-vendors';
+    }
+
     // Vendor/product notifications (no redirectUrl from backend yet)
     if (isVendorContext && (title.includes('sản phẩm') || message.includes('sản phẩm')) && (title.includes('được duyệt') || message.includes('được duyệt'))) {
       return '/vendor/products';
