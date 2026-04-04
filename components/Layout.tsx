@@ -711,7 +711,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
     activeRoute.startsWith('/admin');
   const hasStaffRole = normalizedRoles.includes('staff');
   const hasAdminRole = normalizedRoles.includes('admin');
-  const canSwitchRole = hasVendorRole && hasCustomerRole;
+  const canSwitchRole = hasVendorRole;
   const isVendorArea = activeRoute.startsWith('/vendor/');
   const isRestrictedAccountMenu = isBackofficeRole || isVendorArea;
 
