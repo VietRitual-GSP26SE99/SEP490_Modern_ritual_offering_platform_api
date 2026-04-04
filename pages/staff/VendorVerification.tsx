@@ -136,7 +136,7 @@ const VendorVerificationPage: React.FC<Props> = ({ onNavigate }) => {
         </div>
       ) : verifications.length === 0 ? (
         <div className="bg-white p-20 rounded-3xl border-2 border-dashed border-slate-200 text-center">
-          <div className="text-6xl mb-4 text-slate-300">🏪</div>
+          {/* <div className="text-6xl mb-4 text-slate-300"></div> */}
           <h3 className="text-xl font-bold text-slate-800">Không tìm thấy yêu cầu nào</h3>
           <p className="text-slate-400">Hiện tại không có hồ sơ vendor nào cần xử lý trong mục này.</p>
         </div>
@@ -148,7 +148,7 @@ const VendorVerificationPage: React.FC<Props> = ({ onNavigate }) => {
                 <tr className="bg-slate-50 border-b border-slate-200">
                   <th className="px-6 py-5 text-xs font-black uppercase text-slate-400 tracking-widest">Vendor</th>
                   <th className="px-6 py-5 text-xs font-black uppercase text-slate-400 tracking-widest">Loại hình</th>
-                  <th className="px-6 py-5 text-xs font-black uppercase text-slate-400 tracking-widest">Số sản phẩm</th>
+                  <th className="px-6 py-5 text-xs font-black uppercase text-slate-400 tracking-widest">Số tài liệu</th>
                   <th className="px-6 py-5 text-xs font-black uppercase text-slate-400 tracking-widest">Ngày đăng ký</th>
                   <th className="px-6 py-5 text-xs font-black uppercase text-slate-400 tracking-widest text-center">Trạng thái</th>
                   <th className="px-6 py-5 text-xs font-black uppercase text-slate-400 tracking-widest text-right">Thao tác</th>
@@ -182,7 +182,7 @@ const VendorVerificationPage: React.FC<Props> = ({ onNavigate }) => {
                       <td className="px-6 py-5">
                         <div className="flex items-center gap-2">
                           <span className="text-sm font-black text-slate-800">{v.documentCount}</span>
-                          <span className="text-xs text-slate-400">sản phẩm</span>
+                          <span className="text-xs text-slate-400">tài liệu</span>
                         </div>
                       </td>
                       <td className="px-6 py-5 text-sm text-slate-500">
@@ -321,8 +321,8 @@ const VendorVerificationPage: React.FC<Props> = ({ onNavigate }) => {
                         <span className="font-black text-slate-900">{selectedProfile.dailyCapacity}</span>
                       </div>
                       <div className="flex justify-between items-center">
-                        <span className="text-slate-400 text-sm">Trạng thái Vendor:</span>
-                        <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase border ${selectedProfile.vendorStatus === 'Active' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-gray-600 border-gray-200'}`}>
+                        <span className="text-slate-400 text-sm">Trạng thái nhà cung cấp:</span>
+                        <span className={`px-3 py-1 rounded-lg text-[10px] font-black uppercase border ${selectedProfile.vendorStatus === 'Hoạt Động' ? 'bg-green-100 text-green-700 border-green-200' : 'bg-gray-100 text-gray-600 border-gray-200'}`}>
                           {selectedProfile.vendorStatus}
                         </span>
                       </div>
@@ -332,7 +332,7 @@ const VendorVerificationPage: React.FC<Props> = ({ onNavigate }) => {
 
                 {/* Documents List */}
                 <div className="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
-                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 pb-2">Sản phẩm xác minh ({selectedProfile.documents.length})</h3>
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest border-b border-slate-50 pb-2">Tài liệu ({selectedProfile.documents.length})</h3>
                   <div className="space-y-4">
                     {selectedProfile.documents.length === 0 ? (
                       <p className="text-slate-400 text-center py-8 italic">Không có tài liệu đính kèm.</p>
