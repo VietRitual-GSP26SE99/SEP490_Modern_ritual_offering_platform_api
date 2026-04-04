@@ -2015,8 +2015,8 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
     return (
       <div className="bg-white rounded-[2.5rem] border border-gray-200 shadow-xl overflow-hidden relative z-10">
         <div className="bg-primary p-8 text-white">
-          <h3 className="text-3xl font-bold mb-2">Đăng Ký Thành Vendor</h3>
-          <p className="opacity-90">Hoàn thành các thông tin dưới đây để bắt đầu kinh doanh trên Modern Ritual</p>
+          <h3 className="text-3xl font-bold mb-2">Đăng Ký Thành Nhà Cung Cấp</h3>
+          <p className="opacity-90">Hoàn thành các thông tin dưới đây để bắt đầu kinh doanh trên nền tảng</p>
         </div>
 
         {!showForm ? (
