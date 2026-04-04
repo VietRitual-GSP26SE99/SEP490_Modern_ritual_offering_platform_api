@@ -2402,16 +2402,16 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                         <>
                           <img src={URL.createObjectURL(doc.file)} alt="Preview" className="absolute inset-0 w-full h-full object-cover" />
                           <div className="absolute inset-0 bg-black/40 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-                            <label className="cursor-pointer bg-white text-primary px-4 py-2 rounded-full font-bold text-xs">Thay đổi</label>
+                            <label htmlFor={`doc-input-${index}`} className="cursor-pointer bg-white text-primary px-4 py-2 rounded-full font-bold text-xs">Thay đổi</label>
                           </div>
                         </>
                       ) : (
-                        <label className="cursor-pointer flex flex-col items-center">
+                        <label htmlFor={`doc-input-${index}`} className="cursor-pointer flex flex-col items-center">
                           <span className="text-3xl mb-2">📄</span>
                           <span className="text-[10px] font-bold text-primary bg-primary/10 px-3 py-1 rounded-full uppercase">Chọn ảnh</span>
                         </label>
                       )}
-                      <input type="file" accept="image/*" className="hidden" onChange={(e) => handleDocumentChange(index, e.target.files?.[0] || null)} />
+                      <input id={`doc-input-${index}`} type="file" accept="image/*" className="hidden" onChange={(e) => handleDocumentChange(index, e.target.files?.[0] || null)} />
                     </div>
                   </div>
                 ))}
