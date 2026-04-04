@@ -45,6 +45,7 @@ import VendorVerificationPage from './pages/staff/VendorVerification';
 import TransactionManagement from './pages/staff/TransactionManagement';
 import AuditLogPage from './pages/staff/AuditLogPage';
 import BannerManagement from './pages/staff/BannerManagement';
+import { StatisticsPage } from './pages/staff';
 
 // Assistant
 import Assistant from './components/Assistant';
@@ -168,6 +169,7 @@ const AppContent: React.FC<{
       { label: 'Sản phẩm', icon: 'inventory_2', path: '/staff-product' },
       { label: 'Khiếu nại', icon: 'warning', path: '/staff-refunds' },
       { label: 'Giao dịch', icon: 'payments', path: '/staff-transactions' },
+      { label: 'Thống kê', icon: 'analytics', path: '/staff-statistics' },
       { label: 'Banner', icon: 'ad', path: '/staff-banners' },
       { label: 'Cấu hình hệ thống', icon: 'settings', path: '/staff-settings' },
     ];
@@ -306,6 +308,7 @@ const AppContent: React.FC<{
       <Route path="/staff-vendors" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-vendors" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><StaffPageFrame activeRoute="/staff-vendors"><VendorVerificationPage onNavigate={handleNavigate} /></StaffPageFrame></Layout> : <Navigate to="/auth" />} />
       <Route path="/staff-transactions" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-transactions" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><StaffPageFrame activeRoute="/staff-transactions"><TransactionManagement onNavigate={handleNavigate} userRole="staff" /></StaffPageFrame></Layout> : <Navigate to="/auth" />} />
       <Route path="/staff-banners" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-banners" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><StaffPageFrame activeRoute="/staff-banners"><BannerManagement /></StaffPageFrame></Layout> : <Navigate to="/auth" />} />
+      <Route path="/staff-statistics" element={isAuthenticated && userRole === 'staff' ? <Layout activeRoute="/staff-statistics" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><StaffPageFrame activeRoute="/staff-statistics"><StatisticsPage /></StaffPageFrame></Layout> : <Navigate to="/auth" />} />
 
       {/* Admin Routes */}
       <Route path="/admin/dashboard" element={isAuthenticated && userRole === 'admin' ? <Layout activeRoute="/admin/dashboard" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><AdminDashboard onNavigate={handleNavigate} /></Layout> : <Navigate to="/auth" />} />

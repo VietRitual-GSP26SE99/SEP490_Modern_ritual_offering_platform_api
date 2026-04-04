@@ -558,7 +558,7 @@ const VendorShop: React.FC<VendorShopProps> = ({ onNavigate }) => {
       setShowUpdateModal(false);
 
       // Show success message then reload
-      alert('✅ Cập nhật thông tin thành công!');
+      alert('Cập nhật thông tin thành công!');
       window.location.reload();
 
     } catch (error) {

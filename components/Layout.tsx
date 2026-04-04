@@ -1383,8 +1383,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
         </div>
       </div>
 
-      <main className="flex-grow">
-        {children}
+      <main className="flex-grow w-full">
+        <div className="mx-auto w-full max-w-[1600px] px-4 sm:px-6 md:px-8 lg:px-10">
+          {children}
+        </div>
       </main>
 
       {!hideHeader && (

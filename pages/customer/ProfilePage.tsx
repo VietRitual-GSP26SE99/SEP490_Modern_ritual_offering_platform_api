@@ -1410,7 +1410,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
           longitude: result.longitude
         }));
 
-        console.log('✅ Coordinates updated:', {
+        console.log(' Coordinates updated:', {
           latitude: result.latitude,
           longitude: result.longitude,
           formattedAddress: result.formattedAddress,
@@ -1816,7 +1816,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
 
       const updatedProfile = await updateProfile(updateData);
 
-      console.log('✅ Profile updated, reloading from server...');
+      console.log(' Profile updated, reloading from server...');
 
       // Fetch fresh profile data from server to ensure we have the latest
       const [refreshedProfile, refreshedAddresses] = await Promise.all([
@@ -1871,15 +1871,15 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
           icon: 'success',
           confirmButtonText: 'Bắt đầu mua sắm'
         });
-        console.log('✅ First-time setup complete, redirecting to home...');
+        console.log(' First-time setup complete, redirecting to home...');
         navigate('/');
         return;
       }
 
       toast.success('Cập nhật profile thành công!');
-      console.log('✅ Profile refreshed:', refreshedProfileWithAddress);
+      console.log(' Profile refreshed:', refreshedProfileWithAddress);
     } catch (err) {
-      console.error('❌ Failed to update profile:', err);
+      console.error(' Failed to update profile:', err);
       const friendlyMessage = err instanceof Error ? err.message : 'Không thể cập nhật profile. Vui lòng thử lại.';
       setError(friendlyMessage);
       toast.error('Cập nhật thất bại: ' + friendlyMessage);
@@ -1966,9 +1966,9 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
         window.location.href = '/auth';
       }
 
-      console.log('✅ Password changed successfully');
+      console.log(' Password changed successfully');
     } catch (err) {
-      console.error('❌ Failed to change password:', err);
+      console.error(' Failed to change password:', err);
       setPasswordError(err instanceof Error ? err.message : 'Không thể đổi mật khẩu. Vui lòng thử lại.');
     } finally {
       setChangingPassword(false);
@@ -2029,7 +2029,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                 : 'bg-green-50 border-green-200 text-green-700'
               }`}>
               <div className="text-3xl">
-                {vendorRegistration?.verificationStatus === 'Pending' ? '' : vendorRegistration?.verificationStatus === 'Rejected' ? '❌' : '✅'}
+                {vendorRegistration?.verificationStatus === 'Pending' ? '' : vendorRegistration?.verificationStatus === 'Rejected' ? '' : ''}
               </div>
               <div>
                 <h4 className="font-bold text-lg">
@@ -2619,7 +2619,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                       }`}
                   >
                     {tab === 'info' && 'Thông tin cá nhân'}
-                    {tab === 'reviews' && `Đánh giá (${mockReviews.length})`}
+                    {/* {tab === 'reviews' && `Đánh giá (${mockReviews.length})`} */}
                     {tab === 'vendor-register' && (
                       profile?.verificationStatus === 'Pending' ? 'Đang xác minh ' :
                         profile?.verificationStatus === 'Rejected' ? 'Bị từ chối' : 'Đăng ký Vendor '

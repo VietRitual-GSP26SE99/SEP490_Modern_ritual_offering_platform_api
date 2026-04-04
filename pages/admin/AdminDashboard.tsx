@@ -9,6 +9,7 @@ import { vendorService, VendorTier } from '../../services/vendorService';
 import { systemConfigService, SystemConfig, CreateSystemConfigRequest, UpdateSystemConfigRequest } from '../../services/systemConfigService';
 import TransactionManagement from '../staff/TransactionManagement';
 import AuditLogPage from '../staff/AuditLogPage';
+import StatisticsView from '../../components/StatisticsView';
 
 interface AdminDashboardProps {
   onNavigate: (path: string) => void;
@@ -16,8 +17,8 @@ interface AdminDashboardProps {
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
   const [searchParams, setSearchParams] = useSearchParams();
-  const validTabs = ['overview', 'vendors', 'users', 'orders', 'disputes', 'content', 'withdrawals', 'transactions', 'audit', 'systemConfigs'];
-  const activeTab = (searchParams.get('tab') && validTabs.includes(searchParams.get('tab')!) ? searchParams.get('tab') : 'overview') as any;
+  const validTabs = ['statistics', 'vendors', 'users', 'orders', 'disputes', 'content', 'withdrawals', 'transactions', 'audit', 'systemConfigs'];
+  const activeTab = (searchParams.get('tab') && validTabs.includes(searchParams.get('tab')!) ? searchParams.get('tab') : 'statistics') as any;
 
   const getConfigGroupLabel = (group?: string): string => {
     switch (group) {
@@ -75,30 +76,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
   const [withdrawalsPage, setWithdrawalsPage] = useState(1);
   const [configsPage, setConfigsPage] = useState(1);
   const ITEMS_PER_PAGE = 5;
-
-  const adminStats = [
-    { label: 'Tổng doanh thu', value: '1.2B₫', icon: 'trending_up', color: 'text-green-600' },
-    { label: 'Nhà cung cấp hoạt động', value: '156', icon: 'store', color: 'text-blue-600' },
-    { label: 'Khách hàng hoạt động', value: '8,234', icon: 'people', color: 'text-purple-600' },
-    { label: 'Đơn hàng ngày', value: '234', icon: 'shopping_cart_checkout', color: 'text-orange-600' }
-  ];
-
-  const recentOrders = [
-    { id: '#MRT-8829', customer: 'Nguyễn Văn A', vendor: 'Mâm Cúng Hạnh Phúc', amount: 2500000, status: 'Đang giao', time: '10 phút trước' },
-    { id: '#MRT-8828', customer: 'Trần Thị B', vendor: 'Lễ Vật An Khang', amount: 4950000, status: 'Hoàn tất', time: '1 giờ trước' },
-    { id: '#MRT-8827', customer: 'Lê Văn C', vendor: 'Mâm Cúng Tâm Linh', amount: 1850000, status: 'Chờ xác nhận', time: '2 giờ trước' }
-  ];
-
-  const pendingVendors = [
-    { id: 1, name: 'Lễ Vật Phương Đông', city: 'TP. HCM', submitted: '3 ngày trước', docs: 'Đầy đủ' },
-    { id: 2, name: 'Mâm Cúng Đất Việt', city: 'Hà Nội', submitted: '5 ngày trước', docs: 'Đầy đủ' },
-    { id: 3, name: 'Cúng Lễ An Phúc', city: 'Đà Nẵng', submitted: '1 tuần trước', docs: 'Thiếu CCCD' }
-  ];
-
-  const disputes = [
-    { id: '#DIS-001', complaint: 'Sản phẩm không đúng với mô tả', customer: 'Trần Hương', vendor: 'Mâm Cúng A', status: 'Chờ xử lý', date: '2024-01-12' },
-    { id: '#DIS-002', complaint: 'Giao hàng quá trễ', customer: 'Lê Minh', vendor: 'Lễ Vật B', status: 'Đang xử lý', date: '2024-01-11' }
-  ];
 
   const loadWithdrawalRequests = async () => {
     setIsLoadingWithdrawals(true);
@@ -1388,9 +1365,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
                 <h1 className="text-2xl font-display font-black text-primary tracking-tight">Bảng điều khiển quản trị</h1>
                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Quản lý hệ thống</p>
               </div>
-              <div className="flex flex-col gap-1">
+                <div className="flex flex-col gap-1">
                 {[
-                  { id: 'overview', label: 'Tổng quan', icon: 'dashboard' },
+                  { id: 'statistics', label: 'Thống kê', icon: 'analytics' },
                   { id: 'vendors', label: 'Hạng nhà cung cấp', icon: 'storefront' },
                   { id: 'users', label: 'Người dùng', icon: 'group' },
                   { id: 'disputes', label: 'Khiếu nại', icon: 'warning' },
@@ -1423,86 +1400,12 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
 
           {/* Main Content Area */}
           <div className="flex-1 w-full space-y-12">
-            {/* Stats Grid - Moved inside main content to align with content flow */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6">
-              {adminStats.map((stat, idx) => (
-                <div key={idx} className="bg-white rounded-2xl border border-gold/10 shadow-sm p-6 hover:shadow-lg transition-all">
-                  <div className="flex items-start justify-between mb-4">
-                    <span className={`material-symbols-outlined text-3xl ${stat.color}`}>{stat.icon}</span>
-                    {idx === 0 && <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-1 rounded">+8.5%</span>}
-                  </div>
-                  <p className="text-sm text-slate-500 mb-1 uppercase font-bold tracking-widest">{stat.label}</p>
-                  <p className="text-2xl font-black text-primary">{stat.value}</p>
-                </div>
-              ))}
-            </div>
 
             {/* Tab Content */}
-            {activeTab === 'overview' && (
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                {/* Recent Orders */}
-                <div className="lg:col-span-2 bg-white rounded-[2rem] border border-gold/10 shadow-sm p-8">
-                  <h2 className="text-2xl font-bold text-primary mb-8 flex items-center gap-2">
-                    <span className="material-symbols-outlined">receipt_long</span>
-                    Đơn hàng gần đây
-                  </h2>
-                  <div className="space-y-4">
-                    {recentOrders.map((order) => (
-                      <div key={order.id} className="flex items-center justify-between p-4 bg-ritual-bg rounded-xl border border-gold/10 hover:border-primary transition-all">
-                        <div className="flex-1">
-                          <p className="text-xs font-bold uppercase text-gold tracking-widest mb-1">{order.id}</p>
-                          <p className="font-bold text-primary">{order.customer} → {order.vendor}</p>
-                          <p className="text-xs text-slate-500 mt-1">{order.time}</p>
-                        </div>
-                        <div className="text-right">
-                          <p className="font-black text-primary tracking-tight mb-2">{order.amount.toLocaleString()}₫</p>
-                          <span className={`inline-block text-xs font-bold px-3 py-1 rounded-lg ${order.status === 'Hoàn tất' ? 'bg-green-100 text-green-700' :
-                            order.status === 'Đang giao' ? 'bg-blue-100 text-blue-700' :
-                              'bg-yellow-100 text-yellow-700'
-                            }`}>
-                            {order.status}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Quick Actions */}
-                <div className="space-y-6">
-                  <div className="bg-white rounded-[2rem] border border-gold/10 shadow-sm p-8 text-center hover:shadow-lg transition-all">
-                    <span className="material-symbols-outlined text-5xl text-gold mb-4 block">verified_user</span>
-                    <h3 className="font-bold text-primary mb-2">Xác minh nhà cung cấp</h3>
-                    <p className="text-xs text-slate-500 mb-4">{pendingVendors.length} chờ xử lý</p>
-                    <button
-                      onClick={() => setActiveTab('vendors')}
-                      className="w-full border-2 border-primary text-primary py-2 rounded-lg font-bold text-sm uppercase hover:bg-primary/5 transition-all"
-                    >
-                      Xem ngay
-                    </button>
-                  </div>
-
-                  <div className="bg-white rounded-[2rem] border border-gold/10 shadow-sm p-8 text-center hover:shadow-lg transition-all">
-                    <span className="material-symbols-outlined text-5xl text-gold mb-4 block">warning</span>
-                    <h3 className="font-bold text-primary mb-2">khiếu nại</h3>
-                    <p className="text-xs text-slate-500 mb-4">{disputes.length} cần xử lý</p>
-                    <button
-                      onClick={() => setActiveTab('disputes')}
-                      className="w-full border-2 border-primary text-primary py-2 rounded-lg font-bold text-sm uppercase hover:bg-primary/5 transition-all"
-                    >
-                      Xem ngay
-                    </button>
-                  </div>
-
-                  <div className="bg-primary/10 p-8 rounded-[2rem] border border-primary/20 text-center">
-                    <span className="material-symbols-outlined text-5xl text-primary mb-4 block">settings</span>
-                    <h3 className="font-bold text-primary mb-2">Cài đặt hệ thống</h3>
-                    <p className="text-xs text-slate-600 mb-4">Quản lý cấu hình toàn cục</p>
-                    <button className="w-full border-2 border-primary text-primary py-2 rounded-lg font-bold text-sm uppercase hover:bg-primary/5 transition-all">
-                      Truy cập
-                    </button>
-                  </div>
-                </div>
+            
+            {activeTab === 'statistics' && (
+              <div className="bg-white rounded-[2rem] border border-gold/10 shadow-sm p-8">
+                <StatisticsView isStaff={true} />
               </div>
             )}
 

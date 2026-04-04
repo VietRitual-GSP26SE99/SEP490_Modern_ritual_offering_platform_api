@@ -1,5 +1,11 @@
 export { default as StaffDashboard } from './StaffDashboard';
 export { default as CustomerManagement } from './CustomerManagement';
 export { default as RefundManagement } from './RefundManagement';
-export { default as PostManagement } from './PostManagement';
+export { default as StaffProductManagement } from './StaffProductManagement';
+export { default as BannerManagement } from './BannerManagement';
+export { default as SystemSettings } from './SystemSettings';
+export { default as TransactionManagement } from './TransactionManagement';
+export { default as VendorVerification } from './VendorVerification';
+export { default as AuditLogPage } from './AuditLogPage';
 export { default as StaffShell } from './StaffShell';
+export { default as StatisticsPage } from './StatisticsPage';
