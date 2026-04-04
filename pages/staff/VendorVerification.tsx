@@ -109,7 +109,7 @@ const VendorVerificationPage: React.FC<Props> = ({ onNavigate }) => {
     <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Xác minh Vendor</h1>
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">Xác minh nhà cung cấp</h1>
           <p className="text-slate-500 font-medium">Quản lý và phê duyệt hồ sơ đăng ký bán hàng.</p>
         </div>
         <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl shadow-sm border border-slate-200">

@@ -56,11 +56,26 @@ export interface WithdrawalResult {
 
 export interface WithdrawalListItem {
   id: string;
+  withdrawalId: string;
+  walletId?: string;
   vendor: string;
+  accountHolder?: string;
   amount: number;
   bank: string;
+  bankName?: string;
+  accountNumber?: string;
   requestedAt: string;
+  processedDate?: string;
+  createdDate?: string;
   status: string;
+  rejectionReason?: string | null;
+  transaction?: {
+    transactionId: string;
+    amount: number;
+    type: string;
+    status: string;
+    description: string;
+  };
   raw?: Record<string, unknown>;
 }
 
@@ -129,9 +144,13 @@ function readNestedField<T>(
 function normalizeWithdrawalItem(item: unknown, index: number): WithdrawalListItem {
   const source = item && typeof item === 'object' ? (item as Record<string, unknown>) : {};
 
-  const id = String(readField(source, ['withdrawalId', 'WithdrawalId', 'id', 'Id'], `WD-${index + 1}`));
+  const withdrawalId = String(readField(source, ['withdrawalId', 'WithdrawalId', 'id', 'Id'], `WD-${index + 1}`));
+  const id = withdrawalId;
+  const walletId = String(readField(source, ['walletId', 'WalletId'], ''));
+  
+  const accountHolder = String(readField(source, ['accountHolder', 'AccountHolder'], ''));
   const vendor = String(
-    readField(source, ['vendorName', 'VendorName', 'shopName', 'ShopName', 'accountHolder', 'AccountHolder'], 'Không xác định')
+    readField(source, ['vendorName', 'VendorName', 'shopName', 'ShopName'], accountHolder || 'Không xác định')
   );
 
   const amountRaw = readField(source, ['amount', 'Amount'], 0);
@@ -141,22 +160,49 @@ function normalizeWithdrawalItem(item: unknown, index: number): WithdrawalListIt
   const accountNumber = String(readField(source, ['accountNumber', 'AccountNumber'], ''));
   const bank = [bankName, accountNumber].filter(Boolean).join(' - ') || 'Chưa có thông tin';
 
-  const requestedAt = String(
-    readField(
-      source,
-      ['requestedAt', 'RequestedAt', 'createdDate', 'CreatedDate', 'createdAt', 'CreatedAt'],
-      readNestedField(source, ['transaction', 'Transaction'], ['createdAt', 'CreatedAt', 'createdDate', 'CreatedDate'], 'Chưa xác định')
-    )
-  );
+  // Use processedDate if available, otherwise fall back to createdDate or requestedAt
+  let requestedAt = String(readField(source, ['processedDate', 'ProcessedDate'], ''));
+  if (!requestedAt) {
+    requestedAt = String(
+      readField(
+        source,
+        ['requestedAt', 'RequestedAt', 'createdDate', 'CreatedDate', 'createdAt', 'CreatedAt'],
+        readNestedField(source, ['transaction', 'Transaction'], ['createdAt', 'CreatedAt', 'createdDate', 'CreatedDate'], '')
+      )
+    );
+  }
+
+  const processedDate = String(readField(source, ['processedDate', 'ProcessedDate'], ''));
+  const createdDate = String(readField(source, ['createdDate', 'CreatedDate'], ''));
   const status = String(readField(source, ['status', 'Status'], 'Chờ duyệt'));
+  const rejectionReason = readField(source, ['rejectionReason', 'RejectionReason'], null) as string | null;
+  
+  // Extract transaction info
+  const tx = readField(source, ['transaction', 'Transaction'], {} as Record<string, unknown>) as Record<string, unknown>;
+  const transactionObj = tx && typeof tx === 'object' ? {
+    transactionId: String(readField(tx, ['transactionId', 'TransactionId'], '')),
+    amount: typeof readField(tx, ['amount', 'Amount'], 0) === 'number' ? readField(tx, ['amount', 'Amount'], 0) as number : 0,
+    type: String(readField(tx, ['type', 'Type'], '')),
+    status: String(readField(tx, ['status', 'Status'], '')),
+    description: String(readField(tx, ['description', 'Description'], ''))
+  } : undefined;
 
   return {
     id,
+    withdrawalId,
+    walletId: walletId || undefined,
     vendor,
+    accountHolder: accountHolder || undefined,
     amount,
     bank,
+    bankName: bankName || undefined,
+    accountNumber: accountNumber || undefined,
     requestedAt,
+    processedDate: processedDate || undefined,
+    createdDate: createdDate || undefined,
     status,
+    rejectionReason,
+    transaction: transactionObj,
     raw: source,
   };
 }
