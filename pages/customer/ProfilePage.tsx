@@ -2190,7 +2190,7 @@ const ProfilePage: React.FC<ProfilePageProps> = ({ onNavigate }) => {
                       />
                     ) : (
                       <div className="w-32 h-32 rounded-3xl bg-white shadow-sm flex items-center justify-center text-5xl mb-4 group-hover:scale-110 transition-transform">
-                        🏪
+
                       </div>
                     )}
                     <span className="bg-primary text-white px-6 py-2 rounded-full font-bold text-sm shadow-md hover:bg-primary/90">
