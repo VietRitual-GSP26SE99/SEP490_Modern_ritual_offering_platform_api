@@ -1,16 +1,32 @@
 
 import React, { useState, useEffect } from 'react';
-import { aiChatService } from '../services/aiChatService';
+import { aiChatService, SuggestedPackage } from '../services/aiChatService';
 import { isAuthenticated } from '../services/auth';
 import toast from '../services/toast';
+
+type UiMessage = {
+  role: 'user' | 'bot';
+  text: string;
+  suggestedPackages?: SuggestedPackage[];
+};
 
 const Assistant: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [input, setInput] = useState('');
-  const [messages, setMessages] = useState<{ role: 'user' | 'bot', text: string }[]>([]);
+  const [messages, setMessages] = useState<UiMessage[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isInitializing, setIsInitializing] = useState(false);
+
+  const closeAssistant = async () => {
+    if (sessionId) {
+      await aiChatService.closeSession(sessionId);
+    }
+    setIsOpen(false);
+    setSessionId(null);
+    setMessages([]);
+    setInput('');
+  };
 
   // Initialize session when chat opens
   useEffect(() => {
@@ -24,8 +40,9 @@ const Assistant: React.FC = () => {
       const initSession = async () => {
         setIsInitializing(true);
         try {
-          const id = await aiChatService.createSession();
-          if (id && typeof id === 'string') {
+          const session = await aiChatService.createSession();
+          const id = session?.sessionId;
+          if (id) {
             console.log('Assistant setting sessionId:', id);
             setSessionId(id);
           } else {
@@ -52,8 +69,12 @@ const Assistant: React.FC = () => {
     setIsLoading(true);
 
     try {
-      const botResponse = await aiChatService.sendMessage(sessionId, userMsg);
-      setMessages(prev => [...prev, { role: 'bot', text: botResponse }]);
+      const result = await aiChatService.sendMessage(sessionId, userMsg);
+      setMessages(prev => [...prev, {
+        role: 'bot',
+        text: result.assistantText || 'Mình đã nhận thông tin. Bạn có thể cho mình thêm chi tiết để tư vấn chính xác hơn nhé.',
+        suggestedPackages: result.suggestedPackages,
+      }]);
     } catch (error: any) {
        console.error('AI Chat Error:', error);
        setMessages(prev => [...prev, { role: 'bot', text: 'Xin lỗi, tôi đang gặp lỗi kết nối. Bạn vui lòng thử lại sau nhé!' }]);
@@ -84,7 +105,7 @@ const Assistant: React.FC = () => {
                 <p className="text-[10px] opacity-80 uppercase tracking-widest">Tư vấn tâm linh AI</p>
               </div>
             </div>
-            <button onClick={() => setIsOpen(false)} className="hover:rotate-90 transition-transform">
+            <button onClick={() => { void closeAssistant(); }} className="hover:rotate-90 transition-transform">
               <span className="material-symbols-outlined">close</span>
             </button>
           </div>
@@ -108,10 +129,27 @@ const Assistant: React.FC = () => {
             )}
             {messages.map((msg, i) => (
               <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[80%] p-3 rounded-2xl text-sm ${
+                <div className={`max-w-[88%] p-3 rounded-2xl text-sm ${
                   msg.role === 'user' ? 'bg-primary text-white rounded-tr-none shadow-md' : 'bg-white border border-gold/20 rounded-tl-none shadow-sm'
                 }`}>
                   {typeof msg.text === 'string' ? msg.text : JSON.stringify(msg.text)}
+                  {msg.role === 'bot' && Array.isArray(msg.suggestedPackages) && msg.suggestedPackages.length > 0 && (
+                    <div className="mt-3 space-y-2">
+                      <p className="text-[10px] uppercase tracking-widest text-slate-400 font-bold">Gợi ý mâm cúng</p>
+                      {msg.suggestedPackages.slice(0, 3).map((pkg) => (
+                        <button
+                          key={pkg.packageId}
+                          type="button"
+                          onClick={() => window.location.assign(`/package/${pkg.packageId}`)}
+                          className="w-full text-left p-2 rounded-lg border border-gold/20 hover:border-primary/40 hover:bg-primary/5 transition-colors"
+                        >
+                          <p className="text-xs font-bold text-slate-800">{pkg.packageName}</p>
+                          <p className="text-[11px] text-slate-600 line-clamp-2">{pkg.description}</p>
+                          <p className="text-[11px] font-bold text-primary mt-1">Từ {Number(pkg.minVariantPrice || 0).toLocaleString('vi-VN')}đ</p>
+                        </button>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             ))}
@@ -132,7 +170,7 @@ const Assistant: React.FC = () => {
               disabled={isLoading || isInitializing}
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleSend()}
+              onKeyDown={(e) => e.key === 'Enter' && handleSend()}
               type="text" 
               placeholder={isInitializing ? "Vui lòng chờ..." : "Hỏi về nghi lễ..."} 
               className="flex-1 border-gold/20 rounded-xl px-4 py-2 text-sm focus:ring-primary focus:border-primary disabled:opacity-50" 

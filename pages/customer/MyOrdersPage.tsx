@@ -95,7 +95,7 @@ const MyOrdersPage: React.FC = () => {
 
     const getStatusText = (status: string) => {
         switch (status.toUpperCase()) {
-            case 'PENDING': return 'Chờ thanh toán';
+            // case 'PENDING': return 'Chờ thanh toán';
             case 'CONFIRMED': return 'Đã xác nhận';
             case 'PAID': return 'Đã thanh toán';
             case 'PREPARING':
@@ -117,7 +117,7 @@ const MyOrdersPage: React.FC = () => {
 
     const tabs = [
         { id: 'ALL', label: 'Tất cả' },
-        { id: 'PENDING', label: 'Chờ thanh toán' },
+        // { id: 'PENDING', label: 'Chờ thanh toán' },
         { id: 'PAID', label: 'Đang xử lý' },
         { id: 'DELIVERING', label: 'Đang giao' },
         { id: 'COMPLETED', label: 'Đã hoàn thành' },

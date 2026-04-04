@@ -716,6 +716,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
   const isRestrictedAccountMenu = isBackofficeRole || isVendorArea;
 
   const getLogoRedirectPath = (): string => {
+    // Public vendor profile should behave like storefront, not vendor backoffice.
+    if (activeRoute === '/vendor/:id') return '/';
     if (isVendorArea || hasVendorRole) return '/vendor/dashboard';
     if (activeRoute.startsWith('/staff') || hasStaffRole) return '/staff/dashboard';
     if (activeRoute.startsWith('/admin') || hasAdminRole) return '/admin/dashboard';
