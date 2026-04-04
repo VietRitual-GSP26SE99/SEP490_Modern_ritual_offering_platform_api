@@ -69,7 +69,7 @@ const VendorWithdrawPage: React.FC<VendorWithdrawPageProps> = ({ onNavigate }) =
 
   const handleWithdraw = async (e: React.FormEvent) => {
     e.preventDefault();
-    const amount = Number(formData.amount);
+    const amount = Number(formData.amount.replace(/\./g, ''));
     
     if (isNaN(amount) || amount < 50000) {
       toast.error('Số tiền rút tối thiểu là 50.000 ₫.');
@@ -163,6 +163,13 @@ const VendorWithdrawPage: React.FC<VendorWithdrawPageProps> = ({ onNavigate }) =
     }
   };
 
+  const formatNumberInput = (value: string) => {
+    // Remove all non-digit characters
+    const digits = value.replace(/\D/g, '');
+    // Format with dots every 3 digits
+    return digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  };
+
   return (
     <div className="min-h-screen py-12 px-4 md:px-8 font-sans">
       <div className="max-w-[1650px] mx-auto">
@@ -213,12 +220,12 @@ const VendorWithdrawPage: React.FC<VendorWithdrawPageProps> = ({ onNavigate }) =
               <div className="space-y-2">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-4">Số tiền muốn rút (₫)</label>
                 <input
-                  type="number"
+                  type="text"
                   required
                   placeholder="Vd: 1.000.000"
                   className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 font-bold text-lg text-slate-900 focus:ring-2 focus:ring-black transition-all"
                   value={formData.amount}
-                  onChange={(e) => setFormData({...formData, amount: e.target.value})}
+                  onChange={(e) => setFormData({...formData, amount: formatNumberInput(e.target.value)})}
                 />
               </div>
 

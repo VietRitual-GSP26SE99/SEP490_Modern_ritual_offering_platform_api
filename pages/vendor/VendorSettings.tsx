@@ -858,6 +858,34 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
     }
   }, [activeTab, fetchClosureStatus]);
 
+  const formatDate = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'N/A';
+      return date.toLocaleDateString('vi-VN');
+    } catch {
+      return 'N/A';
+    }
+  };
+
+  const formatDateTime = (dateString?: string) => {
+    if (!dateString) return 'N/A';
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) return 'N/A';
+      return date.toLocaleString('vi-VN', { 
+        year: 'numeric', 
+        month: '2-digit', 
+        day: '2-digit', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+    } catch {
+      return 'N/A';
+    }
+  };
+
   const handleRequestClosure = async () => {
     if (!closureReason.trim()) {
       toast.error('Vui lòng nhập lý do đóng cửa hàng');
@@ -1602,31 +1630,70 @@ const VendorSettings: React.FC<VendorSettingsProps> = ({ onNavigate }) => {
               ) : (
                 <div className="space-y-8">
                   <div className="p-6 bg-blue-50 border-2 border-blue-200 rounded-xl flex items-center gap-4">
-                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center text-2xl">⏳</div>
+                   
                     <div>
                       <h3 className="text-lg font-bold text-blue-900">Yêu cầu đang được xử lý</h3>
                       <p className="text-sm text-blue-800">Cửa hàng của bạn đang trong tiến trình thanh lý và đóng cửa.</p>
                     </div>
                   </div>
 
+                  {/* Status Message and Conditions */}
+                  <div className="space-y-3">
+                    <div className={`p-4 rounded-xl border-2 ${closureStatus?.allConditionsMet ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+                      <p className={`text-sm font-bold ${closureStatus?.allConditionsMet ? 'text-green-900' : 'text-amber-900'}`}>
+                        {closureStatus?.message || 'Đang xử lý yêu cầu đóng cửa'}
+                      </p>
+                    </div>
+
+                    {/* Timeline Information */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                        <p className="text-xs font-bold text-gray-500 uppercase mb-1">Ngày yêu cầu</p>
+                        <p className="text-sm font-black text-slate-800">{formatDateTime(closureStatus?.closureRequestedAt)}</p>
+                      </div>
+                      <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                        <p className="text-xs font-bold text-gray-500 uppercase mb-1">Hạn chót</p>
+                        <p className="text-sm font-black text-slate-800">{formatDate(closureStatus?.closureDeadline)}</p>
+                      </div>
+                      <div className="p-4 bg-slate-50 rounded-xl border border-slate-200">
+                        <p className="text-xs font-bold text-gray-500 uppercase mb-1">Ngày giao hàng cuối</p>
+                        <p className="text-sm font-black text-slate-800">{formatDate(closureStatus?.latestDeliveryDate)}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Orders and Balance Info */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-                      <p className="text-xs font-bold text-gray-500 uppercase">Đơn hàng chưa tất toán</p>
+                      <p className="text-xs font-bold text-gray-500 uppercase">Đơn hàng chưa hoàn tất</p>
                       <p className="text-2xl font-black text-slate-800">
                         {(closureStatus?.pendingOrderCount || 0) + (closureStatus?.futureOrderCount || 0)}
                       </p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        ({(closureStatus?.futureOrderCount || 0)} đơn chưa đến ngày, {(closureStatus?.pendingOrderCount || 0)} đơn đang xử lý)
+                      </p>
                     </div>
                     <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
-                      <p className="text-xs font-bold text-gray-500 uppercase">Yêu cầu hoàn tiền</p>
+                      <p className="text-xs font-bold text-gray-500 uppercase">Yêu cầu hoàn tiền mở</p>
                       <p className="text-2xl font-black text-slate-800">{closureStatus?.openRefundCount || 0}</p>
                     </div>
                     <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
                       <p className="text-xs font-bold text-gray-500 uppercase">Dư nợ hệ thống</p>
-                      <p className="text-2xl font-black text-red-600">{closureStatus?.remainingDebt?.toLocaleString() || 0} ₫</p>
+                      <p className="text-2xl font-black text-red-600">{(closureStatus?.remainingDebt || 0).toLocaleString()} ₫</p>
                     </div>
                     <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
                       <p className="text-xs font-bold text-gray-500 uppercase">Số dư bị giữ</p>
-                      <p className="text-2xl font-black text-primary">{closureStatus?.heldBalance?.toLocaleString() || 0} ₫</p>
+                      <p className="text-2xl font-black text-primary">{(closureStatus?.heldBalance || 0).toLocaleString()} ₫</p>
+                    </div>
+                    <div className="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                      <p className="text-xs font-bold text-gray-500 uppercase">Số dư sẵn dùng</p>
+                      <p className="text-2xl font-black text-emerald-600">{(closureStatus?.balance || 0).toLocaleString()} ₫</p>
+                    </div>
+                    <div className={`p-4 rounded-xl border ${closureStatus?.allConditionsMet ? 'bg-green-50 border-green-200' : 'bg-amber-50 border-amber-200'}`}>
+                      <p className="text-xs font-bold text-gray-500 uppercase">Trạng thái</p>
+                      <p className={`text-lg font-black ${closureStatus?.allConditionsMet ? 'text-green-600' : 'text-amber-600'}`}>
+                        {closureStatus?.allConditionsMet ? '✓ Sẵn sàng' : '⏳ Chưa sẵn sàng'}
+                      </p>
                     </div>
                   </div>
 
