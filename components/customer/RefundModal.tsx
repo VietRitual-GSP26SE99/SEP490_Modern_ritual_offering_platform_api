@@ -113,7 +113,7 @@ const RefundModal: React.FC<RefundModalProps> = ({ isOpen, onClose, onSuccess, o
 
     return (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fadeIn">
-            <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-2xl overflow-hidden animate-slideUp max-h-[90vh] flex flex-col">
+            <form onSubmit={handleSubmit} className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-2xl overflow-hidden animate-slideUp max-h-[90vh] flex flex-col">
                 {/* Header */}
                 <div className="px-8 py-6 border-b border-gray-100 flex items-center justify-between bg-white sticky top-0 z-10">
                     <div>
@@ -130,7 +130,7 @@ const RefundModal: React.FC<RefundModalProps> = ({ isOpen, onClose, onSuccess, o
                     </button>
                 </div>
 
-                <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto px-8 py-6">
+                <div className="flex-1 overflow-y-auto px-8 py-6">
                     {/* Item Selection */}
                     <div className="mb-8">
                         <div className="flex items-center justify-between mb-4">
@@ -243,7 +243,7 @@ const RefundModal: React.FC<RefundModalProps> = ({ isOpen, onClose, onSuccess, o
                             Để yêu cầu được xử lý nhanh nhất, vui lòng tải lên hình ảnh rõ nét tình trạng sản phẩm và tem nhãn (nếu có).
                         </p>
                     </div>
-                </form>
+                </div>
 
                 {/* Footer */}
                 <div className="px-8 py-6 border-t border-gray-100 bg-gray-50/50 flex gap-4">
@@ -268,7 +268,7 @@ const RefundModal: React.FC<RefundModalProps> = ({ isOpen, onClose, onSuccess, o
                         ) : 'Gửi yêu cầu hoàn tiền'}
                     </button>
                 </div>
-            </div>
+            </form>
         </div>
     );
 };
