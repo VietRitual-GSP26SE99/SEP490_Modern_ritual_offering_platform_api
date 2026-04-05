@@ -785,7 +785,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
                   <img
                     src={headerLogo}
                     alt="Modern Ritual Offering"
-                    className="w-full h-full object-contain object-left origin-left scale-[1.34]"
+                    className="w-full h-full object-contain object-left origin-left scale-[1.34] animate-logo-bounce"
                   />
                 </div>
               </div>
