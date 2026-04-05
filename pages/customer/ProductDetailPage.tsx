@@ -18,7 +18,8 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
   const [vendorProducts, setVendorProducts] = useState<Product[]>([]);
   const [vendorOverallReviews, setVendorOverallReviews] = useState<Review[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedVariantIndex, setSelectedVariantIndex] = useState(0);
+  const [selectedVariantIndex, setSelectedVariantIndex] = useState<number | null>(null);
+  const [hoveredVariantIndex, setHoveredVariantIndex] = useState<number | null>(null);
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [currentMainImage, setCurrentMainImage] = useState(0);
@@ -251,20 +252,24 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
     ...thumbnailImages
   ])).filter(img => img);
 
-  const selectedVariantMeta = Array.isArray(packageMeta?.packageVariants)
-    ? packageMeta.packageVariants[selectedVariantIndex]
+  const activeVariantIndex = hoveredVariantIndex !== null ? hoveredVariantIndex : selectedVariantIndex;
+
+  const selectedVariantMeta = Array.isArray(packageMeta?.packageVariants) && activeVariantIndex !== null
+    ? packageMeta.packageVariants[activeVariantIndex]
     : null;
 
-  const variantImages = Array.from(new Set([
-    String(selectedVariantMeta?.imageUrl || '').trim(),
-    ...(Array.isArray(selectedVariantMeta?.variantImages) ? selectedVariantMeta.variantImages : []),
-  ])).filter(Boolean);
+  const variantImages = selectedVariantMeta 
+    ? Array.from(new Set([
+        String(selectedVariantMeta?.imageUrl || '').trim(),
+        ...(Array.isArray(selectedVariantMeta?.variantImages) ? selectedVariantMeta.variantImages : []),
+      ])).filter(Boolean)
+    : [];
 
-  const displayImages = variantImages.length > 0 ? variantImages : productImages;
+  const displayImages = (activeVariantIndex !== null && variantImages.length > 0) ? variantImages : productImages;
 
   const selectedVariantDescription =
     selectedVariantMeta?.description ||
-    product?.variants?.[selectedVariantIndex]?.description ||
+    (activeVariantIndex !== null ? product?.variants?.[activeVariantIndex]?.description : null) ||
     packageMeta?.description ||
     product?.description ||
     '';
@@ -286,7 +291,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
       return;
     }
 
-    const selectedVariant = product?.variants?.[selectedVariantIndex];
+    const selectedVariant = selectedVariantIndex !== null ? product?.variants?.[selectedVariantIndex] : null;
     if (!selectedVariant || !selectedVariant.variantId) {
       toast.error('Vui lòng chọn gói lễ');
       return;
@@ -320,7 +325,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
       return;
     }
 
-    const selectedVariant = product?.variants?.[selectedVariantIndex];
+    const selectedVariant = selectedVariantIndex !== null ? product?.variants?.[selectedVariantIndex] : null;
     if (!selectedVariant || !selectedVariant.variantId) {
       toast.error('Vui lòng chọn gói lễ');
       return;
@@ -410,6 +415,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                 key={i}
                 className={`w-20 h-20 shrink-0 aspect-square rounded-xl md:rounded-2xl overflow-hidden border-2 cursor-pointer transition-all hover:shadow-lg ${currentMainImage === i ? 'border-primary' : 'border-transparent hover:border-primary'}`}
                 onClick={() => handleThumbnailClick(i)}
+                onMouseEnter={() => handleThumbnailClick(i)}
               >
                 <img className="w-full h-full object-cover hover:scale-110 transition-transform" src={imgUrl} alt={`Ảnh ${i + 1}`} />
               </div>
@@ -425,8 +431,8 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
             <h1 className="text-2xl md:text-4xl font-display font-black leading-tight text-primary">{product.name}</h1>
             <div className="flex items-baseline gap-3 md:gap-4">
               <p className="text-3xl md:text-4xl font-black text-primary tracking-tight">
-                {(product.variants && product.variants[selectedVariantIndex]
-                  ? product.variants[selectedVariantIndex].price
+                {(product.variants && activeVariantIndex !== null && product.variants[activeVariantIndex]
+                  ? product.variants[activeVariantIndex].price
                   : product.price).toLocaleString()}đ
               </p>
               {product.originalPrice && (
@@ -464,7 +470,15 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                   <button
                     key={variant.variantId}
                     onClick={() => {
-                      setSelectedVariantIndex(index);
+                      setSelectedVariantIndex(selectedVariantIndex === index ? null : index);
+                      setCurrentMainImage(0);
+                    }}
+                    onMouseEnter={() => {
+                      setHoveredVariantIndex(index);
+                      setCurrentMainImage(0);
+                    }}
+                    onMouseLeave={() => {
+                      setHoveredVariantIndex(null);
                       setCurrentMainImage(0);
                     }}
                     className={`p-3 md:p-4 rounded-2xl border-2 text-center transition-all ${selectedVariantIndex === index ? 'border-primary bg-primary/5 shadow-md shadow-primary/5' : 'border-slate-50 hover:border-gold hover:bg-gold/5'}`}
@@ -482,7 +496,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                 <p className="text-xs font-medium text-slate-600 mb-5 leading-relaxed bg-gray-50 p-4 rounded-xl italic">"{selectedVariantDescription}"</p>
               )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-y-3 gap-x-4">
-                {product.variants?.[selectedVariantIndex]?.items?.map((item, idx) => (
+                {activeVariantIndex !== null && product.variants?.[activeVariantIndex]?.items?.map((item, idx) => (
                   <div key={idx} className="flex items-start gap-2.5 text-xs font-bold text-slate-700">
                     <span className="text-gold mt-0.5">
                       <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>

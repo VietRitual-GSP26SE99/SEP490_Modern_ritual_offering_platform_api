@@ -5,7 +5,7 @@ import toast from '../../services/toast';
 const VendorReviewTab: React.FC = () => {
     const [reviews, setReviews] = useState<Review[]>([]);
     const [loading, setLoading] = useState(true);
-    const [replyingTo, setReplyingTo] = useState<string | null>(null);
+    const [replyingTo, setReplyingTo] = useState<string | number | null>(null);
     const [replyText, setReplyText] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
@@ -28,7 +28,7 @@ const VendorReviewTab: React.FC = () => {
         fetchReviews();
     }, [fetchReviews]);
 
-    const handleReply = async (reviewId: string) => {
+    const handleReply = async (reviewId: string | number) => {
         if (!replyText.trim()) {
             toast.error('Vui lòng nhập nội dung phản hồi.');
             return;
