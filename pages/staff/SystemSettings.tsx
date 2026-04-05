@@ -327,109 +327,242 @@ const SystemSettings: React.FC<SystemSettingsProps> = ({ onNavigate, onLogout })
   };
 
   return (
-    <div className="max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full">
-      <div className="flex justify-between items-center mb-8">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Cài đặt hệ thống</h1>
-          <p className="text-gray-600 mt-1">Cấu hình vận hành và chính sách nền tảng</p>
-        </div>
-        <div>
-          <button className="px-4 py-2 rounded-xl bg-gray-900 text-white text-sm font-semibold shadow-sm hover:bg-gray-800">
-            Lưu thay đổi
-          </button>
-        </div>
-      </div>
-      <div className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          {stats.map((stat, index) => (
-            <div
-              key={index}
-              className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm hover:shadow-md transition"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="text-3xl">{stat.icon}</div>
-              </div>
-              <h3 className="text-3xl font-bold text-gray-900 mb-2">{stat.value}</h3>
-              <p className="text-sm text-gray-600 font-medium">{stat.label}</p>
+    <div className="min-h-screen bg-white py-8 px-4 md:px-8">
+      <div className="max-w-[1600px] mx-auto">
+        {/* Header Section */}
+        <div className="mb-12">
+          <div className="flex items-start justify-between gap-6 mb-2">
+            <div>
+              <h1 className="text-3xl md:text-4xl font-black text-slate-900">Quản lý Cấu hình Hệ thống</h1>
+              <p className="text-slate-500 font-bold mt-2">Quản lý thể loại nghi lễ và cấu hình nền tảng</p>
             </div>
-          ))}
+          </div>
         </div>
 
-        <div className="grid grid-cols-12 gap-6">
+        <div className="grid grid-cols-12 gap-6 lg:gap-8">
+          {/* Sidebar Navigation */}
           <div className="col-span-12 lg:col-span-3">
-            <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-sm sticky top-24">
-              <h3 className="text-sm font-bold text-gray-900 mb-4 px-2">Danh mục</h3>
-              <div className="space-y-2">
-                {categories.map((category) => (
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden sticky top-24">
+              <div className="px-6 py-8 border-b border-slate-100 bg-gradient-to-br from-slate-50 to-white">
+                <h2 className="text-sm font-black text-slate-400 uppercase tracking-widest">Danh mục</h2>
+              </div>
+              
+              <div className="divide-y divide-slate-100">
+                {categories.map((cat) => (
                   <button
-                    key={category.id}
-                    onClick={() => setActiveCategory(category.id as any)}
-                    className={`w-full text-left px-4 py-3 rounded-lg font-semibold transition flex items-center gap-3 ${activeCategory === category.id
-                      ? 'bg-slate-900 text-white'
-                      : 'bg-slate-50 text-gray-600 hover:bg-slate-100'
-                      }`}
+                    key={cat.id}
+                    onClick={() => setActiveCategory(cat.id as any)}
+                    className={`w-full px-6 py-4 text-left font-bold text-sm transition-all flex items-center gap-3 ${
+                      activeCategory === cat.id
+                        ? 'bg-slate-900 text-white shadow-md'
+                        : 'text-slate-700 hover:bg-slate-50'
+                    }`}
                   >
-                    <span className="text-xl">{category.icon}</span>
-                    <span>{category.label}</span>
+                    <span className="text-lg">{cat.icon || '⚙️'}</span>
+                    {cat.label}
                   </button>
                 ))}
               </div>
-
-              {/* <div className="mt-6 p-4 bg-slate-900 rounded-lg text-white">
-                <h4 className="font-bold mb-2"> Cảnh báo</h4>
-                <p className="text-xs text-slate-200">
-                  Thay đổi cài đặt hệ thống có thể ảnh hưởng đến hoạt động. Hãy thận trọng!
-                </p>
-              </div> */}
             </div>
           </div>
 
-          <div className="col-span-12 lg:col-span-9 space-y-6">
-            {activeCategory === 'ceremony' ? (
-              <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm">
-                {renderCeremonyTab()}
-              </div>
-            ) : (
-              <div className="bg-white rounded-2xl p-6 border border-slate-200/80 shadow-sm">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6">
-                  {categories.find(c => c.id === activeCategory)?.label}
-                </h2>
-
-                <div className="space-y-4">
-                  {filteredConfigs.map((config) => (
-                    <div
-                      key={config.id}
-                      className="p-5 border border-slate-200 rounded-xl hover:border-slate-300 transition"
-                    >
-                      <div className="flex items-start justify-between mb-3">
-                        <div className="flex-1">
-                          <h3 className="text-lg font-bold text-gray-900 mb-1">{config.name}</h3>
-                          <p className="text-sm text-gray-600">{config.description}</p>
-                          <span className="inline-block mt-2 text-xs text-gray-500 font-mono bg-gray-100 px-2 py-1 rounded">
-                            ID: {config.id}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="mt-4">
-                        {renderConfigValue(config)}
-                      </div>
-
-                      {!config.editable && (
-                        <div className="mt-2 text-xs text-gray-500">
-                          Cài đặt này không thể chỉnh sửa
-                        </div>
-                      )}
+          {/* Main Content Area */}
+          <div className="col-span-12 lg:col-span-9">
+            <div className="bg-white rounded-2xl border border-slate-200/80 shadow-sm overflow-hidden">
+              {activeCategory === 'ceremony' ? (
+                <div className="p-6 md:p-8 space-y-8">
+                  {/* Header with Add Button */}
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-6 border-b border-slate-100">
+                    <div>
+                      <h2 className="text-2xl font-black text-slate-900">Thể loại Nghi Lễ</h2>
+                      <p className="text-sm text-slate-500 mt-1 font-medium">Quản lý các loại nghi lễ có sẵn trên nền tảng</p>
                     </div>
-                  ))}
+                    <button
+                      onClick={() => handleOpenCeremonyModal()}
+                      className="px-6 py-3 bg-slate-900 text-white rounded-xl text-sm font-black hover:bg-slate-800 transition-all shadow-md hover:shadow-lg flex items-center gap-2 whitespace-nowrap"
+                    >
+                      <span className="text-lg">➕</span> Thêm thể loại
+                    </button>
+                  </div>
+
+                  {/* Category Grid */}
+                  {isCeremonyLoading ? (
+                    <div className="flex flex-col items-center justify-center py-20">
+                      <div className="animate-spin rounded-full h-10 w-10 border-3 border-slate-200 border-t-slate-900 mb-4"></div>
+                      <p className="text-slate-500 font-bold">Đang tải danh sách...</p>
+                    </div>
+                  ) : ceremonyCategories.length === 0 ? (
+                    <div className="text-center py-16">
+                      <p className="text-slate-500 font-bold text-lg">Chưa có thể loại nào</p>
+                      <p className="text-slate-400 text-sm mt-1">Hãy thêm thể loại nghi lễ đầu tiên của bạn</p>
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {ceremonyCategories.map((cat) => (
+                        <div
+                          key={cat.categoryId}
+                          className={`group rounded-2xl border-2 transition-all duration-200 p-5 ${
+                            cat.isActive
+                              ? 'border-slate-200 bg-gradient-to-br from-white to-slate-50/30 hover:border-slate-300 hover:shadow-md'
+                              : 'border-slate-100 bg-slate-50/50 opacity-60'
+                          }`}
+                        >
+                          <div className="flex items-start justify-between gap-3 mb-3">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-base font-black text-slate-900 line-clamp-1">{cat.name}</h3>
+                              <div className="flex items-center gap-2 mt-2">
+                                <span className={`inline-flex h-2 w-2 rounded-full ${cat.isActive ? 'bg-emerald-500' : 'bg-slate-300'}`}></span>
+                                <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                                  {cat.isActive ? 'Hoạt động' : 'Tạm ngưng'}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          <p className="text-sm text-slate-600 line-clamp-3 min-h-[60px] leading-relaxed mb-4">
+                            {cat.description || 'Chưa có mô tả cho thể loại này'}
+                          </p>
+
+                          {/* Action Buttons */}
+                          <div className="flex gap-2 pt-4 border-t border-slate-100 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <button
+                              onClick={() => handleOpenCeremonyModal(cat)}
+                              className="flex-1 px-3 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition text-sm font-bold"
+                              title="Chỉnh sửa"
+                            >
+                              ✏️ Sửa
+                            </button>
+                            {cat.isActive ? (
+                              <button
+                                onClick={() => handleDeleteCeremony(cat.categoryId)}
+                                className="flex-1 px-3 py-2 text-rose-600 hover:bg-rose-50 rounded-lg transition text-sm font-bold"
+                                title="Tạm ngưng"
+                              >
+                                🗑️ Tắt
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleReactivateCeremony(cat.categoryId)}
+                                className="flex-1 px-3 py-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition text-sm font-bold"
+                                title="Khôi phục"
+                              >
+                                🔄 Bật
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              ) : (
+                <div className="p-6 md:p-8">
+                  <div className="pb-6 border-b border-slate-100">
+                    <h2 className="text-2xl font-black text-slate-900">
+                      {categories.find(c => c.id === activeCategory)?.label}
+                    </h2>
+                    <p className="text-sm text-slate-500 mt-1 font-medium">
+                      Quản lý các cấu hình của danh mục này
+                    </p>
+                  </div>
 
+                  <div className="space-y-4 mt-6">
+                    {filteredConfigs.length === 0 ? (
+                      <div className="text-center py-12">
+                        <p className="text-slate-500 font-bold">Chưa có cấu hình nào</p>
+                      </div>
+                    ) : (
+                      filteredConfigs.map((config) => (
+                        <div
+                          key={config.id}
+                          className="p-5 border border-slate-200 rounded-xl hover:border-slate-300 hover:bg-slate-50/30 transition-all"
+                        >
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-base font-black text-slate-900 mb-1">{config.name}</h3>
+                              <p className="text-sm text-slate-600 mb-3">{config.description}</p>
+                              <span className="inline-block text-xs text-slate-500 font-mono bg-slate-100 px-3 py-1 rounded-lg">
+                                {config.id}
+                              </span>
+                            </div>
+                          </div>
 
+                          <div className="mt-4 flex items-center justify-between">
+                            {renderConfigValue(config)}
+                          </div>
+
+                          {!config.editable && (
+                            <div className="mt-3 text-xs text-slate-400 font-medium italic">
+                              ℹ️ Cài đặt này không thể chỉnh sửa
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>
+
+      {/* Ceremony Modal */}
+      {isCeremonyModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+            <div className="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-gradient-to-r from-slate-50 to-white">
+              <h3 className="text-xl font-black text-slate-900">
+                {editingCeremony ? '✏️ Cập nhật thể loại' : '➕ Thêm thể loại nghi lễ'}
+              </h3>
+              <button
+                onClick={() => setIsCeremonyModalOpen(false)}
+                className="text-slate-400 hover:text-slate-600 transition text-xl"
+              >
+                ✕
+              </button>
+            </div>
+            <form onSubmit={handleSaveCeremony} className="p-6 space-y-5">
+              <div>
+                <label className="block text-sm font-black text-slate-900 mb-2 uppercase tracking-widest">Tên thể loại</label>
+                <input
+                  name="name"
+                  type="text"
+                  defaultValue={editingCeremony?.name}
+                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 outline-none transition font-medium"
+                  placeholder="VD: Lễ Cúng Giao Thừa"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-black text-slate-900 mb-2 uppercase tracking-widest">Mô tả</label>
+                <textarea
+                  name="description"
+                  rows={4}
+                  defaultValue={editingCeremony?.description}
+                  className="w-full px-4 py-3 border-2 border-slate-200 rounded-xl focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10 outline-none transition font-medium"
+                  placeholder="Mô tả ý nghĩa của lễ cúng này..."
+                />
+              </div>
+              <div className="pt-4 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setIsCeremonyModalOpen(false)}
+                  className="flex-1 px-4 py-3 border-2 border-slate-200 text-slate-600 font-black rounded-xl hover:bg-slate-50 transition"
+                >
+                  Hủy
+                </button>
+                <button
+                  type="submit"
+                  className="flex-1 px-4 py-3 bg-slate-900 text-white font-black rounded-xl hover:bg-slate-800 transition shadow-md"
+                >
+                  {editingCeremony ? 'Lưu thay đổi' : 'Tạo thể loại'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
