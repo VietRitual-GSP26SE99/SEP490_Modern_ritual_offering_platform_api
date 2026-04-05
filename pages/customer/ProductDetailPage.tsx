@@ -9,6 +9,7 @@ import { getCurrentUser, getProfile } from '../../services/auth';
 import { reviewService, Review } from '../../services/reviewService';
 import toast from '../../services/toast';
 import { cartService } from '../../services/cartService';
+import { vendorChatService } from '../../services/vendorChatService';
 
 const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate }) => {
   const { id } = useParams<{ id: string }>();
@@ -23,6 +24,9 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const [showReviewImageModal, setShowReviewImageModal] = useState(false);
+  const [reviewImagesForModal, setReviewImagesForModal] = useState<string[]>([]);
+  const [selectedReviewImageIndex, setSelectedReviewImageIndex] = useState(0);
   const [currentMainImage, setCurrentMainImage] = useState(0);
   const [userRating, setUserRating] = useState(0);
   const [reviewText, setReviewText] = useState('');
@@ -363,6 +367,27 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
     }
   };
 
+  const handleStartChat = async () => {
+    const user = getCurrentUser();
+    if (!user) {
+      toast.warning('Vui lòng đăng nhập để nhắn tin với vendor');
+      navigate(`/auth?redirect=/product/${id}`);
+      return;
+    }
+
+    if (!vendor) return;
+
+    try {
+      const sessionId = await vendorChatService.createSession(
+        vendor.profileId || (vendor as any).vendorProfileId,
+        Number(id)
+      );
+      onNavigate(`/messages?sessionId=${sessionId}`);
+    } catch (error: any) {
+      toast.error(error.message || 'Không thể bắt đầu trò chuyện');
+    }
+  };
+
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-6 md:px-10 py-16 flex items-center justify-center min-h-screen">
@@ -428,30 +453,30 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
           <div className="mt-12 bg-white rounded-[2.5rem] border border-gold/10 p-8 md:p-10 shadow-sm relative overflow-hidden group hover:shadow-xl transition-all duration-500">
             <div className="absolute top-0 right-0 w-32 h-32 bg-gold/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-gold/10 transition-colors"></div>
 
-              <div className="prose prose-slate max-w-none relative">
-                <div 
-                  className={`text-slate-600 leading-[1.8] text-sm md:text-base whitespace-pre-line bg-slate-50/50 p-6 rounded-2xl border border-slate-100/50 transition-all duration-500 overflow-hidden ${!isDescriptionExpanded ? 'max-h-[220px]' : 'max-h-none'}`}
-                >
-                  {descriptionText}
-                  {!isDescriptionExpanded && descriptionText.length > 300 && (
-                    <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-slate-50/90 to-transparent pointer-events-none rounded-b-2xl"></div>
-                  )}
-                </div>
-                {descriptionText.length > 300 && (
-                  <button 
-                    onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
-                    className="mt-4 text-xs font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2 hover:gap-3 transition-all"
-                  >
-                    {isDescriptionExpanded ? (
-                      <><span>Rút gọn</span> <span>↑</span></>
-                    ) : (
-                      <><span>Xem thêm chi tiết</span> <span>↓</span></>
-                    )}
-                  </button>
+            <div className="prose prose-slate max-w-none relative">
+              <div
+                className={`text-slate-600 leading-[1.8] text-sm md:text-base whitespace-pre-line bg-slate-50/50 p-6 rounded-2xl border border-slate-100/50 transition-all duration-500 overflow-hidden ${!isDescriptionExpanded ? 'max-h-[220px]' : 'max-h-none'}`}
+              >
+                {descriptionText}
+                {!isDescriptionExpanded && descriptionText.length > 300 && (
+                  <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-slate-50/90 to-transparent pointer-events-none rounded-b-2xl"></div>
                 )}
               </div>
+              {descriptionText.length > 300 && (
+                <button
+                  onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                  className="mt-4 text-xs font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2 hover:gap-3 transition-all"
+                >
+                  {isDescriptionExpanded ? (
+                    <><span>Rút gọn</span> <span>↑</span></>
+                  ) : (
+                    <><span>Xem thêm chi tiết</span> <span>↓</span></>
+                  )}
+                </button>
+              )}
             </div>
           </div>
+        </div>
 
         <div className="lg:col-span-5 space-y-6 md:space-y-8">
           <div className="space-y-4">
@@ -611,7 +636,10 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                   </div>
 
                   <div className="flex gap-2">
-                    <button className="flex-1 lg:flex-none px-5 py-2.5 bg-white text-slate-900 text-[10px] font-black rounded-xl uppercase tracking-widest hover:bg-primary hover:text-white transition-all active:scale-95 shadow-lg">
+                    <button
+                      onClick={handleStartChat}
+                      className="flex-1 lg:flex-none px-5 py-2.5 bg-white text-slate-900 text-[10px] font-black rounded-xl uppercase tracking-widest hover:bg-primary hover:text-white transition-all active:scale-95 shadow-lg"
+                    >
                       Nhắn tin
                     </button>
                     <button
@@ -789,7 +817,17 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                       {review.reviewImageUrls?.length > 0 && (
                         <div className="flex flex-wrap gap-3 mb-4">
                           {review.reviewImageUrls.map((url, idx) => (
-                            <img key={idx} src={url} alt="Review" className="w-20 h-20 rounded-xl object-cover border border-gray-100 shadow-sm" />
+                            <img
+                              key={idx}
+                              src={url}
+                              alt="Review"
+                              className="w-20 h-20 rounded-xl object-cover border border-gray-100 shadow-sm cursor-pointer hover:opacity-80 transition-opacity"
+                              onClick={() => {
+                                setReviewImagesForModal(review.reviewImageUrls);
+                                setSelectedReviewImageIndex(idx);
+                                setShowReviewImageModal(true);
+                              }}
+                            />
                           ))}
                         </div>
                       )}
@@ -850,6 +888,12 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
           onClose={() => setShowImageModal(false)}
         />
       )}
+      <ImageModal
+        isOpen={showReviewImageModal}
+        onClose={() => setShowReviewImageModal(false)}
+        images={reviewImagesForModal}
+        initialIndex={selectedReviewImageIndex}
+      />
     </div>
   );
 };

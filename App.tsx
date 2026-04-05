@@ -20,6 +20,7 @@ import TransactionHistoryPage from './pages/customer/TransactionHistoryPage';
 import AboutUsPage from './pages/customer/AboutUsPage';
 import CulturalGuidelinePage from './pages/customer/CulturalGuidelinePage';
 import CulturalGuidelineDetailPage from './pages/customer/CulturalGuidelineDetailPage';
+import ChatPage from './pages/customer/ChatPage';
 
 // Vendor Pages
 import VendorDashboard from './pages/vendor/VendorDashboard';
@@ -227,6 +228,7 @@ const AppContent: React.FC<{
       { label: 'Khuyến mãi', icon: 'sell', path: '/vendor/discounts' },
       { label: 'Giao dịch', icon: 'payments', path: '/vendor/transactions' },
       { label: 'Biểu ngữ', icon: 'ad', path: '/vendor/banners' },
+      { label: 'Tin nhắn', icon: 'chat', path: '/vendor/messages' },
       { label: 'Rút tiền', icon: 'account_balance_wallet', path: '/vendor/withdraw' },
       { label: 'Cài đặt', icon: 'settings', path: '/vendor/settings' },
     ];
@@ -291,6 +293,7 @@ const AppContent: React.FC<{
       <Route path="/about" element={<Layout activeRoute="/about" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><AboutUsPage onNavigate={handleNavigate} /></Layout>} />
       <Route path="/cultural-guideline" element={<Layout activeRoute="/cultural-guideline" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><CulturalGuidelinePage onNavigate={handleNavigate} /></Layout>} />
       <Route path="/cultural-guideline/:id" element={<Layout activeRoute="/cultural-guideline" onNavigate={handleNavigate} userRole={userRole} onLogout={isAuthenticated ? onLogout : undefined}><CulturalGuidelineDetailPage onNavigate={handleNavigate} /></Layout>} />
+      <Route path="/messages" element={isAuthenticated ? <Layout activeRoute="/messages" onNavigate={handleNavigate} userRole={userRole} onLogout={onLogout}><ChatPage /></Layout> : <Navigate to="/auth" />} />
 
       {/* Vendor Routes */}
       <Route path="/vendor/dashboard" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/dashboard" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorPageFrame activeRoute="/vendor/dashboard"><VendorDashboard onNavigate={handleNavigate} /></VendorPageFrame></Layout> : <Navigate to="/auth" />} />
@@ -303,6 +306,7 @@ const AppContent: React.FC<{
       <Route path="/vendor/discounts" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/discounts" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorPageFrame activeRoute="/vendor/discounts"><DiscountPolicyManagement onNavigate={handleNavigate} /></VendorPageFrame></Layout> : <Navigate to="/auth" />} />
       <Route path="/vendor/transactions" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/transactions" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorPageFrame activeRoute="/vendor/transactions"><VendorTransactionPage onNavigate={handleNavigate} /></VendorPageFrame></Layout> : <Navigate to="/auth" />} />
       <Route path="/vendor/banners" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/banners" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorPageFrame activeRoute="/vendor/banners"><VendorBannerManagement /></VendorPageFrame></Layout> : <Navigate to="/auth" />} />
+      <Route path="/vendor/messages" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/messages" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorPageFrame activeRoute="/vendor/messages"><ChatPage /></VendorPageFrame></Layout> : <Navigate to="/auth" />} />
       <Route path="/vendor/withdraw" element={isAuthenticated && hasVendorRole ? <Layout activeRoute="/vendor/withdraw" onNavigate={handleNavigate} userRole={'vendor'} onLogout={onLogout}><VendorPageFrame activeRoute="/vendor/withdraw"><VendorWithdrawPage onNavigate={handleNavigate} /></VendorPageFrame></Layout> : <Navigate to="/auth" />} />
 
       {/* Staff Routes */}
