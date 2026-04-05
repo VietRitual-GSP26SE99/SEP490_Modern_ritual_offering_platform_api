@@ -215,6 +215,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
     if (isRefundNotification) {
       if (isAdminContext) return '/admin/dashboard?tab=disputes';
       if (isStaffContext) return '/staff-refunds';
+      if (isVendorContext) {
+        if (title.includes('review') || message.includes('review') || title.includes('đánh giá') || message.includes('đánh giá')) {
+          return '/vendor/orders?tab=reviews';
+        }
+        return '/vendor/orders?tab=refunds';
+      }
     }
 
     if (isStaffReviewedRefundNotification) {
@@ -306,6 +312,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
       const orderId = orderMatch[1];
       if (isVendorContext) return `/vendor/orders?tab=orders&orderId=${encodeURIComponent(orderId)}`;
       return `/profile/orders/${encodeURIComponent(orderId)}`;
+    }
+
+    if (trimmed === '/vendor/reviews') {
+      return '/vendor/orders?tab=reviews';
     }
 
     return trimmed;

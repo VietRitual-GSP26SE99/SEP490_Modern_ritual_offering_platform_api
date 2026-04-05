@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { reviewService, Review } from '../../services/reviewService';
+import { getProfile } from '../../services/auth';
 import toast from '../../services/toast';
 
 const VendorReviewTab: React.FC = () => {
@@ -9,13 +10,21 @@ const VendorReviewTab: React.FC = () => {
     const [replyText, setReplyText] = useState('');
     const [submitting, setSubmitting] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
+    const [selectedImage, setSelectedImage] = useState<string | null>(null);
     const ITEMS_PER_PAGE = 5;
 
     const fetchReviews = useCallback(async () => {
         try {
             setLoading(true);
-            const data = await reviewService.getVendorReviews();
-            setReviews(data);
+            const profile = await getProfile();
+            if (profile && profile.profileId) {
+                // Fetch a good chunk of reviews to allow local pagination
+                const data = await reviewService.getReviewsByVendorId(profile.profileId, 1, 100);
+                setReviews(data);
+            } else {
+                const data = await reviewService.getVendorReviews();
+                setReviews(data);
+            }
         } catch (error) {
             console.error('Failed to fetch reviews:', error);
             toast.error('Không thể tải đánh giá.');
@@ -108,7 +117,10 @@ const VendorReviewTab: React.FC = () => {
                                                     </div>
                                                     <div className="text-right">
                                                         <span className="text-xs font-bold text-slate-400 block mb-1 uppercase tracking-widest">Sản phẩm</span>
-                                                        <span className="text-xs font-bold text-primary italic">({review.variantName})</span>
+                                                        <div className="flex flex-col items-end gap-1">
+                                                            <span className="text-xs font-black text-slate-900">{review.packageName || 'Gói dịch vụ'}</span>
+                                                            <span className="text-[10px] font-bold text-primary italic">({review.variantName})</span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <p className="text-gray-700 mb-4 leading-relaxed">{review.comment}</p>
@@ -117,8 +129,12 @@ const VendorReviewTab: React.FC = () => {
                                                 {review.reviewImageUrls && review.reviewImageUrls.length > 0 && (
                                                     <div className="flex flex-wrap gap-2 mb-4">
                                                         {review.reviewImageUrls.map((url, i) => (
-                                                            <div key={i} className="size-20 rounded-xl overflow-hidden border border-gray-100 shadow-sm">
-                                                                <img src={url} alt={`review-${i}`} className="w-full h-full object-cover" />
+                                                            <div 
+                                                                key={i} 
+                                                                className="size-20 rounded-xl overflow-hidden border border-gray-100 shadow-sm cursor-zoom-in hover:border-primary transition-all group"
+                                                                onClick={() => setSelectedImage(url)}
+                                                            >
+                                                                <img src={url} alt={`review-${i}`} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                                                             </div>
                                                         ))}
                                                     </div>
@@ -228,6 +244,34 @@ const VendorReviewTab: React.FC = () => {
                     </>
                 );
             })()}
+
+            {/* Image Zoom Modal */}
+            {selectedImage && (
+                <div 
+                    className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-300"
+                    onClick={() => setSelectedImage(null)}
+                >
+                    <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-md" />
+                    
+                    <button 
+                        className="absolute top-6 right-6 z-[210] w-12 h-12 flex items-center justify-center bg-white/10 hover:bg-white/20 text-white rounded-full transition-all border border-white/10"
+                        onClick={() => setSelectedImage(null)}
+                    >
+                        <span className="material-symbols-outlined text-2xl">close</span>
+                    </button>
+
+                    <div 
+                        className="relative z-[205] max-w-full max-h-full animate-in zoom-in-95 duration-500 shadow-2xl rounded-2xl overflow-hidden shadow-black/50"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <img 
+                            src={selectedImage} 
+                            alt="Phóng to" 
+                            className="max-w-full max-h-[90vh] object-contain rounded-lg"
+                        />
+                    </div>
+                </div>
+            )}
         </div>
     );
 };

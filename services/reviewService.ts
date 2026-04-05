@@ -21,6 +21,7 @@ export interface ReviewResponse {
 export interface Review {
     reviewId: string | number;
     packageId?: number;
+    packageName?: string;
     itemId: string;
     variantId: number;
     variantName: string;
@@ -192,9 +193,13 @@ class ReviewService {
         }
     }
 
-    async getReviewsByVendorId(vendorId: string): Promise<Review[]> {
+    async getReviewsByVendorId(vendorId: string, pageNumber = 1, pageSize = 50): Promise<Review[]> {
         try {
-            const response = await fetch(`${API_BASE_URL}/reviews/vendor/${vendorId}`, {
+            const qs = new URLSearchParams({ 
+                PageNumber: pageNumber.toString(), 
+                PageSize: pageSize.toString() 
+            });
+            const response = await fetch(`${API_BASE_URL}/reviews/vendor/${vendorId}?${qs.toString()}`, {
                 method: 'GET',
                 headers: this.getHeaders(),
             });
