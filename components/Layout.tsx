@@ -491,6 +491,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
         ]
       },
       { path: '/about', label: 'Về chúng tôi' },
+      { path: '/cultural-guideline', label: 'Cẩm nang văn hóa' },
     ];
   };
 
