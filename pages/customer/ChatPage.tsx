@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import { vendorChatService, ChatSession, ChatMessage } from '../../services/vendorChatService';
 import { vendorService } from '../../services/vendorService';
+import { userService } from '../../services/userService';
 import { getCurrentUser } from '../../services/auth';
 import toast from '../../services/toast';
 
@@ -36,7 +37,12 @@ const ChatPage: React.FC = () => {
         if (targetId && !newNames[targetId]) {
           try {
             if (isVendor) {
-              newNames[targetId] = `Khách hàng #${targetId.slice(-4)}`;
+              const customerData = await userService.getUserById(targetId);
+              if (customerData?.fullName) {
+                newNames[targetId] = customerData.fullName;
+              } else {
+                newNames[targetId] = `Khách hàng #${targetId.slice(-4)}`;
+              }
             } else {
               const vendorData = await vendorService.getVendorCached(targetId);
               if (vendorData?.shopName) {
@@ -151,12 +157,12 @@ const ChatPage: React.FC = () => {
     const cid = session.customerId || '';
     const vid = session.vendorId || '';
     const targetId = isVendorSide ? cid : vid;
-    
+
     const resolvedName = namesMap[targetId];
-    
+
     return {
-      name: resolvedName || (isVendorSide 
-        ? `Khách hàng #${cid ? cid.slice(-4) : '...'}` 
+      name: resolvedName || (isVendorSide
+        ? `Khách hàng #${cid ? cid.slice(-4) : '...'}`
         : `Cửa hàng #${vid ? vid.slice(-4) : '...'}`),
       avatar: session.counterPartyAvatar
     };
@@ -178,7 +184,7 @@ const ChatPage: React.FC = () => {
           <h2 className="text-2xl font-display font-black text-primary tracking-tight">Hội thoại</h2>
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mt-1">Hỗ trợ khách hàng</p>
         </div>
-        
+
         <div className="flex-1 overflow-y-auto p-4 space-y-3">
           {sessions.length === 0 ? (
             <div className="text-center py-12 px-6">
@@ -193,15 +199,13 @@ const ChatPage: React.FC = () => {
                 <button
                   key={session.sessionId}
                   onClick={() => handleSelectSession(session)}
-                  className={`w-full flex items-center gap-4 p-4 rounded-[2rem] transition-all duration-300 text-left ${
-                    isActive 
-                      ? 'bg-primary text-white shadow-xl shadow-primary/20 scale-[1.02]' 
+                  className={`w-full flex items-center gap-4 p-4 rounded-[2rem] transition-all duration-300 text-left ${isActive
+                      ? 'bg-primary text-white shadow-xl shadow-primary/20 scale-[1.02]'
                       : 'hover:bg-ritual-bg text-slate-700 hover:text-primary'
-                  }`}
+                    }`}
                 >
-                  <div className={`w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center text-lg font-black border-2 ${
-                    isActive ? 'border-white/30 bg-white/20' : 'border-gold/10 bg-ritual-bg text-primary'
-                  }`}>
+                  <div className={`w-12 h-12 rounded-full flex-shrink-0 flex items-center justify-center text-lg font-black border-2 ${isActive ? 'border-white/30 bg-white/20' : 'border-gold/10 bg-ritual-bg text-primary'
+                    }`}>
                     {party.avatar ? (
                       <img src={party.avatar} className="w-full h-full rounded-full object-cover" alt="" />
                     ) : (
@@ -216,7 +220,7 @@ const ChatPage: React.FC = () => {
                     </div>
                     {session.messages && session.messages.length > 0 && (
                       <p className={`text-xs truncate font-medium ${isActive ? 'text-white/70' : 'text-slate-400'}`}>
-                        {session.messages[session.messages.length-1].content}
+                        {session.messages[session.messages.length - 1].content}
                       </p>
                     )}
                   </div>
@@ -235,9 +239,9 @@ const ChatPage: React.FC = () => {
             <div className="px-10 py-6 bg-white border-b border-gold/10 flex items-center gap-6">
               <div className="w-14 h-14 rounded-full flex-shrink-0 bg-ritual-bg border-4 border-white shadow-lg flex items-center justify-center text-2xl font-black text-primary overflow-hidden">
                 {getCounterParty(activeSession).avatar ? (
-                    <img src={getCounterParty(activeSession).avatar} className="w-full h-full object-cover" alt="" />
+                  <img src={getCounterParty(activeSession).avatar} className="w-full h-full object-cover" alt="" />
                 ) : (
-                    getCounterParty(activeSession).name[0]
+                  getCounterParty(activeSession).name[0]
                 )}
               </div>
               <div className="flex-1">
@@ -245,8 +249,8 @@ const ChatPage: React.FC = () => {
                   {getCounterParty(activeSession).name}
                 </h3>
                 <div className="flex items-center gap-2 mt-1">
-                    <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Đang trực tuyến</span>
+                  <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Đang trực tuyến</span>
                 </div>
               </div>
             </div>
@@ -257,11 +261,10 @@ const ChatPage: React.FC = () => {
                 const isMine = msg.role.toLowerCase() === role.toLowerCase();
                 return (
                   <div key={msg.messageId || idx} className={`flex ${isMine ? 'justify-end' : 'justify-start'}`}>
-                    <div className={`max-w-[70%] p-5 rounded-[2rem] text-sm md:text-base leading-relaxed shadow-sm transition-all duration-300 ${
-                      isMine 
-                        ? 'bg-primary text-white rounded-tr-none shadow-lg shadow-primary/10 hover:shadow-primary/20' 
+                    <div className={`max-w-[70%] p-5 rounded-[2rem] text-sm md:text-base leading-relaxed shadow-sm transition-all duration-300 ${isMine
+                        ? 'bg-primary text-white rounded-tr-none shadow-lg shadow-primary/10 hover:shadow-primary/20'
                         : 'bg-white text-slate-700 rounded-tl-none border border-gold/5 hover:border-gold/10'
-                    }`}>
+                      }`}>
                       {msg.content}
                       <div className={`text-[9px] font-black mt-2 uppercase tracking-widest opacity-40 ${isMine ? 'text-right' : 'text-left'}`}>
                         {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
