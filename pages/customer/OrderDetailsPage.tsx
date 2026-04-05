@@ -419,7 +419,7 @@ const OrderDetailsPage: React.FC = () => {
                                         disabled={!canRequestRefund}
                                         className="bg-white text-orange-600 border border-orange-200 px-6 py-2 rounded-xl font-bold text-sm shadow-sm hover:bg-orange-50 transition"
                                     >
-                                        Yêu cầu hoàn tiền
+                                        Đã hoàn tiền
                                     </button>
                                 )}
                                 <button
@@ -739,7 +739,7 @@ const OrderDetailsPage: React.FC = () => {
                                                             <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="4">
                                                                 <path strokeLinecap="round" strokeLinejoin="round" d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3" />
                                                             </svg>
-                                                            Yêu cầu hoàn tiền
+                                                            Đã hoàn tiền
                                                         </span>
                                                     </div>
                                                 )}
