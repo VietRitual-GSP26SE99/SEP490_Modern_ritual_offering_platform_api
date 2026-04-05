@@ -834,7 +834,7 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                       <div className="p-6 md:p-8 pt-0 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div>
                           <div className="flex items-baseline gap-2">
-                            <span className="text-sm text-gray-500">Tổng tiền:</span>
+                            <span className="text-sm text-gray-500">Tổng cộng (đã gồm ship):</span>
                             <span className="text-2xl font-black text-primary">{formatVnd(order.totalAmount)}</span>
                           </div>
                           {order.finalAmount && order.finalAmount !== order.totalAmount && (
@@ -1004,6 +1004,16 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                           <p className="text-sm text-slate-500">{item.variantName} × {item.quantity}</p>
                           {item.decorationNote && (
                             <p className="text-xs text-amber-600 italic mt-0.5">{item.decorationNote}</p>
+                          )}
+                          {item.isRequestRefund && (
+                            <div className="mt-1.5 flex">
+                              <span className="px-1.5 py-0.5 bg-orange-50 text-orange-600 rounded text-[9px] font-black uppercase tracking-tighter border border-orange-100 flex items-center gap-1">
+                                <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="4">
+                                  <path strokeLinecap="round" strokeLinejoin="round" d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3" />
+                                </svg>
+                                Khách hoàn tiền
+                              </span>
+                            </div>
                           )}
                         </div>
                         <p className="font-bold text-primary flex-shrink-0 text-sm">{formatVnd(item.lineTotal)}</p>

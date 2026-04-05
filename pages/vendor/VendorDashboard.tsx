@@ -190,7 +190,8 @@ const VendorDashboard: React.FC<VendorDashboardProps> = ({ onNavigate }) => {
                   <p className="text-xs text-slate-500 mt-1">Khách: {getDisplayCustomerName(order)}</p>
                 </div>
                 <div className="text-right">
-                  <p className="font-black text-primary tracking-tight mb-2">{Number(order.totalAmount || 0).toLocaleString('vi-VN')}₫</p>
+                  <p className="font-black text-primary tracking-tight mb-1">{Number(order.totalAmount || 0).toLocaleString('vi-VN')}₫</p>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter mb-1">(Đã gồm ship)</p>
                   <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{formatRelativeTime(order.createdAt)}</p>
                 </div>
               </div>

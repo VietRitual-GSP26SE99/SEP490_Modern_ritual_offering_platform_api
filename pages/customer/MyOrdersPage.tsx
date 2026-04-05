@@ -292,7 +292,15 @@ const MyOrdersPage: React.FC = () => {
 
                                 <div className="p-5 md:p-8 pt-0 flex flex-col md:flex-row items-center justify-between gap-6 border-t border-gray-50 mt-2">
                                     <div className="flex flex-col items-center md:items-start w-full md:w-auto">
-
+                                        <div className="flex items-center gap-2">
+                                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">Tổng cộng</span>
+                                            <span className="text-xl md:text-2xl font-black text-slate-900">
+                                                {(order.pricing?.totalAmount || order.pricing?.finalAmount || 0).toLocaleString('vi-VN')}₫
+                                            </span>
+                                        </div>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter mt-1">
+                                            (Đã bao gồm phí vận chuyển)
+                                        </p>
                                     </div>
                                     <div className="flex gap-3 w-full md:w-auto">
                                         {['PENDING', 'PAID'].includes(order.orderStatus.toUpperCase()) && (
