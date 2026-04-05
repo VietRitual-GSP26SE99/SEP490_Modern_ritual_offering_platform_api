@@ -4,6 +4,7 @@ import { orderService, VendorOrder, Order } from '../../services/orderService';
 import { getProfile } from '../../services/auth';
 import VendorRefundTab from './VendorRefundTab';
 import VendorReviewTab from './VendorReviewTab';
+import OrderStatusTimeline from '../../components/OrderStatusTimeline';
 
 
 interface OrderManagementProps {
@@ -1011,7 +1012,14 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Status Timeline - Full Width */}
+                <OrderStatusTimeline
+                  orderId={selectedOrder.orderId}
+                  currentStatus={selectedOrder.orderStatus}
+                  trackingLists={selectedOrder.trackingLists || []}
+                />
+
+                <div className="grid grid-cols-1 gap-4 mt-6">
                   {/* Delivery info */}
                   {selectedOrder.delivery && (
                     <div className="bg-white rounded-[1.25rem] border border-gray-200 p-4 md:p-5 shadow-sm">
@@ -1066,30 +1074,6 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                             </a>
                           </div>
                         )}
-                    </div>
-                  )}
-
-                  {Array.isArray(selectedOrder.trackingLists) && selectedOrder.trackingLists.length > 0 && (
-                    <div className="bg-white rounded-[1.25rem] border border-gray-200 p-4 md:p-5 shadow-sm">
-                      <h3 className="text-sm font-bold uppercase tracking-widest text-gray-400 mb-3">Lịch sử trạng thái</h3>
-                      <div className="space-y-2.5 max-h-[220px] overflow-y-auto pr-1">
-                        {selectedOrder.trackingLists.map((tracking) => (
-                          <div key={tracking.trackingId} className="rounded-xl border border-gray-100 p-3 bg-gray-50">
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <p className="text-sm font-bold text-gray-800">{tracking.title || 'Cập nhật đơn hàng'}</p>
-                                {hasMeaningfulText(tracking.description) && (
-                                  <p className="text-xs text-slate-600 mt-0.5">{tracking.description}</p>
-                                )}
-                              </div>
-                              <span className={`px-2.5 py-1 rounded-full text-[11px] font-bold ${getStatusBadge(tracking.status).badge}`}>
-                                {getStatusBadge(tracking.status).label}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-slate-500 mt-2">{formatDateTimeVi(tracking.createdAt)}</p>
-                          </div>
-                        ))}
-                      </div>
                     </div>
                   )}
                 </div>
