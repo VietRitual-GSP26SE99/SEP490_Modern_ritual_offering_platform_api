@@ -7,8 +7,10 @@ import { cancelPayosTopup, createTopupLink, getMyWallet, WalletInfo, WalletType 
 import { packageService } from '../services/packageService';
 import { CeremonyCategory } from '../types';
 import CartDropdown from './CartDropdown';
+import { guidelineService } from '../services/guidelineService';
 import toast from '../services/toast';
 import headerLogo from '../assets/logo1.png';
+import { CulturalGuideline } from '../services/guidelineService';
 
 const PENDING_CHECKOUT_KEY = 'pendingCheckoutRequest';
 const TOPUP_SUCCESS_TOAST_KEY = 'checkoutTopupSuccessToast';
@@ -44,6 +46,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
   const [topupLoading, setTopupLoading] = useState<boolean>(false);
   const [userName, setUserName] = useState<string>('');
   const [categories, setCategories] = useState<CeremonyCategory[]>([]);
+  const [guidelineCategories, setGuidelineCategories] = useState<{ id: number; name: string }[]>([]);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState<boolean>(false);
 
   useEffect(() => {
@@ -56,6 +59,20 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
       }
     };
     fetchCategories();
+
+    const fetchGuidelineCategories = async () => {
+      try {
+        const data = await guidelineService.getGuidelines();
+        const activeGuidelines = data.filter(g => g.isActive);
+        const uniqueCats = Array.from(
+          new Map(activeGuidelines.map((g) => [g.categoryId, g.categoryName])).entries()
+        ).map(([id, name]) => ({ id, name }));
+        setGuidelineCategories(uniqueCats);
+      } catch (error) {
+        console.error('❌ Failed to fetch guideline categories for menu:', error);
+      }
+    };
+    fetchGuidelineCategories();
   }, []);
 
   const cartDropdownTimeout = useRef<NodeJS.Timeout | null>(null);
@@ -501,7 +518,19 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
         ]
       },
       { path: '/about', label: 'Về chúng tôi' },
-      { path: '/cultural-guideline', label: 'Cẩm nang văn hóa' },
+      {
+        path: '/cultural-guideline',
+        label: 'Cẩm nang văn hóa',
+        submenu: guidelineCategories.length > 0
+          ? [
+            { path: '/cultural-guideline', label: 'Tất cả hướng dẫn' },
+            ...guidelineCategories.map(cat => ({
+              path: `/cultural-guideline?categoryId=${cat.id}`,
+              label: cat.name
+            }))
+          ]
+          : undefined
+      },
     ];
   };
 
