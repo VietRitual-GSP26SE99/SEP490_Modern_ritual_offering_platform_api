@@ -32,6 +32,7 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
   const [products, setProducts] = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
   const [productsError, setProductsError] = useState<string | null>(null);
+  const [vendorProfileId, setVendorProfileId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [selectedStatus, setSelectedStatus] = useState<PackageStatusFilter>('');
@@ -76,15 +77,32 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
   const [imageModalAltText, setImageModalAltText] = useState('');
 
   useEffect(() => {
-    const fetchCategories = async () => {
+    const initData = async () => {
       try {
-        const data = await packageService.getCeremonyCategories();
-        setCategories(data.filter(c => c.isActive));
+        // Fetch categories
+        const catData = await packageService.getCeremonyCategories();
+        setCategories(catData.filter(c => c.isActive));
+
+        // Fetch vendor profile to get the correct profileId for filtering
+        const { getVendorProfile } = await import('../../services/auth');
+        const profile = await getVendorProfile();
+        if (profile) {
+          // Look for profileId in the profile response. Usually it's in the profile object.
+          // Based on services/auth.ts getProfile response, it's profileId.
+          // But getVendorProfile returns VendorCurrentProfile which might not have it.
+          // Let's try to get it from getProfile if getVendorProfile doesn't have it.
+          const { getProfile } = await import('../../services/auth');
+          const fullProfile = await getProfile();
+          if (fullProfile?.profileId) {
+            console.log('✅ Found Vendor Profile ID:', fullProfile.profileId);
+            setVendorProfileId(fullProfile.profileId);
+          }
+        }
       } catch (error) {
-        console.error('Failed to fetch categories:', error);
+        console.error('Failed to initialize vendor data:', error);
       }
     };
-    fetchCategories();
+    initData();
   }, []);
 
   const fallbackProductImage = `data:image/svg+xml;utf8,${encodeURIComponent(
@@ -275,18 +293,20 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
     setCurrentPage(1);
 
     try {
-      const currentUser = getCurrentUser();
-      const currentVendorId = String((currentUser as { profileId?: string } | null)?.profileId || '').trim();
-
+      console.log('🔄 Loading packages for vendor...', { selectedStatus, vendorProfileId });
       const packages = await packageService.getPackagesByStatus(selectedStatus);
 
       // Lọc chỉ lấy sản phẩm của vendor hiện tại
-      const source = currentVendorId
+      // Ưu tiên dùng vendorProfileId đã fetch từ profile
+      const source = vendorProfileId
         ? packages.filter((item: any) => {
-            const vendorId = String(item.vendorProfileId || item.vendorId || '').trim();
-            return vendorId === currentVendorId;
+            const itemVendorId = String(item.vendorProfileId || item.vendorId || '').trim();
+            const match = itemVendorId === vendorProfileId;
+            return match;
           })
         : packages;
+
+      console.log(`📦 Loaded ${source.length} products after filtering (Total from API: ${packages.length})`);
 
       const mapped: Product[] = source.map((item: any) => {
         const variants = Array.isArray(item.packageVariants) ? item.packageVariants : (Array.isArray(item.variants) ? item.variants : []);
@@ -327,7 +347,7 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
 
   useEffect(() => {
     loadPackages();
-  }, [selectedStatus]);
+  }, [selectedStatus, vendorProfileId]);
 
   const totalPages = Math.max(1, Math.ceil(products.length / PRODUCTS_PER_PAGE));
   const categoryOptions = Array.from(new Set(products.map((product) => mapCategory(product.categoryId)))).sort((a, b) => a.localeCompare(b));

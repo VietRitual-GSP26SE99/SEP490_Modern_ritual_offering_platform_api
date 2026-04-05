@@ -419,7 +419,7 @@ const OrderDetailsPage: React.FC = () => {
                                         disabled={!canRequestRefund}
                                         className="bg-white text-orange-600 border border-orange-200 px-6 py-2 rounded-xl font-bold text-sm shadow-sm hover:bg-orange-50 transition"
                                     >
-                                        Yêu cầu hoàn tiền
+                                        Đã hoàn tiền
                                     </button>
                                 )}
                                 <button
@@ -733,6 +733,16 @@ const OrderDetailsPage: React.FC = () => {
                                                     {item.packageName}
                                                 </h4>
                                                 <p className="text-xs text-gray-500 mt-1">Gói: <span className="text-gray-700 font-medium">{item.variantName}</span></p>
+                                                {item.isRequestRefund && (
+                                                    <div className="mt-2 flex">
+                                                        <span className="px-2 py-0.5 bg-orange-50 text-orange-600 rounded-lg text-[10px] font-black uppercase tracking-widest border border-orange-100 flex items-center gap-1">
+                                                            <svg className="w-2.5 h-2.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="4">
+                                                                <path strokeLinecap="round" strokeLinejoin="round" d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3" />
+                                                            </svg>
+                                                            Đã hoàn tiền
+                                                        </span>
+                                                    </div>
+                                                )}
                                             </div>
                                             <div className="pt-1 text-right">
                                                 <p className="font-bold text-primary">{(item.lineTotal || (item.price || (item as any).unitPrice || 0) * item.quantity).toLocaleString('vi-VN')}đ</p>

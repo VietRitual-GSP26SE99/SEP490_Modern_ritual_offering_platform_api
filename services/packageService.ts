@@ -64,8 +64,9 @@ class PackageService {
         return this.getAllPackages(1, 50);
       }
 
-      const endpoint = `${API_BASE_URL}/packages/management/by-status?pageNumber=1&pageSize=100&status=${normalizedStatus}`;
+      const endpoint = `${API_BASE_URL}/packages/management/by-status?PageNumber=1&PageSize=100&status=${normalizedStatus}`;
 
+      console.log(`📡 Fetching by-status: ${endpoint}`);
       const response = await fetch(endpoint, {
         method: 'GET',
         headers: {
@@ -100,12 +101,15 @@ class PackageService {
 
       if (data?.isSuccess && data.result) {
         if (Array.isArray(data.result)) {
+          console.log(`✅ by-status success: ${data.result.length} items`);
           return data.result as ApiPackage[];
         }
         if (data.result.items && Array.isArray(data.result.items)) {
+          console.log(`✅ by-status success (paginated): ${data.result.items.length} items`);
           return data.result.items as ApiPackage[];
         }
       }
+      console.warn('⚠️ by-status returned no items or invalid structure:', data);
 
       return [];
     } catch (error) {
