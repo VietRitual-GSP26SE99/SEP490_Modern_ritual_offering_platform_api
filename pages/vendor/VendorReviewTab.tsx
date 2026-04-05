@@ -11,7 +11,8 @@ const VendorReviewTab: React.FC = () => {
     const [submitting, setSubmitting] = useState(false);
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedImage, setSelectedImage] = useState<string | null>(null);
-    const ITEMS_PER_PAGE = 5;
+    const [itemsPerPage] = useState(5);
+    const ITEMS_PER_PAGE = itemsPerPage;
 
     const fetchReviews = useCallback(async () => {
         try {
@@ -71,14 +72,30 @@ const VendorReviewTab: React.FC = () => {
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-800">Đánh giá từ khách hàng</h3>
+                <div className="flex items-center gap-4">
+                    <h3 className="text-xl font-bold text-gray-800">Đánh giá từ khách hàng</h3>
+                    <div className="flex items-center gap-2 bg-slate-100 rounded-lg p-1 px-3 border border-slate-200">
+                        {/* <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Hiện</span>
+                        <select 
+                            value={itemsPerPage}
+                            onChange={(e) => {
+                                setItemsPerPage(Number(e.target.value));
+                                setCurrentPage(1);
+                            }}
+                            className="bg-transparent border-none text-xs font-black focus:ring-0 cursor-pointer"
+                        >
+                            <option value={5}>5</option>
+                            <option value={10}>10</option>
+                        </select> */}
+                    </div>
+                </div>
                 <span className="text-sm font-medium text-slate-500">{reviews.length} đánh giá</span>
             </div>
 
             {(() => {
                 const totalPages = Math.ceil(reviews.length / ITEMS_PER_PAGE);
                 const currentReviews = reviews.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
-                
+
                 if (reviews.length === 0) {
                     return (
                         <div className="text-center py-12 bg-white rounded-3xl border border-gray-200 shadow-sm">
@@ -129,8 +146,8 @@ const VendorReviewTab: React.FC = () => {
                                                 {review.reviewImageUrls && review.reviewImageUrls.length > 0 && (
                                                     <div className="flex flex-wrap gap-2 mb-4">
                                                         {review.reviewImageUrls.map((url, i) => (
-                                                            <div 
-                                                                key={i} 
+                                                            <div
+                                                                key={i}
                                                                 className="size-20 rounded-xl overflow-hidden border border-gray-100 shadow-sm cursor-zoom-in hover:border-primary transition-all group"
                                                                 onClick={() => setSelectedImage(url)}
                                                             >
@@ -145,7 +162,7 @@ const VendorReviewTab: React.FC = () => {
                                                     <div className="mt-4 p-5 bg-primary/5 rounded-2xl border-l-4 border-primary relative">
                                                         <p className="text-xs font-bold text-primary uppercase tracking-widest mb-1">Phản hồi của bạn</p>
                                                         <p className="text-sm text-slate-700 italic">"{review.vendorReply}"</p>
-                                                        <button 
+                                                        <button
                                                             onClick={() => {
                                                                 setReplyingTo(review.reviewId);
                                                                 setReplyText(review.vendorReply || '');
@@ -157,7 +174,7 @@ const VendorReviewTab: React.FC = () => {
                                                     </div>
                                                 ) : (
                                                     replyingTo !== review.reviewId && (
-                                                        <button 
+                                                        <button
                                                             onClick={() => setReplyingTo(review.reviewId)}
                                                             className="mt-2 text-sm font-bold text-primary hover:bg-primary/5 px-4 py-2 rounded-lg border-2 border-primary transition-all uppercase tracking-widest"
                                                         >
@@ -170,21 +187,21 @@ const VendorReviewTab: React.FC = () => {
                                                 {replyingTo === review.reviewId && (
                                                     <div className="mt-4 space-y-3 bg-gray-50 p-6 rounded-2xl border border-gray-200 animate-in fade-in slide-in-from-top-2">
                                                         <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">Viết phản hồi</p>
-                                                        <textarea 
+                                                        <textarea
                                                             value={replyText}
                                                             onChange={(e) => setReplyText(e.target.value)}
                                                             placeholder="Cảm ơn khách hàng hoặc giải quyết vấn đề của họ..."
                                                             className="w-full px-4 py-3 rounded-xl bg-white border border-gray-200 outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all min-h-[100px]"
                                                         />
                                                         <div className="flex gap-2">
-                                                            <button 
+                                                            <button
                                                                 onClick={() => handleReply(review.reviewId)}
                                                                 disabled={submitting}
                                                                 className="px-6 py-2.5 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 transition-all disabled:opacity-50 uppercase tracking-widest text-sm"
                                                             >
                                                                 {submitting ? 'Đang gửi...' : 'Gửi phản hồi'}
                                                             </button>
-                                                            <button 
+                                                            <button
                                                                 onClick={() => {
                                                                     setReplyingTo(null);
                                                                     setReplyText('');
@@ -205,7 +222,7 @@ const VendorReviewTab: React.FC = () => {
                         </div>
 
                         {/* Pagination Controls */}
-                        {totalPages > 1 && (
+                        {reviews.length > 0 && (
                             <div className="mt-8 flex flex-col md:flex-row items-center justify-between gap-3 px-6 py-4 border border-slate-200 bg-white rounded-2xl shadow-sm">
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                                     Hiển thị <span className="text-slate-900">{Math.min(reviews.length, (currentPage - 1) * ITEMS_PER_PAGE + 1)}</span>
@@ -247,26 +264,26 @@ const VendorReviewTab: React.FC = () => {
 
             {/* Image Zoom Modal */}
             {selectedImage && (
-                <div 
+                <div
                     className="fixed inset-0 z-[200] flex items-center justify-center p-4 md:p-8 animate-in fade-in duration-300"
                     onClick={() => setSelectedImage(null)}
                 >
                     <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-md" />
-                    
-                    <button 
+
+                    <button
                         className="absolute top-6 right-6 z-[210] w-12 h-12 flex items-center justify-center bg-white/10 hover:bg-white/20 text-white rounded-full transition-all border border-white/10"
                         onClick={() => setSelectedImage(null)}
                     >
                         <span className="material-symbols-outlined text-2xl">close</span>
                     </button>
 
-                    <div 
+                    <div
                         className="relative z-[205] max-w-full max-h-full animate-in zoom-in-95 duration-500 shadow-2xl rounded-2xl overflow-hidden shadow-black/50"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <img 
-                            src={selectedImage} 
-                            alt="Phóng to" 
+                        <img
+                            src={selectedImage}
+                            alt="Phóng to"
                             className="max-w-full max-h-[90vh] object-contain rounded-lg"
                         />
                     </div>

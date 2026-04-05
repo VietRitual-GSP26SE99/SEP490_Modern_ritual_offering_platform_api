@@ -34,7 +34,7 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
   const [productsError, setProductsError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [selectedStatus, setSelectedStatus] = useState<PackageStatusFilter>('Pending');
+  const [selectedStatus, setSelectedStatus] = useState<PackageStatusFilter>('');
   const [viewProductDetails, setViewProductDetails] = useState<any | null>(null);
   const [viewDisplayImageIndex, setViewDisplayImageIndex] = useState<number>(0);
   const [editProductOpen, setEditProductOpen] = useState(false);
@@ -773,6 +773,7 @@ const ProductManagement: React.FC<ProductManagementProps> = ({ onNavigate }) => 
                 onChange={(event) => setSelectedStatus(event.target.value as PackageStatusFilter)}
                 className="px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 bg-white focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary"
               >
+                <option value="">Tất cả</option>
                 <option value="Draft">Nháp</option>
                 <option value="Pending">Chờ duyệt</option>
                 <option value="Approved">Đã duyệt</option>
