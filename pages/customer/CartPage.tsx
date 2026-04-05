@@ -34,7 +34,7 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
   // Fetch cart from API
   useEffect(() => {
     if (isCheckingAuth) return;
-    
+
     const fetchCart = async () => {
       try {
         console.log('🛒 Fetching cart...');
@@ -46,7 +46,7 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
         if (cartData && cartData.cartItems && cartData.cartItems.length > 0) {
           const allItemIds = cartData.cartItems.map(item => item.cartItemId);
           setSelectedItemIds(allItemIds);
-          
+
           try {
             console.log('💰 Fetching initial checkout summary...');
             const summary = await checkoutService.getSummary(allItemIds);
@@ -97,7 +97,7 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
     const newSelected = selectedItemIds.includes(cartItemId)
       ? selectedItemIds.filter(id => id !== cartItemId)
       : [...selectedItemIds, cartItemId];
-    
+
     setSelectedItemIds(newSelected);
     refreshCheckoutSummary(newSelected);
   };
@@ -129,16 +129,16 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
       console.log('📝 Updating quantity:', { cartItemId, newQuantity });
       // API endpoint expects 'itemId' parameter even though response has 'cartItemId'
       const success = await cartService.updateCartItem({ cartItemId: cartItemId, quantity: newQuantity });
-      
+
       if (success) {
         // Re-fetch cart from server to ensure sync
         console.log('🔄 Re-fetching cart after update...');
         const updatedCart = await cartService.getCart();
         setCart(updatedCart);
-        
+
         // Refresh checkout summary with new prices (keeping current selection)
         await refreshCheckoutSummary(selectedItemIds);
-        
+
         toast.success('Đã cập nhật số lượng');
         // Trigger cart update event
         window.dispatchEvent(new Event('cartUpdated'));
@@ -168,18 +168,18 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
     try {
       console.log('🗑️ Removing item:', cartItemId);
       const success = await cartService.removeCartItem(cartItemId);
-      
+
       if (success) {
         // Re-fetch cart from server to ensure sync
         console.log('🔄 Re-fetching cart after delete...');
         const updatedCart = await cartService.getCart();
         setCart(updatedCart);
-        
+
         // Refresh checkout summary with new prices (keeping current selection)
         const newSelected = selectedItemIds.filter(id => updatedCart?.cartItems?.some(i => i.cartItemId === id));
         setSelectedItemIds(newSelected);
         await refreshCheckoutSummary(newSelected);
-        
+
         toast.success('Đã xóa sản phẩm');
         // Trigger cart update event
         window.dispatchEvent(new Event('cartUpdated'));
@@ -192,12 +192,12 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
         console.log('⚠️ Item not found (404), re-fetching cart...');
         const updatedCart = await cartService.getCart();
         setCart(updatedCart);
-        
+
         // Refresh checkout summary with new prices (keeping current selection)
         const newSelected = selectedItemIds.filter(id => updatedCart?.cartItems?.some(i => i.cartItemId === id));
         setSelectedItemIds(newSelected);
         await refreshCheckoutSummary(newSelected);
-        
+
         toast.info('Sản phẩm đã được xóa');
         // Trigger cart update event
         window.dispatchEvent(new Event('cartUpdated'));
@@ -225,17 +225,17 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
     try {
       console.log(' Clearing cart...');
       const success = await cartService.clearCart();
-      
+
       if (success) {
         // Re-fetch cart from server to ensure sync
         console.log('🔄 Re-fetching cart after clear...');
         const updatedCart = await cartService.getCart();
         setCart(updatedCart);
-        
+
         // Refresh checkout summary
         setSelectedItemIds([]);
         await refreshCheckoutSummary([]);
-        
+
         toast.success('Đã xóa toàn bộ giỏ hàng');
         // Trigger cart update event
         window.dispatchEvent(new Event('cartUpdated'));
@@ -262,7 +262,7 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
   }
 
   const cartItems = cart?.cartItems || [];
-  
+
   // Use checkout summary if available, otherwise calculate locally
   const subtotal = checkoutSummary?.subTotal || cart?.subtotal || 0;
   const shipping = checkoutSummary?.shippingFee !== undefined ? checkoutSummary.shippingFee : (subtotal > 0 ? 50000 : 0);
@@ -274,11 +274,11 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8 md:mb-10 text-center sm:text-left">
         <h1 className="text-3xl md:text-4xl font-black text-slate-900 italic font-display tracking-tight">Giỏ Hàng</h1>
       </div>
-      
+
       <div className="flex items-center justify-between gap-4 mb-6 bg-white/80 backdrop-blur-xl p-5 rounded-3xl border border-slate-100 sticky top-24 z-20 shadow-sm shadow-slate-200/50">
         <div className="flex items-center gap-3">
           {cartItems.length > 0 && (
-            <div 
+            <div
               className="flex items-center gap-4 cursor-pointer group"
               onClick={toggleSelectAll}
             >
@@ -299,7 +299,7 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
             disabled={updating !== null}
             className="text-red-500 font-bold text-sm hover:text-red-700 transition-all flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
-             Xóa tất cả
+            Xóa tất cả
           </button>
         )}
       </div>
@@ -310,7 +310,7 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
           {cartItems.length === 0 ? (
             <div className="bg-white p-12 rounded-3xl border border-gold/10 text-center">
               <p className="text-slate-500 text-lg mb-6">Giỏ hàng của bạn trống</p>
-              <button 
+              <button
                 onClick={() => onNavigate('/shop')}
                 className="border-2 border-primary text-primary px-8 py-3 rounded-lg font-bold hover:bg-primary/5 transition-all"
               >
@@ -324,7 +324,7 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
                 <div key={item.cartItemId} className={`bg-white p-4 md:p-6 rounded-[2rem] border transition-all duration-300 shadow-xl shadow-slate-200/40 hover:shadow-2xl ${selectedItemIds.includes(item.cartItemId) ? 'border-primary/30 ring-1 ring-primary/10' : 'border-slate-100'}`}>
                   <div className="flex flex-col sm:flex-row gap-4 md:gap-6 items-start sm:items-center">
                     {/* Checkbox */}
-                    <div 
+                    <div
                       className="cursor-pointer group flex-shrink-0"
                       onClick={() => toggleSelectItem(item.cartItemId)}
                     >
@@ -339,9 +339,9 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
 
                     <div className="w-20 h-20 md:w-24 md:h-24 rounded-xl overflow-hidden flex-shrink-0 bg-slate-100 flex items-center justify-center cursor-pointer" onClick={() => onNavigate(`/product/${item.packageId}`)}>
                       {item.imageUrl ? (
-                        <img 
-                          src={item.imageUrl} 
-                          alt={item.packageName} 
+                        <img
+                          src={item.imageUrl}
+                          alt={item.packageName}
                           className="w-full h-full object-cover"
                           onError={(e) => {
                             e.currentTarget.style.display = 'none';
@@ -360,7 +360,7 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
                       </div>
                       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                         <div className="flex items-center gap-3 bg-slate-100 rounded-lg p-1.5">
-                          <button 
+                          <button
                             onClick={() => updateQuantity(item.cartItemId, item.quantity - 1)}
                             disabled={isUpdating}
                             className="w-8 h-8 rounded bg-white text-primary font-bold hover:bg-primary hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
@@ -384,7 +384,7 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
                             className="w-12 text-center font-bold text-primary bg-transparent border-none focus:outline-none focus:ring-0 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                             placeholder={isUpdating ? '...' : ''}
                           />
-                          <button 
+                          <button
                             onClick={() => updateQuantity(item.cartItemId, item.quantity + 1)}
                             disabled={isUpdating || item.quantity >= MAX_CART_ITEM_QUANTITY}
                             className="w-8 h-8 rounded bg-white text-primary font-bold hover:bg-primary hover:text-white transition-all disabled:opacity-50 disabled:cursor-not-allowed"
@@ -393,7 +393,7 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
                           </button>
                         </div>
                         <div className="flex items-center gap-3">
-                          <button 
+                          <button
                             onClick={() => onNavigate(`/checkout?cartItemId=${item.cartItemId}`)}
                             disabled={isUpdating}
                             className="text-primary font-bold text-sm hover:text-primary/80 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
@@ -401,7 +401,7 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
                             Thanh toán
                           </button>
                           <span className="text-slate-300">|</span>
-                          <button 
+                          <button
                             onClick={() => removeItem(item.cartItemId)}
                             disabled={isUpdating}
                             className="text-red-500 font-bold text-sm hover:text-red-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
@@ -422,7 +422,7 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
         {cartItems.length > 0 && (
           <div className="bg-white p-6 md:p-10 rounded-[2.5rem] border border-slate-100 shadow-2xl shadow-slate-200/50 h-fit sticky top-32">
             <h2 className="text-xl font-bold text-primary mb-6">Tóm tắt đơn hàng</h2>
-            
+
             <div className="space-y-3 pb-6 border-b border-gold/10">
               <div className="flex justify-between text-slate-600">
                 <span>Tạm tính</span>
@@ -440,12 +440,12 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
               )}
             </div>
 
-            <div className="my-6 pt-6 flex justify-between text-2xl font-black text-primary">
-              <span>Tổng cộng</span>
+            <div className="my-4 pt-4 flex justify-between text-2xl font-black text-primary">
+              <span>Tổng cộng:</span>
               <span className="text-gold">{total.toLocaleString()}đ</span>
             </div>
 
-            <button 
+            <button
               onClick={() => {
                 if (selectedItemIds.length === 0) {
                   toast.warning('Vui lòng chọn ít nhất một sản phẩm để thanh toán');
@@ -460,8 +460,8 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
             >
               Thanh toán
             </button>
-            
-            <button 
+
+            <button
               onClick={() => onNavigate('/shop')}
               className="w-full border-2 border-primary text-primary py-3 rounded-lg font-bold hover:bg-primary/5 transition-all"
             >

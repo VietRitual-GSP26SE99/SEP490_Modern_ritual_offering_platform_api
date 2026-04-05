@@ -223,13 +223,28 @@ const TransactionHistoryPage: React.FC<TransactionHistoryPageProps> = () => {
     }
   };
 
-  const totalIn = transactions
-    .filter((tx) => isIncomingTransaction(tx))
-    .reduce((sum, tx) => sum + (tx.amount || 0), 0);
+  // Calculate totals ONLY for successful transactions
+  const successfulTransactions = transactions.filter(tx => {
+    const status = String(tx.status || '').toLowerCase();
+    return status.includes('success') || status.includes('thành công');
+  });
 
-  const totalOut = transactions
+  const totalIn = successfulTransactions
+    .filter((tx) => isIncomingTransaction(tx))
+    .reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+
+  const totalOut = successfulTransactions
     .filter((tx) => !isIncomingTransaction(tx))
-    .reduce((sum, tx) => sum + (tx.amount || 0), 0);
+    .reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+
+  const totalRefund = successfulTransactions
+    .filter((tx) => {
+      const type = String(tx.type || '').toLowerCase();
+      return type.includes('refund');
+    })
+    .reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+
+  const netSpending = totalOut - totalRefund;
 
   const relatedTransactions = (() => {
     if (!detailRaw) return [] as any[];
@@ -337,12 +352,18 @@ const TransactionHistoryPage: React.FC<TransactionHistoryPageProps> = () => {
             </button>
           </div>
 
-          <div className="flex flex-wrap gap-3 text-xs md:text-sm">
-            <div className="px-3 py-1 rounded-full bg-emerald-50 text-emerald-700 font-semibold">
-              Tổng tiền vào: {formatCurrency(totalIn)}
+          <div className="flex flex-wrap gap-2 md:gap-3 text-xs md:text-sm">
+            {/* <div className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-700 font-bold border border-emerald-100 flex items-center gap-2 shadow-sm shadow-emerald-700/5">
+              <span className="opacity-70">Tổng tiền vào:</span>
+              <span className="tabular-nums">{formatCurrency(totalIn)}</span>
             </div>
-            <div className="px-3 py-1 rounded-full bg-rose-50 text-rose-700 font-semibold">
-              Tổng tiền ra: {formatCurrency(totalOut)}
+            <div className="px-3 py-1.5 rounded-xl bg-rose-50 text-rose-700 font-bold border border-rose-100 flex items-center gap-2 shadow-sm shadow-rose-700/5">
+              <span className="opacity-70">Tổng tiền ra:</span>
+              <span className="tabular-nums">{formatCurrency(totalOut)}</span>
+            </div> */}
+            <div className="px-3 py-1.5 rounded-xl bg-primary/10 text-primary font-black border border-primary/20 flex items-center gap-2 shadow-sm shadow-primary/10">
+              <span className="opacity-70 uppercase tracking-tight">Chi tiêu thực tế:</span>
+              <span className="tabular-nums">{formatCurrency(netSpending)}</span>
             </div>
           </div>
         </div>
@@ -524,8 +545,8 @@ const TransactionHistoryPage: React.FC<TransactionHistoryPageProps> = () => {
                                 }
                               }}
                               className={`w-full text-left flex items-center gap-3 px-3 py-2 rounded-xl border transition-colors ${isCurrent
-                                  ? 'border-primary/60 bg-primary/5'
-                                  : 'border-slate-200 hover:border-primary/40 hover:bg-slate-50'
+                                ? 'border-primary/60 bg-primary/5'
+                                : 'border-slate-200 hover:border-primary/40 hover:bg-slate-50'
                                 }`}
                             >
                               <div className="flex-1 min-w-0">

@@ -90,7 +90,7 @@ const getDisplayStatusClass = (tx: WalletTransaction): string => {
 
 const getTransactionTypeLabel = (type: string, amount: number): string => {
   const normalized = String(type || '').trim().toLowerCase();
-  
+
   if ((normalized === 'systemadjustment' || normalized === 'adjust') && amount > 0) {
     return 'Nạp tiền';
   }
@@ -141,7 +141,7 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [fromDate, setFromDate] = useState<string>('');
   const [toDate, setToDate] = useState<string>('');
-  
+
   const [detailTx, setDetailTx] = useState<WalletTransaction | null>(null);
   const [detailOpen, setDetailOpen] = useState(false);
   const [relatedTxs, setRelatedTxs] = useState<WalletTransaction[]>([]);
@@ -164,7 +164,7 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
         getMyTransactions(filter)
       ]);
       setWallet(walletData);
-      
+
       const sorted = [...txData].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
       setTransactions(sorted);
     } catch (err) {
@@ -203,10 +203,10 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
         getTransactionById(tx.id, 'Vendor'),
         getRelatedTransactions(tx.id)
       ]);
-      
+
       // Merge related transactions from detail API and related API
       const combinedRelated = [...(detail.relatedTransactions || [])];
-      
+
       // Only add from 'related' if not already in 'combined'
       related.forEach(rt => {
         if (!combinedRelated.some(existing => existing.id === rt.id)) {
@@ -293,22 +293,37 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
     }
   };
 
-  const totalIn = useMemo(() => {
-    return transactions
-      .filter(tx => tx.amount > 0)
-      .reduce((sum, tx) => sum + tx.amount, 0);
+  const successfulTransactions = useMemo(() => {
+    return transactions.filter(tx => {
+      const status = String(tx.status || '').toLowerCase();
+      return status.includes('success') || status.includes('thành công') || status.includes('succeeded');
+    });
   }, [transactions]);
 
+  const totalIn = useMemo(() => {
+    return successfulTransactions
+      .filter(tx => tx.amount >= 0)
+      .reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+  }, [successfulTransactions]);
+
   const totalOut = useMemo(() => {
-    return transactions
+    return successfulTransactions
       .filter(tx => tx.amount < 0)
-      .reduce((sum, tx) => sum + Math.abs(tx.amount), 0);
-  }, [transactions]);
+      .reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+  }, [successfulTransactions]);
+
+  const totalRefund = useMemo(() => {
+    return successfulTransactions
+      .filter(tx => String(tx.type || '').toLowerCase().includes('refund'))
+      .reduce((sum, tx) => sum + Math.abs(tx.amount || 0), 0);
+  }, [successfulTransactions]);
+
+  const netSpending = totalOut - totalRefund;
 
   return (
     <div className="bg-white py-6 px-4 md:px-6">
       <div className="max-w-5xl mx-auto">
-        
+
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 mb-8">
           <div>
@@ -318,14 +333,14 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
             </p>
           </div>
           <div className="flex gap-3">
-            <button
+            {/* <button
               type="button"
               onClick={() => void handleTopup()}
               disabled={topupLoading}
               className="px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] shadow-lg shadow-emerald-600/20 hover:-translate-y-0.5 transition-all disabled:opacity-60 disabled:pointer-events-none disabled:hover:translate-y-0"
             >
               {topupLoading ? 'Đang xử lý…' : 'Nạp tiền'}
-            </button>
+            </button> */}
             <button
               onClick={() => onNavigate('/vendor/withdraw')}
               className="px-6 py-2.5 bg-slate-900 text-white rounded-xl font-bold uppercase tracking-widest text-[10px] shadow-lg shadow-slate-900/20 hover:-translate-y-0.5 transition-all"
@@ -337,18 +352,18 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
 
         {/* Balance Stats */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Số dư ví</p>
-             <p className="text-2xl font-black text-emerald-600 tabular-nums">{formatCurrency(wallet?.balance || 0)}</p>
-           </div>
-           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tạm giữ</p>
-             <p className="text-2xl font-black text-amber-600 tabular-nums">{formatCurrency(wallet?.heldBalance || 0)}</p>
-           </div>
-           <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Nợ hệ thống</p>
-             <p className="text-2xl font-black text-rose-600 tabular-nums">{formatCurrency(wallet?.debt || 0)}</p>
-           </div>
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Số dư ví</p>
+            <p className="text-2xl font-black text-emerald-600 tabular-nums">{formatCurrency(wallet?.balance || 0)}</p>
+          </div>
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Tạm giữ</p>
+            <p className="text-2xl font-black text-amber-600 tabular-nums">{formatCurrency(wallet?.heldBalance || 0)}</p>
+          </div>
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Nợ hệ thống</p>
+            <p className="text-2xl font-black text-rose-600 tabular-nums">{formatCurrency(wallet?.debt || 0)}</p>
+          </div>
         </div>
 
         {/* Filters */}
@@ -423,12 +438,15 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
               Làm mới bộ lọc
             </button>
             <div className="flex flex-wrap items-center gap-3">
-              <div className="px-4 py-2.5 bg-emerald-50 text-emerald-700 rounded-full text-xs font-black flex items-center gap-2 border border-emerald-100/50">
-                Tổng tiền vào: <span className="text-emerald-800 font-black tabular-nums">{formatCurrency(totalIn)}</span>
+              <div className="px-4 py-2.5 bg-emerald-50 text-emerald-700 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border border-emerald-100/50">
+                Tổng vào: <span className="text-emerald-800 tabular-nums">{formatCurrency(totalIn)}</span>
               </div>
-              <div className="px-4 py-2.5 bg-rose-50 text-rose-700 rounded-full text-xs font-black flex items-center gap-2 border border-rose-100/50">
-                Tổng tiền ra: <span className="text-rose-800 font-black tabular-nums">{formatCurrency(totalOut)}</span>
+              <div className="px-4 py-2.5 bg-rose-50 text-rose-700 rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 border border-rose-100/50">
+                Tổng ra: <span className="text-rose-800 tabular-nums">{formatCurrency(totalOut)}</span>
               </div>
+              {/* <div className="px-4 py-2.5 bg-slate-900 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-slate-900/10">
+                Chi tiêu thực tế: <span className="tabular-nums">{formatCurrency(netSpending)}</span>
+              </div> */}
             </div>
           </div>
         </div>
@@ -436,7 +454,7 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
         {/* List */}
         <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden min-h-[400px]">
           {loading ? (
-             <div className="p-16 text-center text-slate-400 italic font-bold">Đang tải dữ liệu giao dịch...</div>
+            <div className="p-16 text-center text-slate-400 italic font-bold">Đang tải dữ liệu giao dịch...</div>
           ) : transactions.length === 0 ? (
             <div className="p-16 text-center text-slate-400 font-bold">Chưa có giao dịch nào phù hợp.</div>
           ) : (
@@ -510,7 +528,7 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
                 onClick={() => setDetailOpen(false)}
                 className="w-10 h-10 rounded-2xl bg-slate-50 text-slate-400 hover:bg-rose-50 hover:text-rose-600 transition-all flex items-center justify-center border border-slate-100"
               >
-                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12" /></svg>
               </button>
             </div>
 
@@ -518,52 +536,52 @@ const VendorTransactionPage: React.FC<VendorTransactionPageProps> = ({ onNavigat
               {detailLoading && <p className="text-xs text-slate-400 italic">Đang tải thêm...</p>}
 
               <div className="grid grid-cols-2 gap-8">
-                 <div>
-                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Số tiền</p>
-                   <p className={`text-2xl font-black tabular-nums ${detailTx.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                     {detailTx.amount >= 0 ? '+' : ''}{formatCurrency(detailTx.amount)}
-                   </p>
-                 </div>
-                 {/* <div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Số tiền</p>
+                  <p className={`text-2xl font-black tabular-nums ${detailTx.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                    {detailTx.amount >= 0 ? '+' : ''}{formatCurrency(detailTx.amount)}
+                  </p>
+                </div>
+                {/* <div>
                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Số dư sau GD</p>
                    <p className="text-2xl font-black text-slate-900 tabular-nums">
                      {detailTx.balanceAfter !== null ? formatCurrency(detailTx.balanceAfter as number) : '--'}
                    </p>
                  </div> */}
-                 <div>
-                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ngày tạo</p>
-                   <p className="text-sm font-bold text-slate-700">{formatDateTimeVi(detailTx.createdAt)}</p>
-                 </div>
-                 <div>
-                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Trạng thái</p>
-                   <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${getDisplayStatusClass(detailTx)}`}>
-                     {getDisplayStatusLabel(detailTx)}
-                   </span>
-                 </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Ngày tạo</p>
+                  <p className="text-sm font-bold text-slate-700">{formatDateTimeVi(detailTx.createdAt)}</p>
+                </div>
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Trạng thái</p>
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border ${getDisplayStatusClass(detailTx)}`}>
+                    {getDisplayStatusLabel(detailTx)}
+                  </span>
+                </div>
               </div>
 
               <div className="bg-slate-50 rounded-[1.5rem] p-6 border border-slate-100">
-                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Mô tả</p>
-                 <p className="text-sm text-slate-700 font-bold leading-relaxed">{detailTx.description || 'Không có mô tả chi tiết.'}</p>
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Mô tả</p>
+                <p className="text-sm text-slate-700 font-bold leading-relaxed">{detailTx.description || 'Không có mô tả chi tiết.'}</p>
               </div>
 
               {relatedTxs.length > 0 && (
-                 <div className="pt-6 border-t border-slate-50">
-                    <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-4">Các giao dịch liên quan</p>
-                    <div className="space-y-3">
-                      {relatedTxs.map(rtx => (
-                        <div key={rtx.id} className="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl">
-                          <div>
-                            <p className="text-xs font-black text-slate-800 uppercase tracking-tight">{getTransactionTypeLabel(rtx.type, rtx.amount)}</p>
-                            <p className="text-[9px] text-slate-400 font-bold">{formatDateTimeVi(rtx.createdAt).split(' ')[0]}</p>
-                          </div>
-                          <p className={`text-sm font-black tabular-nums ${rtx.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-                            {rtx.amount >= 0 ? '+' : ''}{formatCurrency(rtx.amount)}
-                          </p>
+                <div className="pt-6 border-t border-slate-50">
+                  <p className="text-[10px] font-black text-primary uppercase tracking-widest mb-4">Các giao dịch liên quan</p>
+                  <div className="space-y-3">
+                    {relatedTxs.map(rtx => (
+                      <div key={rtx.id} className="flex items-center justify-between p-4 bg-white border border-slate-100 rounded-2xl">
+                        <div>
+                          <p className="text-xs font-black text-slate-800 uppercase tracking-tight">{getTransactionTypeLabel(rtx.type, rtx.amount)}</p>
+                          <p className="text-[9px] text-slate-400 font-bold">{formatDateTimeVi(rtx.createdAt).split(' ')[0]}</p>
                         </div>
-                      ))}
-                    </div>
-                 </div>
+                        <p className={`text-sm font-black tabular-nums ${rtx.amount >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+                          {rtx.amount >= 0 ? '+' : ''}{formatCurrency(rtx.amount)}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           </div>

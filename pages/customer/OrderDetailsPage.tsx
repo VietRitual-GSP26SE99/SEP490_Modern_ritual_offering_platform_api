@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { orderService, Order } from '../../services/orderService';
 import { refundService, RefundRecord } from '../../services/refundService';
 import { vendorService, VendorProfile } from '../../services/vendorService';
@@ -26,6 +26,8 @@ const OrderDetailsPage: React.FC = () => {
     const [proofModalImages, setProofModalImages] = useState<string[]>([]);
     const [proofModalTitle, setProofModalTitle] = useState('Ảnh giao hàng');
 
+    const [searchParams] = useSearchParams();
+
     const fetchOrder = async () => {
         if (!id) return;
         try {
@@ -36,6 +38,15 @@ const OrderDetailsPage: React.FC = () => {
                     loadRefundInfo(data.orderId),
                     loadVendorInfo(data),
                 ]);
+
+                // Check if we should auto-open refund modal
+                if (searchParams.get('requestRefund') === 'true') {
+                    // We need to wait a tiny bit for the eligibility state to be ready or just use the data
+                    const isDelivered = data.orderStatus.toUpperCase() === 'DELIVERED';
+                    if (isDelivered) {
+                        setIsRefundModalOpen(true);
+                    }
+                }
             } else {
                 toast.error('Không tìm thấy đơn hàng!');
                 navigate('/profile/orders');
@@ -277,7 +288,7 @@ const OrderDetailsPage: React.FC = () => {
     })();
     const hasRefundRequest = Boolean(refundInfo?.refundId);
     const isRefundRejected = refundInfo?.status === 'Rejected' || (order?.orderStatus || '').toUpperCase() === 'VENDORREJECTED';
-    const refundActionLabel = isRefundRejected ? 'Hoàn tiền bị từ chối' : 'Đã yêu cầu hoàn tiền';
+    const refundActionLabel = isRefundRejected ? 'Hoàn tiền bị từ chối' : 'Đã hoàn tiền';
 
     if (loading) {
         return (
@@ -461,13 +472,12 @@ const OrderDetailsPage: React.FC = () => {
                                         className={`relative z-10 flex flex-col items-center text-center w-24 md:w-32 ${isUpcoming ? 'opacity-40' : ''}`}
                                     >
                                         <div
-                                            className={`size-10 md:size-12 rounded-full flex items-center justify-center mb-3 ring-4 ring-white text-sm font-bold shadow-sm ${
-                                                isActive
-                                                    ? 'bg-primary text-white animate-pulse'
-                                                    : isCompleted
-                                                        ? 'bg-primary text-white'
-                                                        : 'bg-slate-200 text-slate-500'
-                                            }`}
+                                            className={`size-10 md:size-12 rounded-full flex items-center justify-center mb-3 ring-4 ring-white text-sm font-bold shadow-sm ${isActive
+                                                ? 'bg-primary text-white animate-pulse'
+                                                : isCompleted
+                                                    ? 'bg-primary text-white'
+                                                    : 'bg-slate-200 text-slate-500'
+                                                }`}
                                         >
                                             {index + 1}
                                         </div>

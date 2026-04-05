@@ -113,15 +113,24 @@ const MyOrdersPage: React.FC = () => {
 
     const filteredOrders = activeTab === 'ALL'
         ? orders
-        : orders.filter(o => o.orderStatus.toUpperCase() === activeTab);
+        : activeTab === 'REFUND'
+            ? orders.filter(o => {
+                const status = (o.orderStatus || '').toUpperCase();
+                return status.includes('REFUND') ||
+                    status === 'VENDORREJECTED' ||
+                    (o.refundAmount && o.refundAmount > 0) ||
+                    o.items?.some(it => it.isRequestRefund);
+            })
+            : orders.filter(o => (o.orderStatus || '').toUpperCase() === activeTab);
 
     const tabs = [
         { id: 'ALL', label: 'Tất cả' },
-        // { id: 'PENDING', label: 'Chờ thanh toán' },
         { id: 'PAID', label: 'Đang xử lý' },
         { id: 'DELIVERING', label: 'Đang giao' },
+        { id: 'DELIVERED', label: 'Đã giao' },
         { id: 'COMPLETED', label: 'Đã hoàn thành' },
-        { id: 'CANCELLED', label: 'Đã hủy' }
+        { id: 'CANCELLED', label: 'Đã hủy' },
+        { id: 'REFUND', label: 'Trả hàng/Hoàn tiền' }
     ];
 
     if (loading) {
@@ -171,13 +180,19 @@ const MyOrdersPage: React.FC = () => {
                                 </svg>
                             </div>
                             <h3 className="text-xl font-bold text-gray-800 mb-2">Chưa có đơn hàng nào</h3>
-                            <p className="text-gray-500 mb-8 max-w-sm mx-auto">Bạn chưa có đơn hàng nào ở trạng thái này. Hãy khám phá các mâm cúng của chúng tôi nhé!</p>
-                            <button
-                                onClick={() => navigate('/shop')}
-                                className="bg-primary text-white font-bold py-3 px-8 rounded-xl hover:bg-primary/90 transition shadow-lg shadow-primary/20"
-                            >
-                                Khám phá ngay
-                            </button>
+                            <p className="text-gray-500 mb-8 max-w-sm mx-auto">
+                                {activeTab === 'ALL'
+                                    ? 'Bạn chưa có đơn hàng nào. Hãy khám phá các mâm cúng của chúng tôi nhé!'
+                                    : 'Bạn chưa có đơn hàng nào ở trạng thái này.'}
+                            </p>
+                            {activeTab === 'ALL' && (
+                                <button
+                                    onClick={() => navigate('/shop')}
+                                    className="bg-primary text-white font-bold py-3 px-8 rounded-xl hover:bg-primary/90 transition shadow-lg shadow-primary/20"
+                                >
+                                    Khám phá ngay
+                                </button>
+                            )}
                         </div>
                     ) : (
                         filteredOrders.map((order) => (
@@ -199,7 +214,7 @@ const MyOrdersPage: React.FC = () => {
 
                                 <div className="p-5 md:p-8">
                                     <div className="flex items-center gap-3 mb-5 pb-5 border-b border-dashed border-gray-100">
-                                        <div 
+                                        <div
                                             className={`size-8 rounded-full bg-orange-100 flex items-center justify-center text-primary shrink-0 transition-transform active:scale-90 ${(() => {
                                                 const vId = String(order.vendor?.profileId || (order as any).vendorProfileId || (order as any).vendorId || '').trim();
                                                 return vId ? 'cursor-pointer hover:bg-orange-200' : '';
@@ -214,7 +229,7 @@ const MyOrdersPage: React.FC = () => {
                                             </svg>
                                         </div>
                                         <div>
-                                                    {(() => {
+                                            {(() => {
                                                 const vId = String(
                                                     order.vendor?.profileId
                                                     || (order as any).vendorProfileId
@@ -260,7 +275,7 @@ const MyOrdersPage: React.FC = () => {
                                                                 <svg className="w-2 h-2" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="3">
                                                                     <path strokeLinecap="round" strokeLinejoin="round" d="M16 15v-1a4 4 0 00-4-4H8m0 0l3 3m-3-3l3-3m9 14V5a2 2 0 00-2-2H6a2 2 0 00-2 2v16l4-2 4 2 4-2 4 2z" />
                                                                 </svg>
-                                                                Đã yêu cầu hoàn tiền
+                                                                Đã hoàn tiền
                                                             </span>
                                                         </div>
                                                     )}
@@ -289,6 +304,37 @@ const MyOrdersPage: React.FC = () => {
                                                 {cancellingId === order.orderId ? 'Đang xử lý...' : 'Hủy đơn'}
                                             </button>
                                         )}
+
+                                        {(() => {
+                                            if (order.orderStatus.toUpperCase() !== 'DELIVERED') return null;
+
+                                            const hasRefundRequest = order.items?.some(it => it.isRequestRefund);
+                                            if (hasRefundRequest) return null;
+
+                                            const deliveryDate = (order.delivery as any)?.deliveryDate || (order as any).deliveryDate;
+                                            const deliveryTime = (order.delivery as any)?.deliveryTime || (order as any).deliveryTime || '00:00:00';
+
+                                            let canRequest = true;
+                                            if (deliveryDate) {
+                                                const [h, m, s] = String(deliveryTime).split(':').map((v: string) => parseInt(v, 10) || 0);
+                                                const deliveredAt = new Date(deliveryDate);
+                                                deliveredAt.setHours(h, m, s || 0, 0);
+                                                const diffHours = (new Date().getTime() - deliveredAt.getTime()) / (1000 * 60 * 60);
+                                                if (diffHours > 2) canRequest = false;
+                                            }
+
+                                            if (!canRequest) return null;
+
+                                            return (
+                                                <button
+                                                    onClick={() => navigate(`/profile/orders/${order.orderId}?requestRefund=true`)}
+                                                    className="flex-1 md:flex-none px-6 py-3.5 rounded-2xl border-2 border-orange-50 text-orange-600 font-black text-[10px] uppercase tracking-widest hover:bg-orange-50 transition-all active:scale-95"
+                                                >
+                                                    Hoàn tiền
+                                                </button>
+                                            );
+                                        })()}
+
                                         <button
                                             onClick={() => navigate(`/profile/orders/${order.orderId}`)}
                                             className="flex-1 md:flex-none px-8 py-3.5 rounded-2xl bg-slate-900 text-white font-black text-[10px] uppercase tracking-widest hover:bg-primary hover:shadow-xl hover:shadow-primary/20 transition-all active:scale-95"
