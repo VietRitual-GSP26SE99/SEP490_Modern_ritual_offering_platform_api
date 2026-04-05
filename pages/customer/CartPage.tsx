@@ -14,6 +14,7 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
   const [loading, setLoading] = useState(true);
   const [updating, setUpdating] = useState<number | null>(null);
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [selectedItemIds, setSelectedItemIds] = useState<number[]>([]);
 
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
@@ -41,24 +42,23 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
         setCart(cartData);
         console.log('✅ Cart loaded:', cartData);
 
-        // Fetch checkout summary for accurate pricing
+        // Fetch checkout summary for accurate pricing based on selected items
         if (cartData && cartData.cartItems && cartData.cartItems.length > 0) {
+          const allItemIds = cartData.cartItems.map(item => item.cartItemId);
+          setSelectedItemIds(allItemIds);
+          
           try {
-            console.log('💰 Fetching checkout summary...');
-            const cartItemIds = cartData.cartItems.map(item => item.cartItemId);
-            const summary = await checkoutService.getSummary(cartItemIds);
+            console.log('💰 Fetching initial checkout summary...');
+            const summary = await checkoutService.getSummary(allItemIds);
             if (summary) {
               setCheckoutSummary(summary);
               console.log('✅ Checkout summary loaded:', summary);
             }
           } catch (summaryError: any) {
             console.warn('⚠️ Failed to fetch checkout summary for cart:', summaryError);
-            const lowerMsg = (summaryError.message || '').toLowerCase();
-            if (lowerMsg.includes('vượt quá') || lowerMsg.includes('phạm vi') || lowerMsg.includes('giao hàng') || lowerMsg.includes('distance')) {
-              toast.error('Có sản phẩm vượt quá khoảng cách giao hàng');
-            }
           }
         } else {
+          setSelectedItemIds([]);
           setCheckoutSummary(null);
         }
 
@@ -74,11 +74,10 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
   }, [isCheckingAuth]);
 
   // Helper function to refresh checkout summary
-  const refreshCheckoutSummary = async (cartData: CartApi | null) => {
-    if (cartData && cartData.cartItems && cartData.cartItems.length > 0) {
+  const refreshCheckoutSummary = async (ids: number[]) => {
+    if (ids.length > 0) {
       try {
-        const cartItemIds = cartData.cartItems.map(item => item.cartItemId);
-        const summary = await checkoutService.getSummary(cartItemIds);
+        const summary = await checkoutService.getSummary(ids);
         if (summary) {
           setCheckoutSummary(summary);
         }
@@ -91,6 +90,26 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
       }
     } else {
       setCheckoutSummary(null);
+    }
+  };
+
+  const toggleSelectItem = (cartItemId: number) => {
+    const newSelected = selectedItemIds.includes(cartItemId)
+      ? selectedItemIds.filter(id => id !== cartItemId)
+      : [...selectedItemIds, cartItemId];
+    
+    setSelectedItemIds(newSelected);
+    refreshCheckoutSummary(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedItemIds.length === cartItems.length) {
+      setSelectedItemIds([]);
+      setCheckoutSummary(null);
+    } else {
+      const allIds = cartItems.map(i => i.cartItemId);
+      setSelectedItemIds(allIds);
+      refreshCheckoutSummary(allIds);
     }
   };
 
@@ -117,8 +136,8 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
         const updatedCart = await cartService.getCart();
         setCart(updatedCart);
         
-        // Refresh checkout summary with new prices
-        await refreshCheckoutSummary(updatedCart);
+        // Refresh checkout summary with new prices (keeping current selection)
+        await refreshCheckoutSummary(selectedItemIds);
         
         toast.success('Đã cập nhật số lượng');
         // Trigger cart update event
@@ -156,8 +175,10 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
         const updatedCart = await cartService.getCart();
         setCart(updatedCart);
         
-        // Refresh checkout summary with new prices
-        await refreshCheckoutSummary(updatedCart);
+        // Refresh checkout summary with new prices (keeping current selection)
+        const newSelected = selectedItemIds.filter(id => updatedCart?.cartItems?.some(i => i.cartItemId === id));
+        setSelectedItemIds(newSelected);
+        await refreshCheckoutSummary(newSelected);
         
         toast.success('Đã xóa sản phẩm');
         // Trigger cart update event
@@ -172,8 +193,10 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
         const updatedCart = await cartService.getCart();
         setCart(updatedCart);
         
-        // Refresh checkout summary with new prices
-        await refreshCheckoutSummary(updatedCart);
+        // Refresh checkout summary with new prices (keeping current selection)
+        const newSelected = selectedItemIds.filter(id => updatedCart?.cartItems?.some(i => i.cartItemId === id));
+        setSelectedItemIds(newSelected);
+        await refreshCheckoutSummary(newSelected);
         
         toast.info('Sản phẩm đã được xóa');
         // Trigger cart update event
@@ -209,8 +232,9 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
         const updatedCart = await cartService.getCart();
         setCart(updatedCart);
         
-        // Refresh checkout summary (will clear it since cart is empty)
-        await refreshCheckoutSummary(updatedCart);
+        // Refresh checkout summary
+        setSelectedItemIds([]);
+        await refreshCheckoutSummary([]);
         
         toast.success('Đã xóa toàn bộ giỏ hàng');
         // Trigger cart update event
@@ -247,8 +271,28 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
 
   return (
     <div className="max-w-7xl mx-auto px-4 md:px-10 py-8 md:py-16">
-      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8 md:mb-12 text-center sm:text-left">
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-8 md:mb-10 text-center sm:text-left">
         <h1 className="text-3xl md:text-4xl font-black text-slate-900 italic font-display tracking-tight">Giỏ Hàng</h1>
+      </div>
+      
+      <div className="flex items-center justify-between gap-4 mb-6 bg-white/80 backdrop-blur-xl p-5 rounded-3xl border border-slate-100 sticky top-24 z-20 shadow-sm shadow-slate-200/50">
+        <div className="flex items-center gap-3">
+          {cartItems.length > 0 && (
+            <div 
+              className="flex items-center gap-4 cursor-pointer group"
+              onClick={toggleSelectAll}
+            >
+              <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${selectedItemIds.length === cartItems.length ? 'bg-primary border-primary' : 'bg-white border-slate-300 group-hover:border-primary'}`}>
+                {selectedItemIds.length === cartItems.length && (
+                  <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                  </svg>
+                )}
+              </div>
+              <span className="text-sm font-bold text-slate-600">Chọn tất cả ({cartItems.length})</span>
+            </div>
+          )}
+        </div>
         {cartItems.length > 0 && (
           <button
             onClick={clearAllCart}
@@ -277,9 +321,23 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
             cartItems.map(item => {
               const isUpdating = updating === item.cartItemId;
               return (
-                <div key={item.cartItemId} className="bg-white p-4 md:p-6 rounded-[2rem] border border-slate-100 shadow-xl shadow-slate-200/40 hover:shadow-2xl hover:border-primary/20 transition-all duration-300">
-                  <div className="flex flex-col sm:flex-row gap-4 md:gap-6">
-                    <div className="w-20 h-20 md:w-24 md:h-24 rounded-xl overflow-hidden flex-shrink-0 bg-slate-100 flex items-center justify-center">
+                <div key={item.cartItemId} className={`bg-white p-4 md:p-6 rounded-[2rem] border transition-all duration-300 shadow-xl shadow-slate-200/40 hover:shadow-2xl ${selectedItemIds.includes(item.cartItemId) ? 'border-primary/30 ring-1 ring-primary/10' : 'border-slate-100'}`}>
+                  <div className="flex flex-col sm:flex-row gap-4 md:gap-6 items-start sm:items-center">
+                    {/* Checkbox */}
+                    <div 
+                      className="cursor-pointer group flex-shrink-0"
+                      onClick={() => toggleSelectItem(item.cartItemId)}
+                    >
+                      <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${selectedItemIds.includes(item.cartItemId) ? 'bg-primary border-primary' : 'bg-white border-slate-300 group-hover:border-primary'}`}>
+                        {selectedItemIds.includes(item.cartItemId) && (
+                          <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M5 13l4 4L19 7" />
+                          </svg>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="w-20 h-20 md:w-24 md:h-24 rounded-xl overflow-hidden flex-shrink-0 bg-slate-100 flex items-center justify-center cursor-pointer" onClick={() => onNavigate(`/product/${item.packageId}`)}>
                       {item.imageUrl ? (
                         <img 
                           src={item.imageUrl} 
@@ -389,14 +447,15 @@ const CartPage: React.FC<{ onNavigate: (path: string) => void }> = ({ onNavigate
 
             <button 
               onClick={() => {
-                if (cartItems.length === 0) return;
+                if (selectedItemIds.length === 0) {
+                  toast.warning('Vui lòng chọn ít nhất một sản phẩm để thanh toán');
+                  return;
+                }
 
-                // Thanh toán tất cả item trong giỏ (kể cả nhiều shop) giống Shopee
-                const targetIds = cartItems.map(i => i.cartItemId);
-                const idsParam = targetIds.join(',');
+                const idsParam = selectedItemIds.join(',');
                 onNavigate(`/checkout?cartItemId=${idsParam}`);
               }}
-              disabled={updating !== null || cartItems.length === 0}
+              disabled={updating !== null || selectedItemIds.length === 0}
               className="w-full bg-primary text-white py-4 rounded-lg font-bold text-lg hover:bg-primary/90 transition-all mb-1 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Thanh toán

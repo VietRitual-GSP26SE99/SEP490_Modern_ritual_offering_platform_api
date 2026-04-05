@@ -20,6 +20,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
   const [loading, setLoading] = useState(true);
   const [selectedVariantIndex, setSelectedVariantIndex] = useState<number | null>(null);
   const [hoveredVariantIndex, setHoveredVariantIndex] = useState<number | null>(null);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
   const [currentMainImage, setCurrentMainImage] = useState(0);
@@ -222,7 +223,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
   const reviewsToDisplay = reviews.filter(r => {
     // If user is staff/vendor, show everything
     if (isOwnerVendor) return true;
-    
+
     // Otherwise only show visible reviews
     // Handle both boolean true/false and cases where field might be missing (default to visible)
     return r.isVisible === true || r.isVisible === undefined || (r as any).isvisible === true;
@@ -258,11 +259,11 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
     ? packageMeta.packageVariants[activeVariantIndex]
     : null;
 
-  const variantImages = selectedVariantMeta 
+  const variantImages = selectedVariantMeta
     ? Array.from(new Set([
-        String(selectedVariantMeta?.imageUrl || '').trim(),
-        ...(Array.isArray(selectedVariantMeta?.variantImages) ? selectedVariantMeta.variantImages : []),
-      ])).filter(Boolean)
+      String(selectedVariantMeta?.imageUrl || '').trim(),
+      ...(Array.isArray(selectedVariantMeta?.variantImages) ? selectedVariantMeta.variantImages : []),
+    ])).filter(Boolean)
     : [];
 
   const displayImages = (activeVariantIndex !== null && variantImages.length > 0) ? variantImages : productImages;
@@ -282,6 +283,8 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
   const handleThumbnailClick = (index: number) => {
     setCurrentMainImage(index);
   };
+
+  const descriptionText = product?.description || 'Sản phẩm được chuẩn bị tươm tất với đầy đủ các vật phẩm truyền thống, mang lại sự thành tâm và trang trọng cho không gian thờ cúng của gia đình.';
 
   const handleAddToCart = async () => {
     const user = getCurrentUser();
@@ -421,7 +424,34 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
               </div>
             ))}
           </div>
-        </div>
+
+          <div className="mt-12 bg-white rounded-[2.5rem] border border-gold/10 p-8 md:p-10 shadow-sm relative overflow-hidden group hover:shadow-xl transition-all duration-500">
+            <div className="absolute top-0 right-0 w-32 h-32 bg-gold/5 rounded-full -mr-16 -mt-16 blur-2xl group-hover:bg-gold/10 transition-colors"></div>
+
+              <div className="prose prose-slate max-w-none relative">
+                <div 
+                  className={`text-slate-600 leading-[1.8] text-sm md:text-base whitespace-pre-line bg-slate-50/50 p-6 rounded-2xl border border-slate-100/50 transition-all duration-500 overflow-hidden ${!isDescriptionExpanded ? 'max-h-[220px]' : 'max-h-none'}`}
+                >
+                  {descriptionText}
+                  {!isDescriptionExpanded && descriptionText.length > 300 && (
+                    <div className="absolute bottom-0 left-0 right-0 h-24 bg-gradient-to-t from-slate-50/90 to-transparent pointer-events-none rounded-b-2xl"></div>
+                  )}
+                </div>
+                {descriptionText.length > 300 && (
+                  <button 
+                    onClick={() => setIsDescriptionExpanded(!isDescriptionExpanded)}
+                    className="mt-4 text-xs font-black text-primary uppercase tracking-[0.2em] flex items-center gap-2 hover:gap-3 transition-all"
+                  >
+                    {isDescriptionExpanded ? (
+                      <><span>Rút gọn</span> <span>↑</span></>
+                    ) : (
+                      <><span>Xem thêm chi tiết</span> <span>↓</span></>
+                    )}
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
 
         <div className="lg:col-span-5 space-y-6 md:space-y-8">
           <div className="space-y-4">
@@ -454,12 +484,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
               )}
             </div>
 
-            {product.description && (
-              <div className="bg-slate-50 border border-slate-100 rounded-2xl p-4">
-                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-2">Mô tả</p>
-                <p className="text-sm font-medium text-slate-600 leading-relaxed">{product.description}</p>
-              </div>
-            )}
+
           </div>
 
           <div className="p-6 md:p-8 bg-white rounded-[2rem] border border-gold/10 shadow-xl space-y-6 md:space-y-8">
@@ -548,7 +573,7 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
                 disabled={addingToCart || buyingNow}
                 className="w-full bg-primary text-white py-4 rounded-2xl font-black uppercase tracking-widest hover:shadow-xl hover:shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-3 text-sm md:text-base border-2 border-primary"
               >
-                {buyingNow ? 'Đang chuẩn bị...' : 'Mua ngay ngay'}
+                {buyingNow ? 'Đang chuẩn bị...' : 'Mua ngay'}
               </button>
             </div>
           </div>
@@ -560,25 +585,25 @@ const ProductDetailPage: React.FC<{ onNavigate: (path: string) => void }> = ({ o
           <div className="bg-slate-900 p-6 md:p-8 text-white text-sm">
             <div className="flex flex-col lg:flex-row gap-8 lg:items-center">
               <div className="flex items-center gap-6 lg:w-[40%] shrink-0">
-                  <div 
-                    className={`w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-white flex items-center justify-center text-slate-900 text-xl font-display font-black border-4 border-white/10 shrink-0 overflow-hidden shadow-2xl transition-all active:scale-95 ${(vendor.profileId || (vendor as any).vendorProfileId) ? 'cursor-pointer hover:border-primary/50' : ''}`}
-                    onClick={() => (vendor.profileId || (vendor as any).vendorProfileId) && onNavigate(`/vendor/${vendor.profileId || (vendor as any).vendorProfileId}`)}
-                  >
-                    {(vendor.shopAvatarUrl || vendor.avatarUrl) ? (
-                      <img src={vendor.shopAvatarUrl || vendor.avatarUrl || ''} alt={vendor.shopName} className="w-full h-full object-cover" />
-                    ) : (
-                      <span className="text-3xl">{vendor.shopName.charAt(0).toUpperCase()}</span>
-                    )}
-                  </div>
+                <div
+                  className={`w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-white flex items-center justify-center text-slate-900 text-xl font-display font-black border-4 border-white/10 shrink-0 overflow-hidden shadow-2xl transition-all active:scale-95 ${(vendor.profileId || (vendor as any).vendorProfileId) ? 'cursor-pointer hover:border-primary/50' : ''}`}
+                  onClick={() => (vendor.profileId || (vendor as any).vendorProfileId) && onNavigate(`/vendor/${vendor.profileId || (vendor as any).vendorProfileId}`)}
+                >
+                  {(vendor.shopAvatarUrl || vendor.avatarUrl) ? (
+                    <img src={vendor.shopAvatarUrl || vendor.avatarUrl || ''} alt={vendor.shopName} className="w-full h-full object-cover" />
+                  ) : (
+                    <span className="text-3xl">{vendor.shopName.charAt(0).toUpperCase()}</span>
+                  )}
+                </div>
 
                 <div className="space-y-3 flex-1 min-w-0">
                   <div>
-                      <h3 
-                        className={`text-2xl font-display font-black tracking-tighter truncate leading-none transition-colors ${(vendor.profileId || (vendor as any).vendorProfileId) ? 'cursor-pointer hover:text-primary' : ''}`}
-                        onClick={() => (vendor.profileId || (vendor as any).vendorProfileId) && onNavigate(`/vendor/${vendor.profileId || (vendor as any).vendorProfileId}`)}
-                      >
-                        {vendor.shopName}
-                      </h3>
+                    <h3
+                      className={`text-2xl font-display font-black tracking-tighter truncate leading-none transition-colors ${(vendor.profileId || (vendor as any).vendorProfileId) ? 'cursor-pointer hover:text-primary' : ''}`}
+                      onClick={() => (vendor.profileId || (vendor as any).vendorProfileId) && onNavigate(`/vendor/${vendor.profileId || (vendor as any).vendorProfileId}`)}
+                    >
+                      {vendor.shopName}
+                    </h3>
                     <div className="flex items-center gap-1.5 mt-2">
                       <span className="w-2 h-2 bg-green-500 rounded-full shadow-[0_0_10px_rgba(34,197,94,0.5)]"></span>
                       <p className="text-[10px] font-black text-white/40 uppercase tracking-[0.2em]">Cửa hàng đối tác</p>
