@@ -279,14 +279,6 @@ const OrderDetailsPage: React.FC = () => {
         return 0;
     };
 
-    const vendorProfileId = String(
-        order?.vendor?.profileId
-        || (order as any)?.vendorProfileId
-        || (order as any)?.vendorId
-        || (order as any)?.VendorId
-        || (order as any)?.vendor_id
-        || ''
-    ).trim();
 
 
     // Customer chỉ được yêu cầu hoàn tiền trong vòng 2h sau khi đơn được giao (DELIVERED)
@@ -331,6 +323,15 @@ const OrderDetailsPage: React.FC = () => {
     }
 
     if (!order) return null;
+
+    // Resolve vendor profile ID: vendorInfo has the real ID from getAllVendors()
+    const vendorProfileId = String(
+        vendorInfo?.profileId
+        || order?.vendor?.profileId
+        || (order as any)?.vendorProfileId
+        || (order as any)?.vendorId
+        || ''
+    ).trim();
 
     // Resolve vendor avatar: map first (reliable), then vendorInfo (async)
     const vendorAvatarSrc = (() => {
