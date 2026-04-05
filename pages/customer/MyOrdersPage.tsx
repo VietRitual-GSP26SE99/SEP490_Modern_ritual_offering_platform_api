@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { orderService, Order } from '../../services/orderService';
+import { vendorService } from '../../services/vendorService';
 import toast from '../../services/toast';
 
 const MyOrdersPage: React.FC = () => {
@@ -9,6 +10,8 @@ const MyOrdersPage: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('ALL');
     const [cancellingId, setCancellingId] = useState<string | null>(null);
+    // Map from shopName -> shopAvatarUrl
+    const [vendorAvatarMap, setVendorAvatarMap] = useState<Record<string, string>>({});
 
     const fetchOrders = async () => {
         try {
@@ -34,6 +37,16 @@ const MyOrdersPage: React.FC = () => {
 
     useEffect(() => {
         fetchOrders();
+        // Load all vendors to get their avatars
+        vendorService.getAllVendors().then(vendors => {
+            const map: Record<string, string> = {};
+            vendors.forEach(v => {
+                const avatar = v.shopAvatarUrl || v.avatarUrl || '';
+                if (v.shopName && avatar) map[v.shopName] = avatar;
+                if (v.profileId && avatar) map[v.profileId] = avatar;
+            });
+            setVendorAvatarMap(map);
+        }).catch(() => {});
     }, []);
 
     const handleCancelOrder = async (orderId: string) => {
@@ -214,20 +227,33 @@ const MyOrdersPage: React.FC = () => {
 
                                 <div className="p-5 md:p-8">
                                     <div className="flex items-center gap-3 mb-5 pb-5 border-b border-dashed border-gray-100">
-                                        <div
-                                            className={`size-8 rounded-full bg-orange-100 flex items-center justify-center text-primary shrink-0 transition-transform active:scale-90 ${(() => {
-                                                const vId = String(order.vendor?.profileId || (order as any).vendorProfileId || (order as any).vendorId || '').trim();
-                                                return vId ? 'cursor-pointer hover:bg-orange-200' : '';
-                                            })()}`}
-                                            onClick={() => {
-                                                const vId = String(order.vendor?.profileId || (order as any).vendorProfileId || (order as any).vendorId || '').trim();
-                                                vId && navigate(`/vendor/${vId}`);
-                                            }}
-                                        >
-                                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                                            </svg>
-                                        </div>
+                                        {(() => {
+                                            const shopName = order.vendor?.shopName || (order as any).shopName || '';
+                                            const vId = String(order.vendor?.profileId || (order as any).vendorProfileId || (order as any).vendorId || '').trim();
+                                            const avatarSrc = vendorAvatarMap[vId] || vendorAvatarMap[shopName] || '';
+                                            return avatarSrc ? (
+                                                <div
+                                                    className={`size-8 rounded-full overflow-hidden border border-orange-100 shrink-0 transition-transform active:scale-90 ${vId ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}
+                                                    onClick={() => vId && navigate(`/vendor/${vId}`)}
+                                                >
+                                                    <img
+                                                        src={avatarSrc}
+                                                        alt={shopName}
+                                                        className="w-full h-full object-cover"
+                                                        onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                                    />
+                                                </div>
+                                            ) : (
+                                                <div
+                                                    className={`size-8 rounded-full bg-orange-100 flex items-center justify-center text-primary shrink-0 transition-transform active:scale-90 ${vId ? 'cursor-pointer hover:bg-orange-200' : ''}`}
+                                                    onClick={() => vId && navigate(`/vendor/${vId}`)}
+                                                >
+                                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                                    </svg>
+                                                </div>
+                                            );
+                                        })()}
                                         <div>
                                             {(() => {
                                                 const vId = String(

@@ -47,6 +47,7 @@ export interface Order {
         email: string;
         phoneNumber: string;
         address: string;
+        avatarUrl?: string | null;
     };
     delivery: {
         deliveryDate: string;
@@ -209,6 +210,8 @@ interface OrderDetailsApiItem {
         email?: string;
         phoneNumber?: string;
         address?: string;
+        avatarUrl?: string;
+        shopAvatarUrl?: string;
     };
     delivery?: {
         deliveryDate?: string;
@@ -283,6 +286,8 @@ interface OrderDetailsApiItem {
     deliveryTime?: string;
     deliveryAddress?: string;
     shippingDistanceKm?: number;
+    vendorAvatarUrl?: string;
+    shopAvatarUrl?: string;
 }
 
 class OrderService {
@@ -399,11 +404,18 @@ class OrderService {
                             phoneNumber: raw.customerPhone || '',
                             email: raw.customerEmail || '',
                         },
-                        vendor: raw.vendor || {
+                        vendor: raw.vendor ? {
+                            profileId: raw.vendor.profileId || raw.vendorId || '',
+                            shopName: raw.vendor.shopName || raw.shopName || raw.vendorName || 'Tiệm Cúng Bái',
+                            phoneNumber: raw.vendor.phoneNumber || raw.vendorPhone || '',
+                            address: raw.vendor.address || raw.vendorAddress || '',
+                            avatarUrl: raw.vendor.avatarUrl || raw.vendor.shopAvatarUrl || raw.vendorAvatarUrl || raw.shopAvatarUrl || null,
+                        } : {
                             profileId: raw.vendorId || '',
                             shopName: raw.shopName || raw.vendorName || 'Tiệm Cúng Bái',
                             phoneNumber: raw.vendorPhone || '',
                             address: raw.vendorAddress || '',
+                            avatarUrl: raw.vendorAvatarUrl || raw.shopAvatarUrl || null,
                         },
                         delivery: raw.delivery || {
                             deliveryDate: raw.deliveryDate || '',
@@ -473,6 +485,8 @@ class OrderService {
             const data = await response.json();
             if (data.isSuccess && data.result) {
                 const raw: OrderDetailsApiItem = data.result;
+                console.log('🔍 [OrderDetail] raw.vendor:', raw.vendor);
+                console.log('🔍 [OrderDetail] raw.vendorId:', (raw as any).vendorId, '| raw.vendorProfileId:', (raw as any).vendorProfileId, '| raw.shopAvatarUrl:', (raw as any).shopAvatarUrl);
 
                 const items: OrderItem[] = Array.isArray(raw.items)
                     ? raw.items.map((item) => {
@@ -608,12 +622,20 @@ class OrderService {
                     customerName,
                     customerPhone,
                     customerAvatar: raw.customer?.avatarUrl || (raw as any).customerAvatar || '',
-                    vendor: {
-                        profileId: raw.vendor?.profileId || raw.vendorId || null,
-                        shopName: raw.vendor?.shopName || raw.shopName || raw.vendorName || 'Shop',
-                        email: raw.vendor?.email || raw.vendorEmail || '',
-                        phoneNumber: raw.vendor?.phoneNumber || raw.vendorPhone || '',
-                        address: raw.vendor?.address || raw.vendorAddress || '',
+                    vendor: raw.vendor ? {
+                        profileId: raw.vendor.profileId || raw.vendorId || null,
+                        shopName: raw.vendor.shopName || raw.shopName || raw.vendorName || 'Cúng Bái Tâm Linh',
+                        email: raw.vendor.email || raw.vendorEmail || '',
+                        phoneNumber: raw.vendor.phoneNumber || raw.vendorPhone || '',
+                        address: raw.vendor.address || raw.vendorAddress || '',
+                        avatarUrl: raw.vendor.avatarUrl || raw.vendor.shopAvatarUrl || raw.vendorAvatarUrl || raw.shopAvatarUrl || null,
+                    } : {
+                        profileId: raw.vendorId || null,
+                        shopName: raw.shopName || raw.vendorName || 'Cúng Bái Tâm Linh',
+                        email: raw.vendorEmail || '',
+                        phoneNumber: raw.vendorPhone || '',
+                        address: raw.vendorAddress || '',
+                        avatarUrl: raw.vendorAvatarUrl || raw.shopAvatarUrl || null,
                     },
                     delivery: {
                         deliveryDate: raw.delivery?.deliveryDate || raw.deliveryDate || '',

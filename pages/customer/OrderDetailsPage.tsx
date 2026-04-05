@@ -27,6 +27,7 @@ const OrderDetailsPage: React.FC = () => {
     const [proofModalTitle, setProofModalTitle] = useState('Ảnh giao hàng');
 
     const [searchParams] = useSearchParams();
+    const [vendorAvatarMap, setVendorAvatarMap] = useState<Record<string, string>>({});
 
     const fetchOrder = async () => {
         if (!id) return;
@@ -62,6 +63,16 @@ const OrderDetailsPage: React.FC = () => {
     useEffect(() => {
         window.scrollTo(0, 0);
         fetchOrder();
+        // Load all vendors to build avatar map
+        vendorService.getAllVendors().then(vendors => {
+            const map: Record<string, string> = {};
+            vendors.forEach(v => {
+                const avatar = v.shopAvatarUrl || v.avatarUrl || '';
+                if (v.shopName && avatar) map[v.shopName] = avatar;
+                if (v.profileId && avatar) map[v.profileId] = avatar;
+            });
+            setVendorAvatarMap(map);
+        }).catch(() => {});
     }, [id, navigate]);
 
     const loadRefundInfo = async (orderId: string) => {
@@ -93,14 +104,29 @@ const OrderDetailsPage: React.FC = () => {
                 orderData.vendor?.profileId
                 || (orderData as any).vendorProfileId
                 || (orderData as any).vendorId
+                || (orderData as any).VendorId
                 || ''
             ).trim();
 
-            if (!vendorId) return;
+            const shopName = orderData.vendor?.shopName || (orderData as any).shopName || '';
 
-            const vendor = await vendorService.getVendorCached(vendorId);
-            if (vendor) {
-                setVendorInfo(vendor);
+            // Try individual vendor API first
+            if (vendorId) {
+                const vendor = await vendorService.getVendorCached(vendorId);
+                if (vendor) {
+                    setVendorInfo(vendor);
+                    return;
+                }
+            }
+
+            // Fallback: load all vendors and match by profileId or shopName
+            const allVendors = await vendorService.getAllVendors();
+            const matched = allVendors.find(v =>
+                (vendorId && v.profileId === vendorId) ||
+                (shopName && v.shopName === shopName)
+            );
+            if (matched) {
+                setVendorInfo(matched);
             }
         } catch (error) {
             console.error('Lỗi khi tải thông tin vendor:', error);
@@ -257,8 +283,11 @@ const OrderDetailsPage: React.FC = () => {
         order?.vendor?.profileId
         || (order as any)?.vendorProfileId
         || (order as any)?.vendorId
+        || (order as any)?.VendorId
+        || (order as any)?.vendor_id
         || ''
     ).trim();
+
 
     // Customer chỉ được yêu cầu hoàn tiền trong vòng 2h sau khi đơn được giao (DELIVERED)
     // Nếu dữ liệu thời gian giao không khớp (ví dụ trạng thái đã DELIVERED nhưng thời gian giao nằm ở tương lai),
@@ -302,6 +331,26 @@ const OrderDetailsPage: React.FC = () => {
     }
 
     if (!order) return null;
+
+    // Resolve vendor avatar: map first (reliable), then vendorInfo (async)
+    const vendorAvatarSrc = (() => {
+        const shopName = order.vendor?.shopName || (order as any)?.shopName || '';
+        return vendorAvatarMap[vendorProfileId]
+            || vendorAvatarMap[shopName]
+            || vendorInfo?.shopAvatarUrl
+            || vendorInfo?.avatarUrl
+            || (order.vendor as any)?.shopAvatarUrl
+            || (order.vendor as any)?.avatarUrl
+            || null;
+    })();
+
+    const vendorShopName =
+        vendorInfo?.shopName
+        || order.vendor?.shopName
+        || (order as any)?.shopName
+        || (order as any)?.vendorName
+        || 'Người cung cấp';
+
 
     const rawPreparationProof = (
         (order.delivery as any)?.preparationProofImages
@@ -647,7 +696,7 @@ const OrderDetailsPage: React.FC = () => {
 
                         {/* Store details */}
                         <div className="bg-white p-8 rounded-[2rem] border border-gray-200 shadow-sm relative overflow-hidden group">
-                            {!(vendorInfo?.shopAvatarUrl || vendorInfo?.avatarUrl) && (
+                            {!vendorAvatarSrc && (
                                 <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity pointer-events-none">
                                     <svg className="w-24 h-24" fill="currentColor" viewBox="0 0 24 24">
                                         <path d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
@@ -665,12 +714,20 @@ const OrderDetailsPage: React.FC = () => {
                                     Người cung cấp
                                 </h3>
 
-                                {(vendorInfo?.shopAvatarUrl || vendorInfo?.avatarUrl) && (
-                                    <div className="w-20 h-20 rounded-3xl overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0 shadow-sm">
+                                {vendorAvatarSrc && (
+                                    <div
+                                        className={`w-20 h-20 rounded-3xl overflow-hidden bg-gray-100 border border-gray-200 flex-shrink-0 shadow-sm transition-transform active:scale-95 ${vendorProfileId ? 'cursor-pointer hover:opacity-80' : 'cursor-default'}`}
+                                        onClick={() => vendorProfileId && navigate(`/vendor/${vendorProfileId}`)}
+                                    >
                                         <img
-                                            src={vendorInfo.shopAvatarUrl || vendorInfo.avatarUrl || ''}
-                                            alt={vendorInfo.shopName || 'Shop avatar'}
+                                            src={vendorAvatarSrc}
+                                            alt={vendorShopName}
                                             className="w-full h-full object-cover"
+                                            onError={(e) => {
+                                                const target = e.target as HTMLImageElement;
+                                                target.onerror = null;
+                                                target.src = 'https://picsum.photos/200?random=vendor';
+                                            }}
                                         />
                                     </div>
                                 )}
@@ -681,6 +738,7 @@ const OrderDetailsPage: React.FC = () => {
                                     type="button"
                                     onClick={() => vendorProfileId && navigate(`/vendor/${vendorProfileId}`)}
                                     className={`font-bold text-xl text-primary text-left truncate ${vendorProfileId ? 'cursor-pointer hover:text-primary/80' : 'cursor-default'}`}
+                                    title={vendorProfileId ? 'Xem trang cửa hàng' : ''}
                                 >
                                     {order.vendor?.shopName || (order as any).shopName || vendorInfo?.shopName || "Cúng Bái Tâm Linh"}
                                 </button>
@@ -720,6 +778,11 @@ const OrderDetailsPage: React.FC = () => {
                                                     src={item.imageUrl || `https://picsum.photos/200?random=${idx}`}
                                                     alt={item.packageName}
                                                     className="w-full h-full object-cover group-hover/img:scale-110 transition-transform duration-300"
+                                                    onError={(e) => {
+                                                        const target = e.target as HTMLImageElement;
+                                                        target.onerror = null;
+                                                        target.src = `https://picsum.photos/200?random=${idx}`;
+                                                    }}
                                                 />
                                                 <div className="absolute top-0 right-0 bg-primary text-white text-[10px] font-black w-6 h-6 flex items-center justify-center rounded-bl-lg">
                                                     x{item.quantity}
