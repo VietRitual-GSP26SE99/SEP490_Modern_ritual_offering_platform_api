@@ -595,26 +595,26 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
         {mainTab === 'orders' && (
           <>
             {/* Date filter */}
-            <div className="mb-4 rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-              <div className="flex flex-wrap items-end gap-3">
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Từ ngày</label>
-                  <div className="min-w-[170px] border border-gray-200 rounded-xl bg-white focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary flex items-center overflow-hidden">
+            <div className="mb-5 rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-[1fr_1fr_auto] gap-4 items-end">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[11px] font-black uppercase tracking-widest text-slate-500">Từ ngày</label>
+                  <div className="w-full border border-gray-200 rounded-xl bg-white focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary flex items-center overflow-hidden shadow-[inset_0_1px_2px_rgba(15,23,42,0.03)]">
                     <input
                       type="text"
                       value={fromDateText}
                       onChange={(e) => handleFromDateTextChange(e.target.value)}
                       onBlur={handleFromDateTextBlur}
                       placeholder="dd/mm/yyyy"
-                      className="w-full px-3 py-2 text-sm text-gray-700 bg-transparent outline-none"
+                      className="w-full px-4 py-2.5 text-sm font-semibold text-gray-700 bg-transparent border-none outline-none focus:outline-none focus:ring-0"
                     />
                     <button
                       type="button"
                       onClick={() => openNativeDatePicker(fromDateInputRef.current)}
-                      className="px-3 py-2 border-l border-gray-200 text-slate-500 hover:bg-gray-50"
+                      className="px-3 py-2.5 border-l border-gray-200 text-slate-500 hover:bg-gray-50 transition-colors"
                       aria-label="Chọn ngày bắt đầu"
                     >
-
+                      <span className="material-symbols-outlined text-[18px]">calendar_month</span>
                     </button>
                   </div>
                   <input
@@ -629,24 +629,24 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
                   />
                 </div>
 
-                <div className="flex flex-col gap-1">
-                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500">Đến ngày</label>
-                  <div className="min-w-[170px] border border-gray-200 rounded-xl bg-white focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary flex items-center overflow-hidden">
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[11px] font-black uppercase tracking-widest text-slate-500">Đến ngày</label>
+                  <div className="w-full border border-gray-200 rounded-xl bg-white focus-within:ring-2 focus-within:ring-primary/30 focus-within:border-primary flex items-center overflow-hidden shadow-[inset_0_1px_2px_rgba(15,23,42,0.03)]">
                     <input
                       type="text"
                       value={toDateText}
                       onChange={(e) => handleToDateTextChange(e.target.value)}
                       onBlur={handleToDateTextBlur}
                       placeholder="dd/mm/yyyy"
-                      className="w-full px-3 py-2 text-sm text-gray-700 bg-transparent outline-none"
+                      className="w-full px-4 py-2.5 text-sm font-semibold text-gray-700 bg-transparent border-none outline-none focus:outline-none focus:ring-0"
                     />
                     <button
                       type="button"
                       onClick={() => openNativeDatePicker(toDateInputRef.current)}
-                      className="px-3 py-2 border-l border-gray-200 text-slate-500 hover:bg-gray-50"
+                      className="px-3 py-2.5 border-l border-gray-200 text-slate-500 hover:bg-gray-50 transition-colors"
                       aria-label="Chọn ngày kết thúc"
                     >
-
+                      <span className="material-symbols-outlined text-[18px]">calendar_month</span>
                     </button>
                   </div>
                   <input
@@ -664,35 +664,35 @@ const OrderManagement: React.FC<OrderManagementProps> = ({ onNavigate: _onNaviga
 
                 <button
                   onClick={() => applyDatePreset('clear')}
-                  className="px-4 py-2 rounded-xl text-sm font-bold text-slate-600 border border-gray-200 bg-white hover:bg-gray-50 transition"
+                  className="h-[42px] px-5 rounded-xl text-sm font-black text-slate-600 border border-gray-200 bg-white hover:bg-gray-50 transition whitespace-nowrap"
                 >
                   Xóa lọc ngày
                 </button>
               </div>
 
-              <div className="flex flex-wrap items-center gap-2 mt-3">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-500 mr-1">Lọc nhanh</span>
+              <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-slate-100">
+                <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 mr-1">Lọc nhanh</span>
                 <button
                   onClick={() => applyDatePreset('today')}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold border border-gray-200 text-slate-700 bg-white hover:bg-gray-50 transition"
+                  className="px-3 py-1.5 rounded-lg text-xs font-black border border-gray-200 text-slate-700 bg-white hover:bg-gray-50 transition"
                 >
                   Hôm nay
                 </button>
                 <button
                   onClick={() => applyDatePreset('last7')}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold border border-gray-200 text-slate-700 bg-white hover:bg-gray-50 transition"
+                  className="px-3 py-1.5 rounded-lg text-xs font-black border border-gray-200 text-slate-700 bg-white hover:bg-gray-50 transition"
                 >
                   7 ngày qua
                 </button>
                 <button
                   onClick={() => applyDatePreset('last30')}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold border border-gray-200 text-slate-700 bg-white hover:bg-gray-50 transition"
+                  className="px-3 py-1.5 rounded-lg text-xs font-black border border-gray-200 text-slate-700 bg-white hover:bg-gray-50 transition"
                 >
                   30 ngày qua
                 </button>
                 <button
                   onClick={() => applyDatePreset('thisMonth')}
-                  className="px-3 py-1.5 rounded-lg text-xs font-bold border border-gray-200 text-slate-700 bg-white hover:bg-gray-50 transition"
+                  className="px-3 py-1.5 rounded-lg text-xs font-black border border-gray-200 text-slate-700 bg-white hover:bg-gray-50 transition"
                 >
                   Tháng này
                 </button>
