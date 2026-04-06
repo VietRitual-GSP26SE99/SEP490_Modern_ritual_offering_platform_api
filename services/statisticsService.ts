@@ -62,6 +62,72 @@ export interface VendorStatResult {
   topPerformingVendors: TopVendorItem[];
 }
 
+export interface VendorDashboardRevenueByTime {
+  label: string;
+  value: number;
+  date: string;
+  category: string | null;
+}
+
+export interface VendorDashboardResult {
+  totalRevenue: number;
+  totalOrders: number;
+  totalProducts: number;
+  averageOrderValue: number;
+  revenueGrowthRate?: number;
+  orderGrowthRate?: number;
+  revenueChart?: VendorDashboardRevenueByTime[];
+  orderStatusChart?: Array<{
+    status: string;
+    count: number;
+    percentage: number;
+  }>;
+  topProducts?: Array<{
+    productId: number | string;
+    productName: string;
+    imageUrl?: string | null;
+    quantitySold: number;
+    revenue: number;
+    orderCount: number;
+  }>;
+  vendorId?: string;
+  shopName?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface StatisticsOverviewResult {
+  totalRevenue: number;
+  totalOrders: number;
+  averageOrderValue: number;
+  totalProducts: number;
+  revenueGrowthRate?: number;
+  orderGrowthRate?: number;
+  revenueChart?: VendorDashboardRevenueByTime[];
+  orderStatusChart?: Array<{
+    status: string;
+    count: number;
+    percentage: number;
+  }>;
+  topProducts?: Array<{
+    productId: number | string;
+    productName: string;
+    imageUrl?: string | null;
+    quantitySold: number;
+    revenue: number;
+    orderCount: number;
+  }>;
+  topPerformingVendors?: TopVendorItem[];
+  vendorStats?: VendorStatResult;
+  productStats?: ProductStatResult;
+  orderStats?: OrderStatResult;
+  revenueStats?: RevenueResult;
+  vendorId?: string;
+  shopName?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
 export interface StatisticsParams {
   period?: 'day' | 'week' | 'month' | 'year';
   startDate?: string;
@@ -134,5 +200,24 @@ export const statisticsService = {
     if (params.endDate) searchParams.append('EndDate', params.endDate);
 
     return fetchWithAuth<VendorStatResult>(`/api/statistics/vendors?${searchParams.toString()}`);
+  },
+
+  getVendorDashboard: async (params: StatisticsParams = {}): Promise<VendorDashboardResult> => {
+    const searchParams = new URLSearchParams();
+    if (params.period) searchParams.append('Period', params.period);
+    if (params.startDate) searchParams.append('StartDate', params.startDate);
+    if (params.endDate) searchParams.append('EndDate', params.endDate);
+
+    return fetchWithAuth<VendorDashboardResult>(`/api/statistics/vendor/dashboard?${searchParams.toString()}`);
+  },
+
+  getOverview: async (params: StatisticsParams = {}): Promise<StatisticsOverviewResult> => {
+    const searchParams = new URLSearchParams();
+    if (params.period) searchParams.append('Period', params.period);
+    if (params.startDate) searchParams.append('StartDate', params.startDate);
+    if (params.endDate) searchParams.append('EndDate', params.endDate);
+    if (params.vendorId) searchParams.append('VendorId', params.vendorId);
+
+    return fetchWithAuth<StatisticsOverviewResult>(`/api/statistics/overview?${searchParams.toString()}`);
   }
 };

@@ -1,5 +1,29 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  ArcElement,
+  Tooltip,
+  Legend,
+  Filler,
+} from 'chart.js';
+import { Line, Doughnut } from 'react-chartjs-2';
 import { orderService, VendorOrder } from '../../services/orderService';
+import { statisticsService, VendorDashboardResult } from '../../services/statisticsService';
+
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  ArcElement,
+  Tooltip,
+  Legend,
+  Filler,
+);
 
 interface VendorDashboardProps {
   onNavigate: (path: string) => void;
@@ -11,6 +35,9 @@ const VendorDashboard: React.FC<VendorDashboardProps> = ({ onNavigate }) => {
   const [paidPendingOrders, setPaidPendingOrders] = useState<VendorOrder[]>([]);
   const [isLoadingPaidPendingOrders, setIsLoadingPaidPendingOrders] = useState(false);
   const [paidPendingOrdersError, setPaidPendingOrdersError] = useState<string | null>(null);
+  const [dashboardStats, setDashboardStats] = useState<VendorDashboardResult | null>(null);
+  const [isLoadingDashboardStats, setIsLoadingDashboardStats] = useState(false);
+  const [dashboardStatsError, setDashboardStatsError] = useState<string | null>(null);
 
   const normalizeStatus = (status: string): string => String(status || '').trim().toLowerCase();
 
@@ -50,6 +77,77 @@ const VendorDashboard: React.FC<VendorDashboardProps> = ({ onNavigate }) => {
   };
 
   const formatRevenue = (value: number): string => `${Math.max(0, value).toLocaleString('vi-VN')}đ`;
+
+  const revenueChartData = useMemo(() => {
+    const items = dashboardStats?.revenueChart || [];
+    return {
+      labels: items.map((item) => item.label),
+      datasets: [
+        {
+          label: 'Doanh thu',
+          data: items.map((item) => item.value),
+          borderColor: '#C98C1A',
+          backgroundColor: 'rgba(201, 140, 26, 0.12)',
+          fill: true,
+          tension: 0.35,
+          pointRadius: 4,
+          pointBackgroundColor: '#C98C1A',
+        },
+      ],
+    };
+  }, [dashboardStats]);
+
+  const orderStatusChartData = useMemo(() => {
+    const items = dashboardStats?.orderStatusChart || [];
+    return {
+      labels: items.map((item) => item.status),
+      datasets: [
+        {
+          data: items.map((item) => item.count),
+          backgroundColor: ['#22c55e', '#3b82f6', '#f59e0b', '#ef4444', '#6b7280'],
+          borderWidth: 0,
+        },
+      ],
+    };
+  }, [dashboardStats]);
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'bottom' as const,
+        labels: { font: { family: 'Inter', size: 11, weight: 'bold' as any }, padding: 18, usePointStyle: true },
+      },
+      tooltip: {
+        backgroundColor: '#1C1C1C',
+        titleFont: { size: 14, weight: 'bold' as any },
+        bodyFont: { size: 12 },
+        padding: 12,
+        cornerRadius: 12,
+      },
+    },
+    scales: {
+      y: { beginAtZero: true, grid: { color: 'rgba(0, 0, 0, 0.05)' }, ticks: { font: { weight: 'bold' as any, size: 10 }, color: '#64748b' } },
+      x: { grid: { display: false }, ticks: { font: { weight: 'bold' as any, size: 10 }, color: '#64748b' } },
+    },
+  };
+
+  const loadDashboardStats = async () => {
+    setIsLoadingDashboardStats(true);
+    setDashboardStatsError(null);
+
+    try {
+      const data = await statisticsService.getVendorDashboard({ period: 'month' });
+      setDashboardStats(data);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Không thể tải thống kê cửa hàng.';
+      setDashboardStatsError(message);
+      setDashboardStats(null);
+    } finally {
+      setIsLoadingDashboardStats(false);
+    }
+  };
 
   const loadPaidPendingOrders = async () => {
     setIsLoadingPaidPendingOrders(true);
@@ -101,29 +199,29 @@ const VendorDashboard: React.FC<VendorDashboardProps> = ({ onNavigate }) => {
   };
 
   useEffect(() => {
+    loadDashboardStats();
     loadPaidPendingOrders();
   }, []);
 
-  const monthlyRevenue = allVendorOrders
-    .filter((order) => {
-      const date = new Date(order.createdAt);
-      if (Number.isNaN(date.getTime())) return false;
-
-      const now = new Date();
-      if (date.getMonth() !== now.getMonth() || date.getFullYear() !== now.getFullYear()) {
-        return false;
-      }
-
-      const status = normalizeStatus(order.orderStatus);
-      return status !== 'cancelled' && status !== 'paymentfailed';
-    })
-    .reduce((sum, order) => sum + Number(order.vendorNetAmount || order.totalAmount || 0), 0);
-
   const vendorStats = [
-    { label: 'Tổng đơn hàng', value: String(allVendorOrders.length) },
+    {
+      label: 'Tổng đơn hàng',
+      value: isLoadingDashboardStats ? '...' : String(dashboardStats?.totalOrders ?? allVendorOrders.length),
+      growth: dashboardStats?.orderGrowthRate,
+      icon: 'shopping_bag',
+    },
     { label: 'Đơn chờ xử lý', value: String(paidPendingOrders.length) },
-    { label: 'Doanh thu tháng', value: formatRevenue(monthlyRevenue) },
-    { label: 'Đánh giá trung bình', value: '4.8/5' }
+    {
+      label: 'Doanh thu tháng',
+      value: isLoadingDashboardStats ? '...' : formatRevenue(dashboardStats?.totalRevenue ?? 0),
+      growth: dashboardStats?.revenueGrowthRate,
+      icon: 'payments',
+    },
+    {
+      label: 'Giá trị đơn TB',
+      value: isLoadingDashboardStats ? '...' : formatRevenue(dashboardStats?.averageOrderValue ?? 0),
+      icon: 'trending_up',
+    }
   ];
 
   const products = [
@@ -135,13 +233,106 @@ const VendorDashboard: React.FC<VendorDashboardProps> = ({ onNavigate }) => {
   return (
     <div className="space-y-12">
       {/* Stats Grid */}
+      {dashboardStatsError && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 text-red-700 px-4 py-3 text-sm font-medium">
+          {dashboardStatsError}
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {vendorStats.map((stat, idx) => (
           <div key={idx} className="bg-white rounded-2xl border border-gold/10 shadow-sm p-6 hover:shadow-lg transition-all">
+            <div className="flex items-start justify-between mb-2">
+              <div className="w-11 h-11 rounded-2xl bg-ritual-bg flex items-center justify-center text-primary">
+                <span className="material-symbols-outlined text-2xl">{(stat as any).icon || 'leaderboard'}</span>
+              </div>
+              {(stat as any).growth !== undefined && (
+                <span className={`text-[10px] font-black px-2 py-1 rounded-lg ${(stat as any).growth >= 0 ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+                  {(stat as any).growth >= 0 ? '+' : ''}{(stat as any).growth}%
+                </span>
+              )}
+            </div>
             <p className="text-sm text-slate-500 mb-1 uppercase font-bold tracking-widest">{stat.label}</p>
             <p className="text-2xl font-black text-primary">{stat.value}</p>
           </div>
         ))}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="lg:col-span-2 bg-white rounded-[2rem] border border-gold/10 shadow-sm p-8">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-black text-primary flex items-center gap-2">
+              <span className="material-symbols-outlined text-gold">show_chart</span>
+              Biểu đồ doanh thu
+            </h3>
+          </div>
+          <div className="h-[320px]">
+            {revenueChartData.labels.length > 0 ? (
+              <Line data={revenueChartData} options={chartOptions} />
+            ) : (
+              <div className="h-full flex items-center justify-center text-slate-400 text-sm font-semibold">Chưa có dữ liệu doanh thu</div>
+            )}
+          </div>
+        </div>
+
+        <div className="bg-white rounded-[2rem] border border-gold/10 shadow-sm p-8">
+          <div className="flex items-center justify-between mb-6">
+            <h3 className="text-xl font-black text-primary flex items-center gap-2">
+              <span className="material-symbols-outlined text-gold">donut_small</span>
+              Trạng thái đơn hàng
+            </h3>
+          </div>
+          <div className="h-[320px]">
+            {orderStatusChartData.labels.length > 0 ? (
+              <Doughnut data={orderStatusChartData} options={{ ...chartOptions, cutout: '68%' }} />
+            ) : (
+              <div className="h-full flex items-center justify-center text-slate-400 text-sm font-semibold">Chưa có dữ liệu trạng thái</div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="bg-white rounded-[2rem] border border-gold/10 shadow-sm p-8">
+        <div className="flex items-center justify-between mb-6">
+          <h3 className="text-xl font-black text-primary flex items-center gap-2">
+            <span className="material-symbols-outlined text-gold">stars</span>
+            Top sản phẩm bán chạy
+          </h3>
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+            {dashboardStats?.topProducts?.length || 0} mục
+          </span>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+          {(dashboardStats?.topProducts || []).length > 0 ? (
+            dashboardStats!.topProducts!.map((product, index) => (
+              <div key={String(product.productId)} className="rounded-2xl border border-slate-100 shadow-sm overflow-hidden bg-white hover:shadow-md transition-all">
+                <div className="h-44 bg-slate-50 overflow-hidden">
+                  {product.imageUrl ? (
+                    <img src={product.imageUrl} alt={product.productName} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-slate-300">
+                      <span className="material-symbols-outlined text-5xl">image</span>
+                    </div>
+                  )}
+                </div>
+                <div className="p-5">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-[10px] font-black uppercase tracking-widest text-gold">#{index + 1}</span>
+                    <span className="text-[10px] font-bold text-slate-400">{product.orderCount} đơn</span>
+                  </div>
+                  <p className="font-bold text-slate-800 mb-1 line-clamp-2">{product.productName}</p>
+                  <div className="flex items-center justify-between text-xs font-bold text-slate-500">
+                    <span>{product.quantitySold} sản phẩm</span>
+                    <span className="text-primary">{formatRevenue(product.revenue)}</span>
+                  </div>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="md:col-span-2 xl:col-span-3 text-center py-10 text-slate-400 font-semibold border-2 border-dashed border-slate-100 rounded-2xl">
+              Chưa có dữ liệu top sản phẩm
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Tab Content */}
