@@ -225,7 +225,7 @@ const ChatPage: React.FC = () => {
   const [isSending, setIsSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [namesMap, setNamesMap] = useState<Record<string, string>>({});
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   const isVendor = location.pathname.startsWith('/vendor');
   const role: 'customer' | 'vendor' = isVendor ? 'vendor' : 'customer';
@@ -255,7 +255,11 @@ const ChatPage: React.FC = () => {
     if (sessions.length > 0) resolveNames();
   }, [sessions, isVendor]);
 
-  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
+  useEffect(() => {
+    const container = messagesContainerRef.current;
+    if (!container) return;
+    container.scrollTop = container.scrollHeight;
+  }, [messages]);
 
   useEffect(() => {
     const fetchInitialData = async () => {
@@ -457,7 +461,7 @@ const ChatPage: React.FC = () => {
               </div>
 
               {/* Messages */}
-              <div className="chat-msgs" style={styles.messages}>
+              <div ref={messagesContainerRef} className="chat-msgs" style={styles.messages}>
                 {groupedMessages.map(({ date, msgs }) => (
                   <React.Fragment key={date}>
                     <div style={styles.dateSep}>
@@ -485,7 +489,6 @@ const ChatPage: React.FC = () => {
                 ))}
 
                 {isSending && <TypingIndicator />}
-                <div ref={chatEndRef} />
               </div>
 
               {/* Input */}

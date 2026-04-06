@@ -785,7 +785,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
                   <img
                     src={headerLogo}
                     alt="Modern Ritual Offering"
-                    className="w-full h-full object-contain object-left origin-left scale-[1.34] animate-logo-bounce"
+                    className="w-full h-full object-contain object-left origin-left scale-[1.34]"
                   />
                 </div>
               </div>
@@ -842,11 +842,11 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
               )}
             </div>
             <div className="flex items-center gap-4">
-              {!isVendorArea && !isBackofficeRole && (
+              {/* {!isVendorArea && !isBackofficeRole && (
                 <div className="hidden md:flex items-center gap-2 text-primary font-bold">
                 <span className="text-sm">1900 8888</span>
                 </div>
-              )}
+              )} */}
 
               {userName && (
                 <>
