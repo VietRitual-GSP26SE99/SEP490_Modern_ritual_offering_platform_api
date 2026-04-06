@@ -265,7 +265,7 @@ const ChatPage: React.FC = () => {
   const [namesMap, setNamesMap] = useState<Record<string, string>>({});
   const [avatarsMap, setAvatarsMap] = useState<Record<string, string>>({});
   const [shopMenuOpen, setShopMenuOpen] = useState(false);
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   const isVendor = location.pathname.startsWith('/vendor');
   const role: 'customer' | 'vendor' = isVendor ? 'vendor' : 'customer';
