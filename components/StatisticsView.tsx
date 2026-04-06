@@ -18,7 +18,8 @@ import {
   RevenueResult, 
   OrderStatResult, 
   ProductStatResult, 
-  VendorStatResult 
+  VendorStatResult,
+  StatisticsOverviewResult,
 } from '../services/statisticsService';
 import toast from '../services/toast';
 
@@ -63,24 +64,69 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({
   hideHeader = false
 }) => {
   const [loading, setLoading] = useState(true);
-  const [period, setPeriod] = useState<'day' | 'week' | 'month' | 'year'>('month');
   
   const [revenueData, setRevenueData] = useState<RevenueResult | null>(null);
   const [orderData, setOrderData] = useState<OrderStatResult | null>(null);
   const [productData, setProductData] = useState<ProductStatResult | null>(null);
   const [vendorStatData, setVendorStatData] = useState<VendorStatResult | null>(null);
+  const [overviewData, setOverviewData] = useState<StatisticsOverviewResult | null>(null);
+
+  const mapOverviewProducts = (items: NonNullable<StatisticsOverviewResult['topProducts']>): ProductStatResult => ({
+    totalProducts: items.length,
+    products: items.map((item) => ({
+      packageId: String(item.productId),
+      packageName: item.productName,
+      vendorName: overviewData?.shopName || 'Cửa hàng',
+      totalQuantity: item.quantitySold,
+      totalRevenue: item.revenue,
+    })),
+  });
+
+  const mapOverviewOrders = (items: NonNullable<StatisticsOverviewResult['orderStatusChart']>): OrderStatResult => ({
+    totalOrders: items.reduce((sum, item) => sum + item.count, 0),
+    previousPeriodOrders: 0,
+    growthRate: overviewData?.orderGrowthRate || 0,
+    averageOrderValue: overviewData?.averageOrderValue || 0,
+    ordersByStatus: items.map((item) => ({ label: item.status, value: item.count })),
+    ordersByTime: [],
+    ordersByCategory: [],
+  });
+
+  const mapOverviewRevenue = (items: NonNullable<StatisticsOverviewResult['revenueChart']>): RevenueResult => ({
+    totalRevenue: overviewData?.totalRevenue || 0,
+    previousPeriodRevenue: 0,
+    growthRate: overviewData?.revenueGrowthRate || 0,
+    revenueByTime: items,
+  });
 
   const fetchData = async () => {
     setLoading(true);
     try {
-      const params = { period, vendorId };
+      const params = { vendorId };
+
+      if (isStaff && !vendorId) {
+        const overview = await statisticsService.getOverview(params);
+        setOverviewData(overview);
+
+        const overviewRevenue = overview.revenueChart || [];
+        const overviewOrders = overview.orderStatusChart || [];
+        const overviewProducts = overview.topProducts || [];
+
+        setRevenueData(mapOverviewRevenue(overviewRevenue));
+        setOrderData(mapOverviewOrders(overviewOrders));
+        setProductData(mapOverviewProducts(overviewProducts));
+        setVendorStatData(overview.vendorStats || null);
+        return;
+      }
+
       const [rev, ord, prod, vend] = await Promise.all([
         statisticsService.getRevenue(params).catch(() => null),
         statisticsService.getOrders(params).catch(() => null),
         statisticsService.getProducts({ ...params, limit: 5 }).catch(() => null),
         (isStaff && !vendorId) ? statisticsService.getVendors(params).catch(() => null) : Promise.resolve(null)
       ]);
-      
+
+      setOverviewData(null);
       setRevenueData(rev);
       setOrderData(ord);
       setProductData(prod);
@@ -95,7 +141,7 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({
 
   useEffect(() => {
     fetchData();
-  }, [period, vendorId]);
+  }, [vendorId]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(value);
@@ -122,18 +168,18 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({
   }, [revenueData]);
 
   const categoryChartData = useMemo(() => {
-    const items = orderData?.ordersByCategory || [];
+    const items = productData?.products || [];
     return {
-      labels: items.map(item => item.label),
+      labels: items.map(item => item.packageName),
       datasets: [
         {
-          data: items.map(item => item.value),
+          data: items.map(item => item.totalRevenue),
           backgroundColor: ['#1C1C1C', '#B8860B', '#E6D5B8', '#6B6B6B', '#D1D1D1', '#94a3b8'],
           borderWidth: 0,
         },
       ],
     };
-  }, [orderData]);
+  }, [productData]);
 
   const orderStatusChartData = useMemo(() => {
     const items = orderData?.ordersByStatus || [];
@@ -222,19 +268,6 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({
             <h2 className="text-2xl font-black text-primary uppercase tracking-tight">{title}</h2>
             <p className="text-xs font-bold text-slate-400 uppercase tracking-widest mt-1">{subtitle}</p>
           </div>
-          <div className="flex bg-ritual-bg p-1 rounded-2xl border border-gold/5 shadow-inner">
-            {(['day', 'week', 'month', 'year'] as const).map((r) => (
-              <button
-                key={r}
-                onClick={() => setPeriod(r)}
-                className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
-                  period === r ? 'bg-primary text-white shadow-lg' : 'text-slate-400 hover:text-primary'
-                }`}
-              >
-                {r === 'day' ? 'Ngày' : r === 'week' ? 'Tuần' : r === 'month' ? 'Tháng' : 'Năm'}
-              </button>
-            ))}
-          </div>
         </div>
       )}
 
@@ -243,27 +276,29 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({
         {[
           { 
             label: 'Doanh thu', 
-            value: formatCurrency(revenueData?.totalRevenue || 0), 
+            value: formatCurrency(revenueData?.totalRevenue || overviewData?.totalRevenue || 0), 
             icon: 'payments', 
             color: 'text-gold',
-            growth: revenueData?.growthRate 
+            growth: revenueData?.growthRate ?? overviewData?.revenueGrowthRate 
           },
           { 
             label: 'Đơn hàng', 
-            value: orderData?.totalOrders?.toString() || '0', 
+            value: orderData?.totalOrders?.toString() || overviewData?.totalOrders?.toString() || '0', 
             icon: 'shopping_cart', 
             color: 'text-green-600',
-            growth: orderData?.growthRate
+            growth: orderData?.growthRate ?? overviewData?.orderGrowthRate
           },
           { 
             label: (isStaff && !vendorId) ? 'Nhà cung cấp' : 'Sản phẩm kinh doanh', 
-            value: (isStaff && !vendorId) ? (vendorStatData?.totalVendors?.toString() || '0') : (productData?.totalProducts?.toString() || '0'), 
+            value: (isStaff && !vendorId)
+              ? (vendorStatData?.totalVendors?.toString() || overviewData?.topPerformingVendors?.length?.toString() || '0')
+              : (productData?.totalProducts?.toString() || overviewData?.totalProducts?.toString() || '0'), 
             icon: (isStaff && !vendorId) ? 'store' : 'inventory_2', 
             color: 'text-blue-600' 
           },
           { 
             label: 'Giá trị trung bình', 
-            value: formatCurrency(orderData?.averageOrderValue || 0), 
+            value: formatCurrency(orderData?.averageOrderValue || overviewData?.averageOrderValue || 0), 
             icon: 'trending_up', 
             color: 'text-purple-600' 
           },
@@ -302,12 +337,12 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({
         <div className="bg-white rounded-[2.5rem] p-8 border border-gold/10 shadow-sm">
           <h3 className="text-lg font-black text-primary mb-6 flex items-center gap-2">
             <span className="material-symbols-outlined text-gold">donut_small</span>
-            Danh mục bán chạy
+            {isStaff && !vendorId ? 'Top sản phẩm' : 'Danh mục bán chạy'}
           </h3>
-          <div className="h-[250px] w-full">
+          <div className="h-[320px] w-full">
             {categoryChartData.labels.length > 0 ? (
-              <Doughnut data={categoryChartData} options={{...chartOptions, cutout: '65%'}} />
-            ) : <EmptyState message="Chưa có dữ liệu danh mục" icon="pie_chart" />}
+              <Doughnut data={categoryChartData} options={{...chartOptions, cutout: '58%'}} />
+            ) : <EmptyState message={isStaff && !vendorId ? 'Chưa có dữ liệu sản phẩm' : 'Chưa có dữ liệu danh mục'} icon="pie_chart" />}
           </div>
         </div>
       </div>
@@ -327,94 +362,61 @@ const StatisticsView: React.FC<StatisticsViewProps> = ({
         <div className="bg-white rounded-[2.5rem] p-8 border border-gold/10 shadow-sm">
           <h3 className="text-lg font-black text-primary mb-6 flex items-center gap-2">
             <span className="material-symbols-outlined text-gold">stars</span>
-            Top sản phẩm bán chạy
+            {isStaff && !vendorId ? 'Top nhà cung cấp' : 'Top sản phẩm bán chạy'}
           </h3>
-          <div className="space-y-5">
-            {productData?.products && productData.products.length > 0 ? (
-              productData.products.map((prod, i) => (
-                <div key={prod.packageId}>
-                  <div className="flex justify-between text-xs font-bold mb-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-gold">#{i+1}</span>
-                      <span className="text-slate-600 truncate max-w-[200px]" title={prod.packageName}>{prod.packageName}</span>
-                    </div>
-                    <span className="text-primary font-black">{prod.totalQuantity} SP</span>
-                  </div>
-                  <div className="h-1.5 w-full bg-ritual-bg rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-gold to-primary rounded-full transition-all duration-1000"
-                      style={{ width: `${(prod.totalQuantity / (productData?.products?.[0]?.totalQuantity || 1)) * 100}%` }}
-                    ></div>
-                  </div>
-                  <p className="text-[10px] text-slate-400 mt-1">{prod.vendorName}</p>
-                </div>
-              ))
-            ) : (
-              <EmptyState message="Chưa có sản phẩm bán chạy" icon="inventory" />
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Vendor Stats Section - Only for Staff/Admin global view */}
-      {isStaff && !vendorId && (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="bg-white rounded-[2.5rem] p-8 border border-gold/10 shadow-sm">
-            <h3 className="text-lg font-black text-primary mb-6 flex items-center gap-2">
-              <span className="material-symbols-outlined text-gold">group</span>
-              Trạng thái Nhà cung cấp
-            </h3>
-            <div className="h-[250px] w-full">
-              {vendorStatusChartData.labels.length > 0 ? (
-                <Doughnut data={vendorStatusChartData} options={{...chartOptions, cutout: '65%'}} />
-              ) : <EmptyState message="Chưa có dữ liệu NCC" icon="person_off" />}
-            </div>
-            <div className="grid grid-cols-2 gap-3 mt-6">
-               {[
-                 { label: 'Hoạt động', count: vendorStatData?.activeVendors, color: 'bg-green-500' },
-                 { label: 'Bị khóa', count: vendorStatData?.bannedVendors, color: 'bg-red-500' }
-               ].map(item => (
-                 <div key={item.label} className="bg-ritual-bg p-3 rounded-2xl flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className={`w-2 h-2 rounded-full ${item.color}`}></div>
-                      <span className="text-[10px] font-bold text-slate-500 uppercase">{item.label}</span>
-                    </div>
-                    <span className="text-xs font-black text-primary">{item.count || 0}</span>
-                 </div>
-               ))}
-            </div>
-          </div>
-          <div className="lg:col-span-2 bg-white rounded-[2.5rem] p-8 border border-gold/10 shadow-sm">
-            <h3 className="text-lg font-black text-primary mb-6 flex items-center gap-2">
-              <span className="material-symbols-outlined text-gold">workspace_premium</span>
-              Nhà cung cấp nổi bật (Theo doanh thu)
-            </h3>
-            <div className="space-y-6">
-              {vendorStatData?.topPerformingVendors && vendorStatData.topPerformingVendors.length > 0 ? (
-                vendorStatData.topPerformingVendors.map((vendor, i) => (
-                  <div key={vendor.vendorId} className="flex items-center justify-between p-4 bg-ritual-bg/30 rounded-[1.5rem] border border-gold/5 hover:border-gold/20 transition-all">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-xl bg-white border border-gold/10 flex items-center justify-center text-gold font-black text-sm">
+          {isStaff && !vendorId ? (
+            <div className="space-y-4">
+              {(overviewData?.topPerformingVendors || vendorStatData?.topPerformingVendors || []).slice(0, 5).length > 0 ? (
+                (overviewData?.topPerformingVendors || vendorStatData?.topPerformingVendors || []).slice(0, 5).map((vendor, i) => (
+                  <div key={vendor.vendorId} className="flex items-center justify-between p-4 bg-ritual-bg/30 rounded-[1.25rem] border border-gold/5">
+                    <div className="flex items-center gap-4 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-white border border-gold/10 flex items-center justify-center text-gold font-black text-sm shrink-0">
                         {i + 1}
                       </div>
-                      <div>
-                        <h4 className="text-sm font-black text-primary">{vendor.shopName}</h4>
+                      <div className="min-w-0">
+                        <h4 className="text-sm font-black text-primary truncate">{vendor.shopName}</h4>
                         <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{vendor.orderCount} đơn hàng</p>
                       </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right shrink-0 ml-4">
                       <p className="text-sm font-black text-gold">{formatCurrency(vendor.revenue)}</p>
                       <p className="text-[10px] font-bold text-slate-400 uppercase">TB: {formatCurrency(vendor.averageOrderValue)}/đơn</p>
                     </div>
                   </div>
                 ))
               ) : (
-                <EmptyState message="Chưa có NCC nổi bật" icon="store" />
+                <EmptyState message="Chưa có nhà cung cấp nổi bật" icon="store" />
               )}
             </div>
-          </div>
+          ) : (
+            <div className="space-y-5">
+              {productData?.products && productData.products.length > 0 ? (
+                productData.products.map((prod, i) => (
+                  <div key={prod.packageId}>
+                    <div className="flex justify-between text-xs font-bold mb-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-gold">#{i + 1}</span>
+                        <span className="text-slate-600 truncate max-w-[200px]" title={prod.packageName}>{prod.packageName}</span>
+                      </div>
+                      <span className="text-primary font-black">{prod.totalQuantity} SP</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-ritual-bg rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-gradient-to-r from-gold to-primary rounded-full transition-all duration-1000"
+                        style={{ width: `${(prod.totalQuantity / (productData?.products?.[0]?.totalQuantity || 1)) * 100}%` }}
+                      ></div>
+                    </div>
+                    <p className="text-[10px] text-slate-400 mt-1">{prod.vendorName}</p>
+                  </div>
+                ))
+              ) : (
+                <EmptyState message="Chưa có sản phẩm bán chạy" icon="inventory" />
+              )}
+            </div>
+          )}
         </div>
-      )}
+      </div>
+
     </div>
   );
 };

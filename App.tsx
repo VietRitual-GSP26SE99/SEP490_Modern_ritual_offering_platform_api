@@ -223,7 +223,7 @@ const AppContent: React.FC<{
       { label: 'Trang cửa hàng', icon: 'storefront', path: '/vendor/shop' },
       { label: 'Sản phẩm', icon: 'inventory_2', path: '/vendor/products' },
       { label: 'Đơn hàng', icon: 'receipt_long', path: '/vendor/orders' },
-      { label: 'Thống kê', icon: 'analytics', path: '/vendor/analytics' },
+      // { label: 'Thống kê', icon: 'analytics', path: '/vendor/analytics' },
       { label: 'Giao hàng', icon: 'local_shipping', path: '/vendor/shipping' },
       { label: 'Khuyến mãi', icon: 'sell', path: '/vendor/discounts' },
       { label: 'Giao dịch', icon: 'payments', path: '/vendor/transactions' },

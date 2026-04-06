@@ -180,6 +180,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate }) => {
     { label: 'Khiếu nại', icon: 'warning', path: '/staff-refunds' },
     { label: 'Thống kê', icon: 'analytics', path: '/staff-statistics' },
     { label: 'Banner', icon: 'ad', path: '/staff-banners' },
+    { label: 'Cẩm nang', icon: 'book_4', path: '/staff-guidelines' },
     { label: 'Cấu hình hệ thống', icon: 'settings', path: '/staff-settings' },
   ];
 
@@ -189,7 +190,7 @@ const StaffDashboard: React.FC<StaffDashboardProps> = ({ onNavigate }) => {
     <div className="min-h-screen bg-gradient-to-br from-ritual-bg via-white to-gold/5 py-12 px-4 md:px-8">
       <div className="flex flex-col lg:flex-row gap-10 items-start">
         <aside className="w-full lg:w-80 flex-shrink-0 lg:sticky lg:top-[120px] z-30">
-          <div className="bg-white rounded-[2.5rem] p-4 border border-gold/10 shadow-xl backdrop-blur-sm bg-white/90">
+          <div className="bg-white rounded-[2.5rem] p-4 border border-gold/10 shadow-xl backdrop-blur-sm bg-white/90 lg:max-h-[calc(100vh-160px)] lg:overflow-y-auto">
             <div className="px-6 py-8 mb-4 border-b border-gold/5">
               <h1 className="text-2xl font-display font-black text-primary tracking-tight">Bảng điều khiển nhân viên</h1>
               <p className="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mt-1">Quản lý vận hành</p>
