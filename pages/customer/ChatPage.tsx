@@ -127,6 +127,42 @@ const styles: Record<string, React.CSSProperties> = {
   },
   mhInfo: { flex: 1 },
   mhName: { fontSize: 15, fontWeight: 600, color: '#1C1917', letterSpacing: -0.2 },
+  mhNameButton: {
+    background: 'transparent',
+    border: 'none',
+    padding: 0,
+    cursor: 'pointer',
+    textAlign: 'left',
+    display: 'inline-flex',
+    alignItems: 'center',
+    gap: 6,
+  },
+  mhNameMenu: {
+    position: 'absolute',
+    top: 'calc(100% + 8px)',
+    left: 0,
+    minWidth: 160,
+    background: '#FFFFFF',
+    border: '0.5px solid rgba(0,0,0,0.08)',
+    borderRadius: 12,
+    boxShadow: '0 10px 30px rgba(0,0,0,0.08)',
+    padding: 6,
+    zIndex: 20,
+  },
+  mhNameMenuItem: {
+    width: '100%',
+    border: 'none',
+    background: 'transparent',
+    padding: '10px 12px',
+    borderRadius: 10,
+    textAlign: 'left',
+    cursor: 'pointer',
+    fontSize: 13,
+    color: '#1C1917',
+  },
+  mhNameMenuItemHover: {
+    background: '#F5F5F4',
+  },
   mhStatus: { display: 'flex', alignItems: 'center', gap: 5, marginTop: 2 },
   statusDot: { width: 6, height: 6, borderRadius: '50%', background: '#22C55E', flexShrink: 0 },
   mhStatusText: { fontSize: 11, color: '#78716C' },
@@ -214,8 +250,10 @@ const Avatar: React.FC<{ id: string; name: string; src?: string | null; size?: n
 // ─── Main component ───────────────────────────────────────────────────────────
 const ChatPage: React.FC = () => {
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   const location = useLocation();
   const initialSessionId = searchParams.get('sessionId');
+  const initialVendorId = searchParams.get('vendorId');
 
   const [loading, setLoading] = useState(true);
   const [sessions, setSessions] = useState<ChatSession[]>([]);
@@ -225,6 +263,8 @@ const ChatPage: React.FC = () => {
   const [isSending, setIsSending] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [namesMap, setNamesMap] = useState<Record<string, string>>({});
+  const [avatarsMap, setAvatarsMap] = useState<Record<string, string>>({});
+  const [shopMenuOpen, setShopMenuOpen] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const isVendor = location.pathname.startsWith('/vendor');
@@ -234,6 +274,7 @@ const ChatPage: React.FC = () => {
   useEffect(() => {
     const resolveNames = async () => {
       const newNames: Record<string, string> = { ...namesMap };
+      const newAvatars: Record<string, string> = { ...avatarsMap };
       let changed = false;
       for (const session of sessions) {
         const targetId = isVendor ? session.customerId : session.vendorId;
@@ -242,18 +283,28 @@ const ChatPage: React.FC = () => {
             if (isVendor) {
               const d = await userService.getUserById(targetId);
               newNames[targetId] = d?.fullName || `Khách hàng #${targetId.slice(-4)}`;
+              if (d?.avatarUrl && !newAvatars[targetId]) {
+                newAvatars[targetId] = d.avatarUrl;
+              }
             } else {
               const d = await vendorService.getVendorCached(targetId);
               if (d?.shopName) newNames[targetId] = d.shopName;
+              const vendorAvatar = d?.shopAvatarUrl || d?.avatarUrl || null;
+              if (vendorAvatar && !newAvatars[targetId]) {
+                newAvatars[targetId] = vendorAvatar;
+              }
             }
             changed = true;
           } catch { /* silent */ }
         }
       }
-      if (changed) setNamesMap(newNames);
+      if (changed) {
+        setNamesMap(newNames);
+        setAvatarsMap(newAvatars);
+      }
     };
     if (sessions.length > 0) resolveNames();
-  }, [sessions, isVendor]);
+  }, [sessions, isVendor, namesMap, avatarsMap]);
 
   useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
@@ -272,6 +323,19 @@ const ChatPage: React.FC = () => {
             setActiveSession(details);
             setMessages(details.messages || []);
           }
+        } else if (initialVendorId && !isVendor) {
+          const existingSession = data.find(s => s.vendorId === initialVendorId);
+          if (existingSession) {
+            handleSelectSession(existingSession);
+          } else {
+            const createdSessionId = await vendorChatService.createSession(initialVendorId);
+            const details = await vendorChatService.getSessionDetails(createdSessionId);
+            setActiveSession(details);
+            setMessages(details.messages || []);
+
+            const refreshedSessions = await vendorChatService.getSessions(role);
+            setSessions(refreshedSessions);
+          }
         } else if (data.length > 0) {
           handleSelectSession(data[0]);
         }
@@ -282,7 +346,7 @@ const ChatPage: React.FC = () => {
       }
     };
     fetchInitialData();
-  }, [role, initialSessionId]);
+  }, [role, initialSessionId, initialVendorId, isVendor]);
 
   useEffect(() => {
     if (!activeSession) return;
@@ -327,7 +391,11 @@ const ChatPage: React.FC = () => {
     const fallback = isVendor
       ? `Khách hàng #${targetId.slice(-4) || '...'}`
       : `Cửa hàng #${targetId.slice(-4) || '...'}`;
-    return { name: namesMap[targetId] || fallback, id: targetId, avatar: session.counterPartyAvatar };
+    return {
+      name: namesMap[targetId] || fallback,
+      id: targetId,
+      avatar: avatarsMap[targetId] || session.counterPartyAvatar,
+    };
   };
 
   const filteredSessions = sessions.filter(s => {
@@ -353,6 +421,12 @@ const ChatPage: React.FC = () => {
   }
 
   const activeParty = getParty(activeSession);
+  const canViewShop = !isVendor && Boolean(activeParty.id);
+  const handleViewShop = () => {
+    if (!activeParty.id) return;
+    setShopMenuOpen(false);
+    navigate(`/vendor/${activeParty.id}`);
+  };
 
   return (
     <>
@@ -441,10 +515,34 @@ const ChatPage: React.FC = () => {
           {activeSession ? (
             <>
               {/* Header */}
-              <div style={styles.mainHead}>
+              <div style={{ ...styles.mainHead, position: 'relative' }}>
                 <Avatar id={activeParty.id} name={activeParty.name} src={activeParty.avatar} size={40} />
                 <div style={styles.mhInfo}>
-                  <div style={styles.mhName}>{activeParty.name}</div>
+                  <div style={{ position: 'relative', display: 'inline-flex', flexDirection: 'column' }}>
+                    <button
+                      type="button"
+                      style={styles.mhNameButton}
+                      onClick={() => setShopMenuOpen((v) => !v)}
+                      onBlur={() => setTimeout(() => setShopMenuOpen(false), 120)}
+                      title={canViewShop ? 'Xem shop' : ''}
+                    >
+                      <div style={styles.mhName}>{activeParty.name}</div>
+                      {canViewShop && <span style={{ fontSize: 10, color: '#A8A29E' }}>▾</span>}
+                    </button>
+                    {canViewShop && shopMenuOpen && (
+                      <div style={styles.mhNameMenu}>
+                        <button
+                          type="button"
+                          style={styles.mhNameMenuItem}
+                          onMouseEnter={(e) => { (e.currentTarget.style.background = '#F5F5F4'); }}
+                          onMouseLeave={(e) => { (e.currentTarget.style.background = 'transparent'); }}
+                          onClick={handleViewShop}
+                        >
+                          Xem shop
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   <div style={styles.mhStatus}>
                     <div style={styles.statusDot} />
                     <span style={styles.mhStatusText}>Đang trực tuyến</span>

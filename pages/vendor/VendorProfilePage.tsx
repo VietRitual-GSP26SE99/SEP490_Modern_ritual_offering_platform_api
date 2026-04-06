@@ -201,8 +201,13 @@ const VendorProfilePage: React.FC<VendorProfilePageProps> = ({ onNavigate }) => 
                     </div>
                   </div>
                   <div className="flex flex-wrap justify-center lg:justify-start gap-3">
-                    <button className="px-8 py-3 bg-white text-slate-900 text-[11px] font-black rounded-none uppercase tracking-[0.2em] hover:bg-slate-100 transition-all shadow-xl">Theo dõi</button>
-                    <button className="px-8 py-3 bg-transparent border-2 border-white/30 text-white text-[11px] font-black rounded-none uppercase tracking-[0.2em] hover:bg-white/10 transition-all">Liên hệ</button>
+                    <button
+                      type="button"
+                      onClick={() => onNavigate(`/messages?vendorId=${id || ''}`)}
+                      className="px-8 py-3 bg-transparent border-2 border-white/30 text-white text-[11px] font-black rounded-none uppercase tracking-[0.2em] hover:bg-white/10 transition-all"
+                    >
+                      Nhắn tin
+                    </button>
                   </div>
                </div>
             </div>
