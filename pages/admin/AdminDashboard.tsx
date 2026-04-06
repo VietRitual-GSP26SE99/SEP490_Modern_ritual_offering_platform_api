@@ -1862,7 +1862,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
                         </tr>
                       </thead>
                       <tbody>
-                        {withdrawalRequests.slice((withdrawalsPage - 1) * ITEMS_PER_PAGE, withdrawalsPage * ITEMS_PER_PAGE).map((request) => (
+                        {withdrawalRequests.slice((withdrawalsPage - 1) * ITEMS_PER_PAGE, withdrawalsPage * ITEMS_PER_PAGE).map((request) => {
+                          const isFinalStatus = isFinalWithdrawalStatus(request.status);
+                          return (
                           <tr key={request.id} className="border-b border-gold/10 hover:bg-ritual-bg transition-all">
                             {/* <td className="px-6 py-4 font-bold text-primary">{request.id}</td> */}
                             <td className="px-6 py-4 text-slate-700 font-semibold">{request.vendor}</td>
@@ -1882,24 +1884,28 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
                                 >
                                   Xem chi tiết
                                 </button>
-                                <button
-                                  onClick={() => handleApproveWithdrawal(request.id)}
-                                  disabled={processingWithdrawalId === request.id || isFinalWithdrawalStatus(request.status)}
-                                  className="px-4 py-2 border-2 border-green-600 text-green-600 rounded-lg font-bold text-xs hover:bg-green-50 transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  Duyệt
-                                </button>
-                                <button
-                                  onClick={() => handleRejectWithdrawal(request.id)}
-                                  disabled={processingWithdrawalId === request.id || isFinalWithdrawalStatus(request.status)}
-                                  className="px-4 py-2 border-2 border-red-600 text-red-600 rounded-lg font-bold text-xs hover:bg-red-50 transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  Từ chối
-                                </button>
+                                {!isFinalStatus && (
+                                  <>
+                                    <button
+                                      onClick={() => handleApproveWithdrawal(request.id)}
+                                      disabled={processingWithdrawalId === request.id}
+                                      className="px-4 py-2 border-2 border-green-600 text-green-600 rounded-lg font-bold text-xs hover:bg-green-50 transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      Duyệt
+                                    </button>
+                                    <button
+                                      onClick={() => handleRejectWithdrawal(request.id)}
+                                      disabled={processingWithdrawalId === request.id}
+                                      className="px-4 py-2 border-2 border-red-600 text-red-600 rounded-lg font-bold text-xs hover:bg-red-50 transition-all whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                      Từ chối
+                                    </button>
+                                  </>
+                                )}
                               </div>
                             </td>
                           </tr>
-                        ))}
+                        )})}
                       </tbody>
                     </table>
                   )}
@@ -1992,6 +1998,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
                           <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-600">Giá trị</th>
                           <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-600">Kiểu dữ liệu</th>
                           <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-600">Nhóm</th>
+                          <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-600">Mô tả</th>
                           <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-600">Hành động</th>
                         </tr>
                       </thead>
@@ -2012,6 +2019,9 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
                               <span className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-600 text-[10px] font-bold uppercase">
                                 {getConfigGroupLabel(config.group)}
                               </span>
+                            </td>
+                            <td className="px-6 py-4 text-slate-500 text-sm max-w-xs truncate" title={config.description}>
+                              {config.description}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex gap-2">

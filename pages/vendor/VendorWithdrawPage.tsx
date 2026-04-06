@@ -369,28 +369,28 @@ const VendorWithdrawPage: React.FC<VendorWithdrawPageProps> = ({ onNavigate }) =
                             </div>
                           )}
                           {wd.transaction && (
-                            <div className="bg-slate-50 rounded-xl p-3 border border-slate-100">
-                              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Giao dịch liên quan</p>
-                              <div className="grid grid-cols-2 md:grid-cols-3 gap-3 text-[10px]">
+                            <div className="bg-slate-50 rounded-xl p-4 border border-slate-100">
+                              <p className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-3">Giao dịch liên quan</p>
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-4 text-sm">
                                 <div>
                                   <span className="text-slate-400 font-bold">ID:</span>
-                                  <p className="font-mono text-slate-600 truncate">{wd.transaction.transactionId}</p>
+                                  <p className="font-mono text-slate-700 truncate mt-0.5">{wd.transaction.transactionId}</p>
                                 </div>
                                 <div>
                                   <span className="text-slate-400 font-bold">Loại:</span>
-                                  <p className="text-slate-700 font-bold">{getTransactionTypeLabel(wd.transaction.type)}</p>
+                                  <p className="text-slate-700 font-bold mt-0.5">{getTransactionTypeLabel(wd.transaction.type)}</p>
                                 </div>
                                 <div>
                                   <span className="text-slate-400 font-bold">Trạng thái:</span>
-                                  <p className={`font-bold ${wd.transaction.status === 'Success' ? 'text-emerald-600' : 'text-rose-600'}`}>
+                                  <p className={`font-bold mt-0.5 ${wd.transaction.status === 'Success' ? 'text-emerald-600' : 'text-rose-600'}`}>
                                     {getTransactionStatusLabel(wd.transaction.status)}
                                   </p>
                                 </div>
                               </div>
                               {wd.transaction.description && (
-                                <div className="mt-2">
-                                  <span className="text-slate-400 font-bold text-[9px]">Mô tả:</span>
-                                  <p className="text-slate-600 text-[9px] leading-relaxed">{wd.transaction.description}</p>
+                                <div className="mt-3">
+                                  <span className="text-slate-400 font-bold text-xs">Mô tả:</span>
+                                  <p className="text-slate-600 text-sm leading-relaxed mt-1">{wd.transaction.description}</p>
                                 </div>
                               )}
                             </div>
