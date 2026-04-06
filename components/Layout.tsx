@@ -614,10 +614,38 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
     return formatCurrency(amount);
   };
 
+  const resolveHeaderWalletType = (): WalletType => {
+    const user = getCurrentUser();
+    const normalizedRoles = Array.from(
+      new Set(
+        [
+          ...(Array.isArray(user?.roles) ? user.roles : []),
+          user?.role || '',
+        ]
+          .filter((role): role is string => typeof role === 'string' && role.trim().length > 0)
+          .map((role) => role.toLowerCase())
+      )
+    );
+
+    const normalizedUserRole = (userRole || '').trim().toLowerCase();
+    const isStaffScope =
+      normalizedRoles.includes('staff') ||
+      normalizedUserRole === 'staff' ||
+      activeRoute.startsWith('/staff');
+    const isAdminScope =
+      normalizedRoles.includes('admin') ||
+      normalizedUserRole === 'admin' ||
+      activeRoute.startsWith('/admin');
+
+    if (isStaffScope || isAdminScope) return 'System';
+    if (activeRoute.startsWith('/vendor/')) return 'Vendor';
+    return 'Customer';
+  };
+
   const fetchWalletBalance = async () => {
     try {
       setWalletLoading(true);
-      const wallet = await getMyWallet('Customer');
+      const wallet = await getMyWallet(resolveHeaderWalletType());
       setWalletInfo(wallet);
     } catch (error) {
       console.error('❌ Failed to fetch wallet:', error);
@@ -631,6 +659,10 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
       fetchWalletBalance();
     }
   }, [isWalletDropdownOpen, walletInfo, activeRoute]);
+
+  useEffect(() => {
+    setWalletInfo(null);
+  }, [activeRoute, userRole]);
 
   const handleWalletClick = async () => {
     await fetchWalletBalance();
@@ -651,6 +683,11 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
   };
 
   const handleTopupClick = async () => {
+    if (isBackofficeRole) {
+      toast.info('Nạp tiền không áp dụng trong trang quản trị.');
+      return;
+    }
+
     const promptResult = await Swal.fire({
       title: 'Nạp tiền vào ví',
       text: 'Nhập số tiền cần nạp (VND)',
@@ -850,20 +887,22 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
 
               {userName && (
                 <>
-                  <button
-                    onClick={() => onNavigate('/messages')}
-                    className="relative flex items-center justify-center w-10 h-10 rounded-full border border-gray-200 text-slate-600 hover:border-primary hover:text-primary transition-all bg-white shadow-sm"
-                    title="Tin nhắn"
-                  >
-                    <svg
-                      className="w-5 h-5"
-                      viewBox="0 0 24 24"
-                      fill="currentColor"
-                      xmlns="http://www.w3.org/2000/svg"
+                  {!isBackofficeRole && (
+                    <button
+                      onClick={() => onNavigate('/messages')}
+                      className="relative flex items-center justify-center w-10 h-10 rounded-full border border-gray-200 text-slate-600 hover:border-primary hover:text-primary transition-all bg-white shadow-sm"
+                      title="Tin nhắn"
                     >
-                      <path d="M20 2H4C2.9 2 2 2.9 2 4V22L6 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2ZM20 16H5.17L4 17.17V4H20V16Z" />
-                    </svg>
-                  </button>
+                      <svg
+                        className="w-5 h-5"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        xmlns="http://www.w3.org/2000/svg"
+                      >
+                        <path d="M20 2H4C2.9 2 2 2.9 2 4V22L6 18H20C21.1 18 22 17.1 22 16V4C22 2.9 21.1 2 20 2ZM20 16H5.17L4 17.17V4H20V16Z" />
+                      </svg>
+                    </button>
+                  )}
 
                   <div
                   className="relative hidden md:block"
@@ -1078,20 +1117,22 @@ const Layout: React.FC<LayoutProps> = ({ children, activeRoute, onNavigate, onLo
                           )}
                         </div>
 
-                        <button
-                          onClick={async () => {
-                            await handleTopupClick();
-                          }}
-                          disabled={topupLoading || walletLoading}
-                          className="w-full bg-primary hover:bg-primary/95 text-white p-3 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-3 group active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none"
-                        >
-                          <div className="size-7 rounded-lg bg-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
-                            </svg>
-                          </div>
-                          <span className="font-bold text-sm tracking-wide">Nạp thêm tiền</span>
-                        </button>
+                        {!isBackofficeRole && (
+                          <button
+                            onClick={async () => {
+                              await handleTopupClick();
+                            }}
+                            disabled={topupLoading || walletLoading}
+                            className="w-full bg-primary hover:bg-primary/95 text-white p-3 rounded-xl transition-all shadow-lg shadow-primary/20 flex items-center justify-center gap-3 group active:scale-[0.98] disabled:opacity-60 disabled:pointer-events-none"
+                          >
+                            <div className="size-7 rounded-lg bg-white/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M12 4v16m8-8H4" />
+                              </svg>
+                            </div>
+                            <span className="font-bold text-sm tracking-wide">Nạp thêm tiền</span>
+                          </button>
+                        )}
                       </div>
                     </div>
                   )}

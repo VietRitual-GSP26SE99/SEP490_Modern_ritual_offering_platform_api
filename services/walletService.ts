@@ -3,6 +3,8 @@ import { getAuthToken, getCurrentUser } from './auth';
 /** Values accepted by GET /api/transactions/me?ActiveRole=... (Swagger). */
 type TransactionsMeActiveRole = 'Customer' | 'Vendor' | 'Admin' | 'Staff';
 
+type WalletMeActiveRole = 'Customer' | 'Vendor' | 'Admin' | 'Staff';
+
 function resolveTransactionsMeActiveRole(filterWalletType?: WalletType): TransactionsMeActiveRole {
   if (filterWalletType === 'Vendor') return 'Vendor';
   if (filterWalletType === 'Customer') return 'Customer';
@@ -15,6 +17,21 @@ function resolveTransactionsMeActiveRole(filterWalletType?: WalletType): Transac
   if (role === 'admin') return 'Admin';
   if (role === 'staff') return 'Staff';
   return 'Customer';
+}
+
+function resolveWalletMeActiveRole(type: WalletType): WalletMeActiveRole {
+  if (type === 'Customer') return 'Customer';
+  if (type === 'Vendor') return 'Vendor';
+
+  // System wallet belongs to backoffice actors. Prefer the logged-in role.
+  const user = getCurrentUser();
+  const role = String(user?.role || '')
+    .trim()
+    .toLowerCase();
+
+  if (role === 'admin') return 'Admin';
+  if (role === 'staff') return 'Staff';
+  return 'Admin';
 }
 
 export type WalletType = 'Customer' | 'Vendor' | 'System';
@@ -298,8 +315,9 @@ export async function getMyWallet(type: WalletType): Promise<WalletInfo> {
     throw new Error('Bạn chưa đăng nhập.');
   }
 
-  // Swagger shows the parameter name is 'ActiveRole' and values are 'Vendor', 'Customer', etc.
-  const response = await fetch(`/api/wallets/me?ActiveRole=${encodeURIComponent(type)}`, {
+  // API expects actor role in ActiveRole, while wallet type can be System.
+  const activeRole = resolveWalletMeActiveRole(type);
+  const response = await fetch(`/api/wallets/me?ActiveRole=${encodeURIComponent(activeRole)}`, {
     method: 'GET',
     headers: {
       Accept: 'application/json',

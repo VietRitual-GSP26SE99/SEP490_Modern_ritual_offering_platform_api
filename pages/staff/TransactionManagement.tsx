@@ -169,15 +169,27 @@ const TransactionManagement: React.FC<TransactionManagementProps> = ({ onNavigat
         
         {/* Header */}
         <div className="mb-10">
-          <h1 className="text-2xl font-black text-slate-900 flex items-center gap-3">
-             Quản trị giao dịch
-             {userRole === 'staff' && (
-               <span className="bg-slate-900 text-white px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-widest">Quyền nhân viên</span>
-             )}
-          </h1>
-          <p className="text-sm text-slate-500 mt-1">
-            Theo dõi, rà soát và đối soát toàn bộ biến động tài chính trong hệ thống.
-          </p>
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h1 className="text-2xl font-black text-slate-900 flex items-center gap-3">
+                 Quản trị giao dịch
+                 {userRole === 'staff' && (
+                   <span className="bg-slate-900 text-white px-2 py-0.5 rounded text-[10px] uppercase font-black tracking-widest">Quyền nhân viên</span>
+                 )}
+              </h1>
+              <p className="text-sm text-slate-500 mt-1">
+                Theo dõi, rà soát và đối soát toàn bộ biến động tài chính trong hệ thống.
+              </p>
+            </div>
+
+            {userRole === 'admin' && (
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="px-4 py-2 rounded-xl bg-amber-50 text-amber-800 text-xs font-black border border-amber-100">
+                  Chế độ quản trị hệ thống
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Filters Card */}
