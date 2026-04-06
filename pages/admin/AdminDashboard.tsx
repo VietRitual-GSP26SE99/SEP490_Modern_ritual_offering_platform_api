@@ -1665,80 +1665,124 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
 
             {activeTab === 'disputes' && (
               <div className="bg-white rounded-[2rem] border border-gold/10 shadow-sm p-8">
-                <div className="flex items-center justify-between mb-8">
+                <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-8">
                   <div>
                     <h2 className="text-2xl font-bold text-primary">Xử lý hoàn tiền</h2>
-                    <p className="text-sm text-slate-500 mt-1">Duyệt hoặc từ chối yêu cầu hoàn tiền của khách hàng.</p>
+                    <p className="text-sm text-slate-500 mt-1">Giao diện card giống khu staff, nhưng vẫn giữ quyền duyệt của admin.</p>
                   </div>
                   <button
                     onClick={loadRefundRequests}
-                    className="px-4 py-2 border-2 border-primary text-primary rounded-lg font-bold text-sm hover:bg-primary/5 transition-all"
+                    className="px-4 py-2.5 rounded-xl border border-primary text-primary font-bold text-sm hover:bg-primary/5 transition-all"
                   >
                     Tải lại
                   </button>
                 </div>
 
-                {isLoadingRefunds && (
-                  <div className="text-center py-10 text-slate-500">Đang tải danh sách hoàn tiền...</div>
-                )}
-
-                {refundsError && (
-                  <div className="text-center py-10 text-red-500">{refundsError}</div>
-                )}
-
-                {!isLoadingRefunds && !refundsError && refundRequests.length === 0 && (
-                  <div className="text-center py-10 text-slate-500">Chưa có yêu cầu hoàn tiền.</div>
-                )}
-
-                <div className="space-y-4">
-                  {refundRequests.slice((refundsPage - 1) * ITEMS_PER_PAGE, refundsPage * ITEMS_PER_PAGE).map((refund) => (
-                    <div key={refund.refundId} className="p-6 bg-ritual-bg rounded-xl border border-gold/10 hover:border-primary transition-all">
-                      <div className="flex items-start justify-between mb-4">
-                        <div>
-                          <p className="text-xs font-bold uppercase text-gold tracking-widest mb-1">#{refund.orderCode || refund.orderId.slice(0, 8)}</p>
-                          <h3 className="text-lg font-bold text-primary mb-2">{refund.customerName}</h3>
-                          <div className="flex gap-4 text-sm text-slate-600">
-                            <span> {formatCurrencyVN(refund.refundAmount)}</span>
-                            <span> {formatDateTimeVN(refund.createdAt)}</span>
-                          </div>
-                          <p className="text-sm text-slate-500 mt-2 line-clamp-2">{refund.reason || 'Không có lý do'}</p>
-                        </div>
-                        <span className={`inline-block px-3 py-1 rounded-lg text-xs font-bold whitespace-nowrap ${getStatusTheme(refund.status)}`}>
-                          {getDisplayStatus(refund.status)}
-                        </span>
-                      </div>
-
-                      <div className="flex gap-2 pt-4 border-t border-gold/10">
-                        <button
-                          onClick={() => handleViewRefundDetail(refund)}
-                          className="flex-1 px-4 py-2 border-2 border-primary text-primary rounded-lg font-bold text-sm hover:bg-primary/5 transition-all"
-                        >
-                          Xem chi tiết
-                        </button>
-                        {refund.status === 'Pending' && (
-                          <>
-                            <button
-                              onClick={() => handleApproveRefund(refund.refundId)}
-                              disabled={processingRefundId === refund.refundId}
-                              className="px-4 py-2 border-2 border-green-600 text-green-600 rounded-lg font-bold text-sm hover:bg-green-50 transition-all disabled:opacity-50"
-                            >
-                              Duyệt
-                            </button>
-                            <button
-                              onClick={() => handleRejectRefund(refund.refundId)}
-                              disabled={processingRefundId === refund.refundId}
-                              className="px-4 py-2 border-2 border-red-600 text-red-600 rounded-lg font-bold text-sm hover:bg-red-50 transition-all disabled:opacity-50"
-                            >
-                              Từ chối
-                            </button>
-                          </>
-                        )}
-                      </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+                  {[
+                    { label: 'Tổng yêu cầu', value: refundRequests.length, color: 'text-primary' },
+                    { label: 'Chờ xử lý', value: refundRequests.filter(r => r.status === 'Pending').length, color: 'text-amber-600' },
+                    { label: 'Đã duyệt', value: refundRequests.filter(r => r.status === 'Approved').length, color: 'text-green-600' },
+                    { label: 'Đã từ chối', value: refundRequests.filter(r => r.status === 'Rejected').length, color: 'text-red-500' },
+                  ].map((stat) => (
+                    <div key={stat.label} className="bg-white rounded-2xl border border-gold/10 p-5 shadow-sm">
+                      <p className={`text-2xl font-black ${stat.color}`}>{stat.value}</p>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">{stat.label}</p>
                     </div>
                   ))}
                 </div>
 
-                {/* Pagination for Refunds */}
+                {isLoadingRefunds && (
+                  <div className="text-center py-14 text-slate-500">Đang tải danh sách hoàn tiền...</div>
+                )}
+
+                {refundsError && (
+                  <div className="text-center py-14 text-red-500">{refundsError}</div>
+                )}
+
+                {!isLoadingRefunds && !refundsError && refundRequests.length === 0 && (
+                  <div className="text-center py-14 text-slate-500">Chưa có yêu cầu hoàn tiền.</div>
+                )}
+
+                {!isLoadingRefunds && !refundsError && refundRequests.length > 0 && (
+                  <div className="space-y-4">
+                    {refundRequests
+                      .slice((refundsPage - 1) * ITEMS_PER_PAGE, refundsPage * ITEMS_PER_PAGE)
+                      .map((refund) => {
+                        const isPending = refund.status === 'Pending';
+                        const isApproved = refund.status === 'Approved';
+                        const isRejected = refund.status === 'Rejected';
+
+                        return (
+                          <div
+                            key={refund.refundId}
+                            className="bg-white rounded-[2rem] border border-gray-200 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300"
+                          >
+                            <div className="p-5 md:p-6 flex flex-col md:flex-row gap-3 justify-between items-start md:items-center border-b border-gray-100 bg-gray-50/50">
+                              <div className="flex flex-wrap gap-4 md:items-center">
+                                <div>
+                                  <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-0.5">Khách hàng</span>
+                                  <span className="text-gray-900 font-semibold">{refund.customerName}</span>
+                                </div>
+                                <div className="hidden md:block w-px h-8 bg-gray-300" />
+                                <div>
+                                  <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-0.5">Mã đơn</span>
+                                  <span className="font-mono text-gray-900 font-bold">#{refund.orderCode || refund.orderId.substring(0, 8).toUpperCase()}</span>
+                                </div>
+                                <div className="hidden md:block w-px h-8 bg-gray-300" />
+                                <div>
+                                  <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-0.5">Ngày gửi</span>
+                                  <span className="text-gray-700 font-medium text-sm">{formatDateTimeVN(refund.createdAt)}</span>
+                                </div>
+                                <div className="hidden md:block w-px h-8 bg-gray-300" />
+                                <div>
+                                  <span className="text-xs font-bold uppercase text-slate-400 tracking-widest block mb-0.5">Số tiền hoàn</span>
+                                  <span className="text-primary font-black">{formatCurrencyVN(refund.refundAmount)}</span>
+                                </div>
+                              </div>
+                              <span className={`px-4 py-1.5 rounded-full text-xs font-black uppercase tracking-wide border flex-shrink-0 whitespace-nowrap ${getStatusTheme(refund.status)}`}>
+                                {getDisplayStatus(refund.status)}
+                              </span>
+                            </div>
+
+                            <div className="p-5 md:p-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                              <div className="flex-1 min-w-0">
+                                <p className="text-xs text-gray-400 font-semibold uppercase tracking-wide mb-1">Lý do hoàn tiền</p>
+                                <p className="text-gray-700 text-sm leading-relaxed line-clamp-2">{refund.reason || 'Không có lý do'}</p>
+                              </div>
+                              <div className="flex gap-3 flex-shrink-0 w-full sm:w-auto">
+                                <button
+                                  onClick={() => handleViewRefundDetail(refund)}
+                                  className="flex-1 sm:flex-none px-5 py-2.5 bg-primary text-white font-bold text-sm rounded-xl hover:bg-primary/90 transition shadow-lg shadow-primary/20"
+                                >
+                                  Xem chi tiết
+                                </button>
+                                {isPending && (
+                                  <>
+                                    <button
+                                      onClick={() => handleApproveRefund(refund.refundId)}
+                                      disabled={processingRefundId === refund.refundId}
+                                      className="px-4 py-2.5 border-2 border-green-600 text-green-600 rounded-xl font-bold text-sm hover:bg-green-50 transition-all disabled:opacity-50"
+                                    >
+                                      Duyệt
+                                    </button>
+                                    <button
+                                      onClick={() => handleRejectRefund(refund.refundId)}
+                                      disabled={processingRefundId === refund.refundId}
+                                      className="px-4 py-2.5 border-2 border-red-600 text-red-600 rounded-xl font-bold text-sm hover:bg-red-50 transition-all disabled:opacity-50"
+                                    >
+                                      Từ chối
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </div>
+                )}
+
                 {!isLoadingRefunds && refundRequests.length > ITEMS_PER_PAGE && (
                   <div className="mt-8 pt-8 border-t border-gold/10 flex items-center justify-between">
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
