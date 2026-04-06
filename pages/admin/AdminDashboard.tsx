@@ -1992,7 +1992,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
                           <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-600">Giá trị</th>
                           <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-600">Kiểu dữ liệu</th>
                           <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-600">Nhóm</th>
-                          <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-600">Mô tả</th>
                           <th className="px-6 py-4 text-left text-xs font-bold uppercase text-slate-600">Hành động</th>
                         </tr>
                       </thead>
@@ -2013,9 +2012,6 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onNavigate }) => {
                               <span className="px-2 py-0.5 rounded-lg bg-blue-50 text-blue-600 text-[10px] font-bold uppercase">
                                 {getConfigGroupLabel(config.group)}
                               </span>
-                            </td>
-                            <td className="px-6 py-4 text-slate-500 text-sm max-w-xs truncate" title={config.description}>
-                              {config.description}
                             </td>
                             <td className="px-6 py-4 whitespace-nowrap">
                               <div className="flex gap-2">
